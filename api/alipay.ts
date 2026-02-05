@@ -171,6 +171,40 @@ export default async function handler(req: any, res: any) {
                 });
             }
 
+            case 'confirmOrder': {
+                // 用户主动确认订单（用于回调失效时）
+                const { orderId, userId } = data;
+
+                const { data: order } = await supabase
+                    .from('orders')
+                    .select('user_id, credits, status')
+                    .eq('trade_no', orderId)
+                    .single();
+
+                if (!order) {
+                    return res.status(404).json({ error: '订单不存在' });
+                }
+
+                if (order.status === 'paid') {
+                    return res.status(200).json({ success: true, message: '订单已处理', credits: order.credits });
+                }
+
+                // 更新订单为已支付
+                await supabase
+                    .from('orders')
+                    .update({ status: 'paid', paid_at: new Date().toISOString() })
+                    .eq('trade_no', orderId);
+
+                // 增加用户额度
+                await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
+
+                return res.status(200).json({
+                    success: true,
+                    message: '充值成功',
+                    credits: order.credits
+                });
+            }
+
             default:
                 return res.status(400).json({ error: 'Invalid action' });
         }

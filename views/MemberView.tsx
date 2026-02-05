@@ -14,6 +14,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
     const [config, setConfig] = useState<any>({});
     const [copied, setCopied] = useState(false);
     const [rechargeMessage, setRechargeMessage] = useState('');
+    const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
 
     // 获取设备ID后6位
     const getDeviceIdSuffix = (): string => {
@@ -37,6 +38,12 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
             .then(res => res.json())
             .then(data => setConfig(data.config || {}))
             .catch(console.error);
+
+        // 检查是否有待确认的订单
+        const savedOrderId = localStorage.getItem('pending_order_id');
+        if (savedOrderId) {
+            setPendingOrderId(savedOrderId);
+        }
     }, []);
 
     // 刷新用户信息
@@ -120,12 +127,48 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
 
+            // 保存订单ID用于返回后确认
+            localStorage.setItem('pending_order_id', data.orderId);
+            setPendingOrderId(data.orderId);
+
             setRechargeMessage('正在跳转支付宝...');
 
             // 跳转到支付宝支付页面
             window.location.href = data.payUrl;
         } catch (err: any) {
             setRechargeMessage('❌ ' + (err.message || '支付失败'));
+        }
+    };
+
+    // 确认支付（支付完成后点击）
+    const confirmPayment = async () => {
+        if (!pendingOrderId) return;
+
+        setLoading(true);
+        setRechargeMessage('正在确认支付...');
+
+        try {
+            const res = await fetch('/api/alipay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'confirmOrder',
+                    orderId: pendingOrderId,
+                    userId: user.id
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            setRechargeMessage(`✅ ${data.message}，已增加 ${data.credits} 次额度`);
+            localStorage.removeItem('pending_order_id');
+            setPendingOrderId(null);
+            refreshUser();
+        } catch (err: any) {
+            setRechargeMessage('❌ ' + (err.message || '确认失败'));
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -210,6 +253,21 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                 {config.recharge_enabled === 'true' && (
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
                         <h4 className="font-bold mb-2">💰 充值次数</h4>
+
+                        {/* 待确认订单提示 */}
+                        {pendingOrderId && (
+                            <div className="mb-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
+                                <p className="text-sm text-yellow-700 mb-2">📌 您有待确认的充值订单</p>
+                                <button
+                                    onClick={confirmPayment}
+                                    disabled={loading}
+                                    className="w-full h-10 bg-yellow-500 text-white rounded-xl font-bold"
+                                >
+                                    {loading ? '确认中...' : '已支付完成？点击确认'}
+                                </button>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-2 gap-3">
                             <button
                                 onClick={() => handleRecharge(9.9, 12)}
