@@ -1,9 +1,23 @@
 import { GoogleGenAI } from "@google/genai";
 
-// 从环境变量加载多个 API Key (逗号分隔)
+// 从环境变量加载多个 API Key (支持 GEMINI_API_KEY, GEMINI_API_KEY1, GEMINI_API_KEY2...)
 const getApiKeys = (): string[] => {
-    const keysStr = process.env.GEMINI_API_KEY || "";
-    return keysStr.split(",").map(k => k.trim()).filter(k => k.length > 0);
+    const keys: string[] = [];
+
+    // 检查原始变量
+    if (process.env.GEMINI_API_KEY) {
+        keys.push(...process.env.GEMINI_API_KEY.split(",").map(k => k.trim()).filter(k => k.length > 0));
+    }
+
+    // 动态检查 GEMINI_API_KEY1 到 GEMINI_API_KEY100
+    for (let i = 1; i <= 100; i++) {
+        const key = process.env[`GEMINI_API_KEY${i}`];
+        if (key) {
+            keys.push(key.trim());
+        }
+    }
+
+    return keys;
 };
 
 let currentKeyIndex = 0;
