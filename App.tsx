@@ -20,12 +20,29 @@ const App: React.FC = () => {
   const [showMember, setShowMember] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
 
-  // 从 localStorage 恢复用户状态
+  // 从 localStorage 恢复用户状态，并从数据库获取最新数据
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+
+        // 从数据库获取最新用户数据
+        fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'getUser', userId: parsedUser.id })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.user) {
+              const updatedUser = { ...parsedUser, credits: data.user.credits };
+              setUser(updatedUser);
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+            }
+          })
+          .catch(console.error);
       } catch (e) {
         localStorage.removeItem('user');
       }
