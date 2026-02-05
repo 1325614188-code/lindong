@@ -10,13 +10,18 @@ const hashPassword = (password: string): string => {
     return crypto.createHash('sha256').update(password + 'meili_salt_2026').digest('hex');
 };
 
-// 验证兑换码格式
+// 验证兑换码格式 - 使用北京时间 (UTC+8)
 const validateRedeemCode = (code: string): boolean => {
     if (code.length !== 9) return false;
 
-    const today = new Date();
-    const dayOfMonth = today.getDate();
-    const futureDay = new Date(today);
+    // 获取北京时间
+    const now = new Date();
+    const beijingOffset = 8 * 60; // UTC+8 分钟
+    const localOffset = now.getTimezoneOffset(); // 本地偏移（分钟，西为正）
+    const beijingTime = new Date(now.getTime() + (beijingOffset + localOffset) * 60 * 1000);
+
+    const dayOfMonth = beijingTime.getDate();
+    const futureDay = new Date(beijingTime);
     futureDay.setDate(futureDay.getDate() + 13);
 
     const expectedDD = String(dayOfMonth).padStart(2, '0');
@@ -103,28 +108,33 @@ export default async function handler(req: any, res: any) {
 
                 // 如果有推荐人，给推荐人增加次数
                 if (referrerId) {
-                    // 检查是否已经奖励过
-                    const { data: existingReward } = await supabase
-                        .from('referral_rewards')
+                    // 检查推荐人是否存在
+                    const { data: referrer } = await supabase
+                        .from('users')
                         .select('id')
-                        .eq('referrer_id', referrerId)
-                        .eq('device_id', deviceId)
+                        .eq('id', referrerId)
                         .single();
 
-                    if (!existingReward) {
-                        await supabase
-                            .from('users')
-                            .update({ credits: supabase.rpc('increment_credits', { user_id: referrerId, amount: 1 }) })
-                            .eq('id', referrerId);
+                    if (referrer) {
+                        // 检查是否已经奖励过（同一设备只奖励一次）
+                        const { data: existingReward } = await supabase
+                            .from('referral_rewards')
+                            .select('id')
+                            .eq('referrer_id', referrerId)
+                            .eq('device_id', deviceId)
+                            .single();
 
-                        // 使用原生 SQL 增加次数
-                        await supabase.rpc('add_credits', { user_id: referrerId, amount: 1 });
+                        if (!existingReward) {
+                            // 使用 add_credits 函数增加次数
+                            await supabase.rpc('add_credits', { user_id: referrerId, amount: 1 });
 
-                        await supabase.from('referral_rewards').insert({
-                            referrer_id: referrerId,
-                            new_user_id: newUser.id,
-                            device_id: deviceId
-                        });
+                            // 记录奖励
+                            await supabase.from('referral_rewards').insert({
+                                referrer_id: referrerId,
+                                new_user_id: newUser.id,
+                                device_id: deviceId
+                            });
+                        }
                     }
                 }
 
