@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppSection } from './types';
 import HomeView from './views/HomeView';
 import TryOnView from './views/TryOnView';
@@ -8,42 +8,144 @@ import AnalysisView from './views/AnalysisView';
 import CalendarView from './views/CalendarView';
 import CoupleFaceView from './views/CoupleFaceView';
 import FengShuiView from './views/FengShuiView';
+import LoginView from './views/LoginView';
+import MemberView from './views/MemberView';
+import AdminView from './views/AdminView';
 
 const App: React.FC = () => {
   const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
+  const [user, setUser] = useState<any>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showMember, setShowMember] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  // 从 localStorage 恢复用户状态
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (e) {
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
+
+  // 初始化设备ID
+  useEffect(() => {
+    if (!localStorage.getItem('device_id')) {
+      const deviceId = 'dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+      localStorage.setItem('device_id', deviceId);
+    }
+  }, []);
+
+  const handleLogin = (loggedUser: any) => {
+    setUser(loggedUser);
+    setShowLogin(false);
+
+    // 如果是管理员，显示管理后台
+    if (loggedUser.is_admin) {
+      setShowAdmin(true);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    setShowMember(false);
+    setShowAdmin(false);
+  };
+
+  // 检查额度
+  const checkCredits = async (): Promise<boolean> => {
+    if (!user) {
+      setShowLogin(true);
+      return false;
+    }
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'useCredit', userId: user.id })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.needCredits) {
+          alert('使用额度不足，请充值或获取兑换码');
+          setShowMember(true);
+        }
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  // 扣除额度 (成功后调用)
+  const deductCredit = async () => {
+    if (!user) return;
+    try {
+      await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deductCredit', userId: user.id })
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // 显示登录页面
+  if (showLogin) {
+    return <LoginView onLogin={handleLogin} onBack={() => setShowLogin(false)} />;
+  }
+
+  // 显示管理后台
+  if (showAdmin && user?.is_admin) {
+    return <AdminView admin={user} onBack={() => setShowAdmin(false)} />;
+  }
+
+  // 显示会员中心
+  if (showMember && user) {
+    return <MemberView user={user} onLogout={handleLogout} onBack={() => setShowMember(false)} />;
+  }
 
   const renderSection = () => {
     switch (currentSection) {
       case AppSection.HOME:
         return <HomeView onNavigate={setCurrentSection} />;
-      
+
       case AppSection.TRY_ON_CLOTHES:
         return <TryOnView type="clothes" onBack={() => setCurrentSection(AppSection.HOME)} />;
-      
+
       case AppSection.TRY_ON_ACCESSORIES:
         return <TryOnView type="accessories" onBack={() => setCurrentSection(AppSection.HOME)} />;
-      
+
       case AppSection.HAIRSTYLE:
         return <HairstyleView onBack={() => setCurrentSection(AppSection.HOME)} />;
-      
+
       case AppSection.BEAUTY_SCORE:
         return <AnalysisView title="颜值打分" type="颜值打分" onBack={() => setCurrentSection(AppSection.HOME)} />;
-      
+
       case AppSection.COUPLE_FACE:
         return <CoupleFaceView onBack={() => setCurrentSection(AppSection.HOME)} />;
-      
+
       case AppSection.TONGUE_DIAGNOSIS:
         return <AnalysisView title="趣味舌诊" type="舌诊" onBack={() => setCurrentSection(AppSection.HOME)} helpText="请上传一张清晰的舌头照片哦～" />;
-      
+
       case AppSection.FACE_COLOR:
         return <AnalysisView title="面色分析" type="中医面色" onBack={() => setCurrentSection(AppSection.HOME)} />;
-      
+
       case AppSection.FACE_READING:
         return <AnalysisView title="传统面相" type="传统相术" onBack={() => setCurrentSection(AppSection.HOME)} />;
-      
+
       case AppSection.FENG_SHUI:
         return <FengShuiView onBack={() => setCurrentSection(AppSection.HOME)} />;
-      
+
       case AppSection.CALENDAR:
         return <CalendarView onBack={() => setCurrentSection(AppSection.HOME)} />;
 
@@ -57,19 +159,35 @@ const App: React.FC = () => {
       <div className="flex-1 overflow-y-auto pb-20">
         {renderSection()}
       </div>
-      
-      {/* Tab Bar - Optional if Home is enough, but nice for UX */}
-      {currentSection !== AppSection.HOME && (
-        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-16 bg-white/80 backdrop-blur-md border-t flex justify-around items-center px-4 z-50">
-          <button 
-            onClick={() => setCurrentSection(AppSection.HOME)}
-            className="flex flex-col items-center gap-1 text-gray-500 hover:text-pink-500 transition-colors"
+
+      {/* Tab Bar */}
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-16 bg-white/80 backdrop-blur-md border-t flex justify-around items-center px-4 z-50">
+        <button
+          onClick={() => setCurrentSection(AppSection.HOME)}
+          className={`flex flex-col items-center gap-1 transition-colors ${currentSection === AppSection.HOME ? 'text-pink-500' : 'text-gray-500'}`}
+        >
+          <span className="text-xl">🏠</span>
+          <span className="text-xs">首页</span>
+        </button>
+
+        <button
+          onClick={() => user ? setShowMember(true) : setShowLogin(true)}
+          className="flex flex-col items-center gap-1 text-gray-500 hover:text-pink-500 transition-colors"
+        >
+          <span className="text-xl">{user ? '👤' : '🔐'}</span>
+          <span className="text-xs">{user ? '我的' : '登录'}</span>
+        </button>
+
+        {user?.is_admin && (
+          <button
+            onClick={() => setShowAdmin(true)}
+            className="flex flex-col items-center gap-1 text-gray-500 hover:text-purple-500 transition-colors"
           >
-            <span className="text-xl">🏠</span>
-            <span className="text-xs">首页</span>
+            <span className="text-xl">⚙️</span>
+            <span className="text-xs">管理</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
