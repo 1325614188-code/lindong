@@ -222,6 +222,9 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                 {/* 兑换码 */}
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
                     <h4 className="font-bold mb-2">🎁 兑换码</h4>
+                    <p className="text-xs text-gray-400 mb-1">
+                        一个兑换码可免费获得<span className="text-pink-500 font-bold">5次</span>使用额度，每月可兑换一次
+                    </p>
                     <p className="text-xs text-gray-400 mb-3">
                         添加微信"<span className="text-pink-500">{config.contact_wechat || 'sekesm'}</span>"，免费获得兑换码
                     </p>
