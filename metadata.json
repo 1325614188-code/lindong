@@ -1,0 +1,7 @@
+{
+  "name": "美力实验室 - 你的专属AI颜究院",
+  "description": "一个为女生打造的AI变美与运势分析站，包含虚拟试穿、发型参考、面相分析、趣味舌诊等10大趣味功能。",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
