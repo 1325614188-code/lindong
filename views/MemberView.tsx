@@ -200,8 +200,11 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                 {/* 分享获客 */}
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
                     <h4 className="font-bold mb-2">📤 分享免费获得次数</h4>
-                    <p className="text-sm text-gray-500 mb-3">
+                    <p className="text-sm text-gray-500 mb-2">
                         分享专属链接，好友注册后您将获得1次额度
+                    </p>
+                    <p className="text-xs text-gray-400 mb-3">
+                        本机识别码：<span className="font-mono font-bold text-cyan-600">{getDeviceIdSuffix()}</span>
                     </p>
                     <div className="flex gap-2">
                         <input
