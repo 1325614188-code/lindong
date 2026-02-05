@@ -46,6 +46,15 @@ const generateDeviceId = (): string => {
     return crypto.randomBytes(16).toString('hex');
 };
 
+// 检测是否为移动设备
+const isMobileDevice = (userAgent: string): boolean => {
+    const mobileKeywords = [
+        'Android', 'webOS', 'iPhone', 'iPad', 'iPod', 'BlackBerry',
+        'Windows Phone', 'Opera Mini', 'IEMobile', 'Mobile', 'mobile'
+    ];
+    return mobileKeywords.some(keyword => userAgent.includes(keyword));
+};
+
 export default async function handler(req: any, res: any) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -60,6 +69,8 @@ export default async function handler(req: any, res: any) {
         switch (action) {
             case 'register': {
                 const { username, password, nickname, deviceId, referrerId } = data;
+                const userAgent = req.headers['user-agent'] || '';
+                const isMobile = isMobileDevice(userAgent);
 
                 // 检查用户名是否已存在
                 const { data: existing } = await supabase
@@ -80,7 +91,8 @@ export default async function handler(req: any, res: any) {
                     .single();
 
                 const isFirstOnDevice = !device;
-                const initialCredits = isFirstOnDevice ? 5 : 0;
+                // 只有移动端首次注册才赠送额度
+                const initialCredits = (isFirstOnDevice && isMobile) ? 5 : 0;
 
                 // 创建用户
                 const { data: newUser, error: userError } = await supabase
@@ -106,8 +118,8 @@ export default async function handler(req: any, res: any) {
                     });
                 }
 
-                // 如果有推荐人，给推荐人增加次数
-                if (referrerId) {
+                // 如果有推荐人，且是移动端注册，给推荐人增加次数
+                if (referrerId && isMobile) {
                     // 检查推荐人是否存在
                     const { data: referrer } = await supabase
                         .from('users')
@@ -186,6 +198,13 @@ export default async function handler(req: any, res: any) {
 
             case 'redeem': {
                 const { userId, code, deviceId } = data;
+                const userAgent = req.headers['user-agent'] || '';
+                const isMobile = isMobileDevice(userAgent);
+
+                // 检查是否为移动端
+                if (!isMobile) {
+                    return res.status(400).json({ error: '兑换码只能在手机端使用' });
+                }
 
                 // 验证兑换码格式
                 if (!validateRedeemCode(code)) {
@@ -258,6 +277,36 @@ export default async function handler(req: any, res: any) {
                 await supabase.rpc('add_credits', { user_id: userId, amount: -1 });
 
                 return res.status(200).json({ success: true });
+            }
+
+            case 'getUser': {
+                const { userId } = data;
+
+                const { data: user } = await supabase
+                    .from('users')
+                    .select('id, username, nickname, credits, is_admin')
+                    .eq('id', userId)
+                    .single();
+
+                if (!user) {
+                    return res.status(404).json({ error: '用户不存在' });
+                }
+
+                return res.status(200).json({ user });
+            }
+
+            case 'getReferralStats': {
+                const { userId } = data;
+
+                // 统计通过分享获得的奖励次数
+                const { count } = await supabase
+                    .from('referral_rewards')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('referrer_id', userId);
+
+                return res.status(200).json({
+                    referralCount: count || 0
+                });
             }
 
             default:

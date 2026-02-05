@@ -15,6 +15,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
     const [copied, setCopied] = useState(false);
     const [rechargeMessage, setRechargeMessage] = useState('');
     const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+    const [referralCount, setReferralCount] = useState(0);
 
     // 获取设备ID后6位
     const getDeviceIdSuffix = (): string => {
@@ -38,6 +39,18 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
             .then(res => res.json())
             .then(data => setConfig(data.config || {}))
             .catch(console.error);
+
+        // 加载分享统计
+        if (user?.id) {
+            fetch('/api/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getReferralStats', userId: user.id })
+            })
+                .then(res => res.json())
+                .then(data => setReferralCount(data.referralCount || 0))
+                .catch(console.error);
+        }
 
         // 检查是否有待确认的订单
         const savedOrderId = localStorage.getItem('pending_order_id');
@@ -199,9 +212,15 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
 
                 {/* 分享获客 */}
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <h4 className="font-bold mb-2">📤 分享免费获得次数</h4>
-                    <p className="text-sm text-gray-500 mb-2">
-                        分享专属链接，好友注册后您将获得1次额度
+                    <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-bold">📤 分享免费获得次数</h4>
+                        <span className="text-sm text-pink-500 font-bold">已获得 {referralCount} 次</span>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-1">
+                        分享专属链接，好友<span className="text-pink-500 font-bold">在手机上</span>注册后您将获得1次额度
+                    </p>
+                    <p className="text-xs text-orange-500 mb-2">
+                        ⚠️ 好友必须在手机端注册才能获得奖励
                     </p>
                     <p className="text-xs text-gray-400 mb-3">
                         本机识别码：<span className="font-mono font-bold text-cyan-600">{getDeviceIdSuffix()}</span>
