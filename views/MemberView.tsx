@@ -13,6 +13,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
     const [message, setMessage] = useState('');
     const [config, setConfig] = useState<any>({});
     const [copied, setCopied] = useState(false);
+    const [rechargeMessage, setRechargeMessage] = useState('');
 
     // 获取设备ID后6位
     const getDeviceIdSuffix = (): string => {
@@ -92,6 +93,18 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
         navigator.clipboard.writeText(getShareLink());
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    // 处理充值
+    const handleRecharge = async (amount: number, credits: number) => {
+        // 检查支付宝配置
+        if (!config.alipay_app_id || !config.alipay_private_key) {
+            setRechargeMessage('⚠️ 支付功能配置中，请联系管理员');
+            return;
+        }
+        setRechargeMessage(`正在跳转支付宝支付 ¥${amount}...`);
+        // TODO: 实际支付宝支付集成
+        alert(`充值功能开发中\n套餐: ${credits}次 / ¥${amount}`);
     };
 
     return (
@@ -176,15 +189,24 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
                         <h4 className="font-bold mb-2">💰 充值次数</h4>
                         <div className="grid grid-cols-2 gap-3">
-                            <button className="h-20 rounded-xl border-2 border-pink-200 hover:border-pink-400 transition-colors">
+                            <button
+                                onClick={() => handleRecharge(9.9, 12)}
+                                className="h-20 rounded-xl border-2 border-pink-200 hover:border-pink-400 hover:bg-pink-50 transition-colors"
+                            >
                                 <div className="text-2xl font-bold text-pink-500">12次</div>
                                 <div className="text-sm text-gray-500">¥9.9</div>
                             </button>
-                            <button className="h-20 rounded-xl border-2 border-purple-200 hover:border-purple-400 transition-colors">
+                            <button
+                                onClick={() => handleRecharge(19.9, 30)}
+                                className="h-20 rounded-xl border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-colors"
+                            >
                                 <div className="text-2xl font-bold text-purple-500">30次</div>
                                 <div className="text-sm text-gray-500">¥19.9</div>
                             </button>
                         </div>
+                        {rechargeMessage && (
+                            <p className="mt-3 text-sm text-center text-orange-500">{rechargeMessage}</p>
+                        )}
                     </div>
                 )}
 
