@@ -17,14 +17,24 @@ async function getAlipayConfig() {
     return configMap;
 }
 
-// RSA 签名
+// RSA 签名 - 支持支付宝 PKCS#8 格式私钥
 function signWithRSA(content: string, privateKey: string): string {
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(content, 'utf8');
-    // 添加 PEM 头部和尾部
-    const pemKey = privateKey.includes('-----BEGIN')
-        ? privateKey
-        : `-----BEGIN RSA PRIVATE KEY-----\n${privateKey}\n-----END RSA PRIVATE KEY-----`;
+
+    // 清理私钥：移除可能的换行和空格
+    let cleanKey = privateKey.replace(/\s/g, '');
+
+    // 判断并添加正确的 PEM 头部和尾部
+    let pemKey: string;
+    if (cleanKey.includes('-----BEGIN')) {
+        // 已经有头部，直接使用
+        pemKey = privateKey;
+    } else {
+        // 支付宝使用 PKCS#8 格式
+        pemKey = `-----BEGIN PRIVATE KEY-----\n${cleanKey}\n-----END PRIVATE KEY-----`;
+    }
+
     return sign.sign(pemKey, 'base64');
 }
 
