@@ -243,14 +243,12 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                         {new Date(user.created_at).toLocaleDateString()}
                                     </td>
                                     <td className="py-3">
-                                        {!user.is_admin && (
-                                            <button
-                                                onClick={() => setEditingCredits({ id: user.id, amount: user.credits })}
-                                                className="text-pink-500 text-xs"
-                                            >
-                                                修改额度
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => setEditingCredits({ id: user.id, amount: user.credits })}
+                                            className="text-pink-500 text-xs"
+                                        >
+                                            修改额度
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
