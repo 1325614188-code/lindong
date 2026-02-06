@@ -236,19 +236,19 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
 
             <div className="space-y-4">
                 {/* 用户信息卡片 */}
-                <div className="bg-gradient-to-r from-pink-400 to-purple-500 rounded-3xl p-6 text-white">
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl">
+                <div className="bg-gradient-to-r from-pink-400 to-purple-500 rounded-2xl p-4 text-white">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-xl">
                             👤
                         </div>
                         <div>
-                            <h3 className="text-xl font-bold">@{user?.username}</h3>
-                            <p className="text-white/80 text-sm">本机识别码: {getDeviceIdSuffix()}</p>
+                            <h3 className="text-lg font-bold">@{user?.username}</h3>
+                            <p className="text-white/80 text-xs">本机识别码: {getDeviceIdSuffix()}</p>
                         </div>
                     </div>
-                    <div className="mt-4 flex justify-between items-center">
-                        <span className="text-white/80">剩余额度</span>
-                        <span className="text-3xl font-bold">{credits} 次</span>
+                    <div className="mt-3 flex justify-between items-center bg-black/10 rounded-xl px-3 py-2">
+                        <span className="text-white/80 text-sm">剩余额度</span>
+                        <span className="text-xl font-bold">{credits} 次</span>
                     </div>
                 </div>
 
