@@ -291,8 +291,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                     </p>
                     <div className="bg-purple-50 rounded-xl p-3 mb-3">
                         <p className="text-xs text-purple-700 mb-1">🎁 奖励制度：</p>
-                        <p className="text-xs text-purple-600">• 50积分 → 20元红包</p>
-                        <p className="text-xs text-purple-600">• 100积分 → 50元红包</p>
+                        <p className="text-xs text-purple-600">• 50积分 → 20元红包 &nbsp;&nbsp; • 100积分 → 50元红包</p>
                         <p className="text-xs text-orange-500 mt-2">⚠️ 点击兑换后，请联系微信“{config.contact_wechat || 'sekesm'}”完成兑换</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -316,39 +315,6 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                     {pointsMessage && (
                         <p className={`mt-3 text-sm text-center ${pointsMessage.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>
                             {pointsMessage}
-                        </p>
-                    )}
-                </div>
-
-                {/* 兑换码 */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <h4 className="font-bold mb-2">🎁 兑换码</h4>
-                    <p className="text-xs text-gray-400 mb-1">
-                        一个兑换码可免费获得<span className="text-pink-500 font-bold">5次</span>使用额度，每月可兑换一次
-                    </p>
-                    <p className="text-xs text-gray-400 mb-3">
-                        添加微信"<span className="text-pink-500">{config.contact_wechat || 'sekesm'}</span>"，免费获得兑换码
-                    </p>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={redeemCode}
-                            onChange={e => setRedeemCode(e.target.value.toUpperCase())}
-                            placeholder="输入兑换码"
-                            className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
-                            maxLength={9}
-                        />
-                        <button
-                            onClick={handleRedeem}
-                            disabled={loading}
-                            className="px-4 h-10 bg-purple-500 text-white rounded-xl text-sm"
-                        >
-                            {loading ? '...' : '兑换'}
-                        </button>
-                    </div>
-                    {message && (
-                        <p className={`mt-2 text-sm ${message.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>
-                            {message}
                         </p>
                     )}
                 </div>
@@ -393,6 +359,39 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                         )}
                     </div>
                 )}
+
+                {/* 兑换码 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <h4 className="font-bold mb-2">🎁 兑换码</h4>
+                    <p className="text-xs text-gray-400 mb-1">
+                        一个兑换码可免费获得<span className="text-pink-500 font-bold">5次</span>使用额度，每月可兑换一次
+                    </p>
+                    <p className="text-xs text-gray-400 mb-3">
+                        添加微信"<span className="text-pink-500">{config.contact_wechat || 'sekesm'}</span>"，免费获得兑换码
+                    </p>
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={redeemCode}
+                            onChange={e => setRedeemCode(e.target.value.toUpperCase())}
+                            placeholder="输入兑换码"
+                            className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
+                            maxLength={9}
+                        />
+                        <button
+                            onClick={handleRedeem}
+                            disabled={loading}
+                            className="px-4 h-10 bg-purple-500 text-white rounded-xl text-sm"
+                        >
+                            {loading ? '...' : '兑换'}
+                        </button>
+                    </div>
+                    {message && (
+                        <p className={`mt-2 text-sm ${message.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>
+                            {message}
+                        </p>
+                    )}
+                </div>
 
                 {/* 退出登录 */}
                 <button
