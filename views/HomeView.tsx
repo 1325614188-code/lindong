@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { AppSection } from '../types';
+import InstallPWA from '../components/InstallPWA';
 
 interface HomeViewProps {
   onNavigate: (section: AppSection) => void;
@@ -27,6 +28,11 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
         <h1 className="text-3xl font-bold text-gray-800 mb-2">美力实验室</h1>
         <p className="text-gray-500 text-sm">✨ 发现你的独属魅力 ✨</p>
       </header>
+
+      {/* PWA 安装按钮 */}
+      <div className="mb-6">
+        <InstallPWA />
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         {sections.map((sec) => (

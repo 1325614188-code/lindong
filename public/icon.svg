@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8a4b8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c4a4d4;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#bg-gradient)"/>
+  <g transform="translate(50, 40)">
+    <path 
+      d="M280,120 
+         C280,80 250,60 210,70
+         C170,80 140,120 120,160
+         C100,200 90,250 100,300
+         C110,350 140,380 180,390
+         C220,400 260,390 290,360
+         C320,330 340,280 340,230
+         C340,180 320,140 280,120
+         M180,90
+         C220,60 270,50 310,70
+         C350,90 380,130 390,180
+         C400,230 380,280 340,310"
+      fill="none" 
+      stroke="#f8f0f4" 
+      stroke-width="28"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <ellipse cx="260" cy="380" rx="60" ry="40" fill="#f8f0f4" opacity="0.6"/>
+    <path
+      d="M200,250
+         C200,200 230,170 280,180
+         C280,200 270,230 250,260
+         C230,290 210,310 200,310
+         C190,310 185,290 190,260
+         C195,230 200,210 200,200"
+      fill="#f8f0f4"
+      opacity="0.9"
+    />
+  </g>
+</svg>
