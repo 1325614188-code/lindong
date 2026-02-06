@@ -53,7 +53,9 @@ const App: React.FC = () => {
   // 初始化设备ID (基于硬件指纹)
   useEffect(() => {
     const initId = async () => {
-      if (!localStorage.getItem('device_id')) {
+      const storedId = localStorage.getItem('device_id');
+      // 如果没有ID，或者ID是旧版的随机 dev_ 开头，则强制生成指纹
+      if (!storedId || storedId.startsWith('dev_')) {
         const fingerId = await getStableDeviceId();
         localStorage.setItem('device_id', fingerId);
       }

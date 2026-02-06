@@ -17,7 +17,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
     // 获取设备ID
     const getDeviceId = async (): Promise<string> => {
         let deviceId = localStorage.getItem('device_id');
-        if (!deviceId) {
+        if (!deviceId || deviceId.startsWith('dev_')) {
             deviceId = await getStableDeviceId();
             localStorage.setItem('device_id', deviceId);
         }

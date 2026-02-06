@@ -27,30 +27,12 @@ function getFingerprintData(): string {
     const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown';
 
     const features = [
-        // 核心硬件参数 (不同浏览器/App 之间通常一致)
-        screen.width + 'x' + screen.height,
+        // 核心物理硬件参数 (同一部手机的所有浏览器/WebView 都一致)
+        window.screen.width + 'x' + window.screen.height,
         window.devicePixelRatio || 1,
-        screen.colorDepth,
         navigator.hardwareConcurrency || 'unknown',
         renderer,
-        new Date().getTimezoneOffset(),
     ];
-
-    // Canvas 渲染特征
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-        ctx.textBaseline = "top";
-        ctx.font = "14px 'Arial'";
-        ctx.textBaseline = "alphabetic";
-        ctx.fillStyle = "#f60";
-        ctx.fillRect(125, 1, 62, 20);
-        ctx.fillStyle = "#069";
-        ctx.fillText("MeiliLab,🧬", 2, 15);
-        ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
-        ctx.fillText("MeiliLab,🧬", 4, 17);
-        features.push(canvas.toDataURL());
-    }
 
     return features.join('###');
 }
