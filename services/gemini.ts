@@ -124,3 +124,17 @@ export const generateHairstyles = async (
 
   return results;
 };
+
+export const generateMakeupImage = async (
+  faceImage: string,
+  styleName: string,
+  styleDesc: string
+): Promise<string | null> => {
+  const { result } = await callApi({
+    action: 'makeup',
+    faceImage,
+    styleName,
+    styleDesc
+  });
+  return result;
+};

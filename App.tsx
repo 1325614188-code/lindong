@@ -13,6 +13,7 @@ import LicensePlateView from './views/LicensePlateView';
 import LoginView from './views/LoginView';
 import MemberView from './views/MemberView';
 import AdminView from './views/AdminView';
+import MakeupView from './views/MakeupView';
 
 const App: React.FC = () => {
   const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
@@ -175,6 +176,9 @@ const App: React.FC = () => {
 
       case AppSection.HAIRSTYLE:
         return <HairstyleView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />;
+
+      case AppSection.MAKEUP:
+        return <MakeupView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />;
 
       case AppSection.BEAUTY_SCORE:
         return <AnalysisView title="颜值打分" type="颜值打分" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />;

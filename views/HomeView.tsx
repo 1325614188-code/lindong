@@ -12,6 +12,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
     { id: AppSection.TRY_ON_CLOTHES, title: '试穿衣', icon: '👗', color: 'bg-pink-100' },
     { id: AppSection.TRY_ON_ACCESSORIES, title: '试佩饰', icon: '💎', color: 'bg-purple-100' },
     { id: AppSection.HAIRSTYLE, title: '发型参考', icon: '💇‍♀️', color: 'bg-rose-100' },
+    { id: AppSection.MAKEUP, title: '美妆效果', icon: '💄', color: 'bg-fuchsia-100' },
     { id: AppSection.BEAUTY_SCORE, title: '颜值打分', icon: '✨', color: 'bg-orange-100' },
     { id: AppSection.COUPLE_FACE, title: '夫妻相', icon: '👩‍❤️‍👨', color: 'bg-red-100' },
     { id: AppSection.TONGUE_DIAGNOSIS, title: '趣味舌诊', icon: '👅', color: 'bg-green-100' },

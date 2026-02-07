@@ -209,6 +209,46 @@ export default async function handler(req: any, res: any) {
                 return res.status(200).json({ result });
             }
 
+            case 'makeup': {
+                // 美妆效果生成
+                const { faceImage, styleName, styleDesc } = req.body;
+
+                if (!faceImage || !styleName) {
+                    return res.status(400).json({ error: '缺少人脸图片或化妆风格' });
+                }
+
+                const result = await requestWithRetry(async (ai) => {
+                    const prompt = `请为图中人物化上"${styleName}"风格的妆容。
+${styleDesc ? `风格特点：${styleDesc}` : ''}
+
+【重要要求】：
+1. 绝对不能改变人物的五官特征、脸型、眼睛形状等面部骨骼结构
+2. 只能在原有五官基础上添加化妆效果（眼影、腮红、口红、眉毛修饰等）
+3. 保持人物原本的肤色基调，妆容要自然融合
+4. 生成高品质、真实感强的美妆效果图
+5. 确保妆容风格特征明显，符合"${styleName}"的典型特点`;
+
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-2.5-flash-image',
+                        contents: {
+                            parts: [
+                                { inlineData: { mimeType: 'image/jpeg', data: faceImage.split(',')[1] } },
+                                { text: prompt }
+                            ]
+                        }
+                    } as any);
+
+                    for (const part of response.candidates?.[0]?.content?.parts || []) {
+                        if (part.inlineData) {
+                            return `data:image/png;base64,${part.inlineData.data}`;
+                        }
+                    }
+                    return null;
+                });
+
+                return res.status(200).json({ result });
+            }
+
             case 'textAnalysis': {
                 // 纯文本分析 (五行车牌等)
                 const { prompt } = req.body;

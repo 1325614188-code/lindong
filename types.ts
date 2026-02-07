@@ -4,6 +4,7 @@ export enum AppSection {
   TRY_ON_CLOTHES = 'try-on-clothes',
   TRY_ON_ACCESSORIES = 'try-on-accessories',
   HAIRSTYLE = 'hairstyle',
+  MAKEUP = 'makeup',
   BEAUTY_SCORE = 'beauty-score',
   COUPLE_FACE = 'couple-face',
   TONGUE_DIAGNOSIS = 'tongue-diagnosis',
