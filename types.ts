@@ -12,7 +12,9 @@ export enum AppSection {
   FACE_READING = 'face-reading',
   FENG_SHUI = 'feng-shui',
   CALENDAR = 'calendar',
-  LICENSE_PLATE = 'license-plate'
+  LICENSE_PLATE = 'license-plate',
+  MBTI_TEST = 'mbti-test',
+  DEPRESSION_TEST = 'depression-test'
 }
 
 export interface AnalysisResult {

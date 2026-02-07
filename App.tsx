@@ -14,6 +14,8 @@ import LoginView from './views/LoginView';
 import MemberView from './views/MemberView';
 import AdminView from './views/AdminView';
 import MakeupView from './views/MakeupView';
+import MBTITestView from './views/MBTITestView';
+import DepressionTestView from './views/DepressionTestView';
 
 const App: React.FC = () => {
   const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
@@ -203,6 +205,12 @@ const App: React.FC = () => {
 
       case AppSection.CALENDAR:
         return <CalendarView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />;
+
+      case AppSection.MBTI_TEST:
+        return <MBTITestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />;
+
+      case AppSection.DEPRESSION_TEST:
+        return <DepressionTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />;
 
       default:
         return <HomeView onNavigate={setCurrentSection} />;
