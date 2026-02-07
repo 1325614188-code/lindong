@@ -159,8 +159,10 @@ export default async function handler(req: any, res: any) {
                                 { inlineData: { mimeType: 'image/jpeg', data: itemImage.split(',')[1] } },
                                 { text: prompt }
                             ]
-                        }
-                    });
+                        },
+                        // 仅对试穿衣服使用 9:16 竖版比例
+                        ...(itemType === 'clothes' ? { config: { outputOptions: { aspectRatio: '9:16' } } } : {})
+                    } as any);
 
                     for (const part of response.candidates?.[0]?.content?.parts || []) {
                         if (part.inlineData) {
