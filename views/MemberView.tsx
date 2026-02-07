@@ -259,7 +259,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                         <span className="text-sm text-pink-500 font-bold">已获得 {referralCount} 次</span>
                     </div>
                     <p className="text-sm text-gray-500 mb-3">
-                        分享专属链接，好友<span className="text-pink-500 font-bold">在手机上</span>注册后您将获得1次额度 <span className="text-orange-500">⚠️ 好友必须在手机端注册才能获得奖励</span>
+                        分享专属链接，好友<span className="text-pink-500 font-bold">在手机浏览器</span>注册后您将获得1次额度 <span className="text-orange-500">⚠️ 好友必须在【手机浏览器】注册才能获得奖励（微信/QQ内注册无效）</span>
                     </p>
                     <div className="flex gap-2">
                         <input
@@ -284,11 +284,12 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                         <span className="text-sm text-purple-500 font-bold">当前积分：{userPoints}</span>
                     </div>
                     <p className="text-sm text-gray-500 mb-2">
-                        好友通过分享链接注册，您将获得<span className="text-purple-500 font-bold">1个积分</span>，积分可兑换奖励
+                        好友通过分享链接在<span className="text-pink-500 font-bold">手机浏览器</span>注册，您将获得<span className="text-purple-500 font-bold">1个积分</span>，积分可兑换奖励
                     </p>
                     <div className="bg-purple-50 rounded-xl p-3 mb-3">
                         <p className="text-xs text-purple-700 mb-1">🎁 奖励制度：</p>
                         <p className="text-xs text-purple-600">• 50积分 → 20元红包 &nbsp;&nbsp; • 100积分 → 50元红包</p>
+                        <p className="text-xs text-blue-500 mt-1">💡 提示：积分仅限手机浏览器注册生效，微信/QQ内注册不计入</p>
                         <p className="text-xs text-orange-500 mt-2">⚠️ 点击兑换后，请联系微信“{config.contact_wechat || 'sekesm'}”完成兑换</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">

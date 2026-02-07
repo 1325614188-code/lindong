@@ -46,13 +46,25 @@ const generateDeviceId = (): string => {
     return crypto.randomBytes(16).toString('hex');
 };
 
-// 检测是否为移动设备
-const isMobileDevice = (userAgent: string): boolean => {
+// 检测环境：微信、QQ、普通浏览器
+const getEnvironment = (userAgent: string): 'wechat' | 'qq' | 'browser' | 'other' => {
+    if (userAgent.includes('MicroMessenger')) return 'wechat';
+    // QQ 内部浏览器包含 "QQ/" 且通常不包含 "MQQBrowser"（QQ浏览器）
+    // 或者包含 "QQ/" 且是在移动端设备上
+    if (userAgent.includes('QQ/') && !userAgent.includes('MQQBrowser')) return 'qq';
+
     const mobileKeywords = [
         'Android', 'webOS', 'iPhone', 'iPad', 'iPod', 'BlackBerry',
         'Windows Phone', 'Opera Mini', 'IEMobile', 'Mobile', 'mobile'
     ];
-    return mobileKeywords.some(keyword => userAgent.includes(keyword));
+    const isMobile = mobileKeywords.some(keyword => userAgent.includes(keyword));
+
+    return isMobile ? 'browser' : 'other';
+};
+
+// 检测是否为移动设备 (保留兼容性，但逻辑已整合进 getEnvironment)
+const isMobileDevice = (userAgent: string): boolean => {
+    return getEnvironment(userAgent) !== 'other';
 };
 
 export default async function handler(req: any, res: any) {
@@ -70,7 +82,8 @@ export default async function handler(req: any, res: any) {
             case 'register': {
                 const { username, password, nickname, deviceId, referrerId } = data;
                 const userAgent = req.headers['user-agent'] || '';
-                const isMobile = isMobileDevice(userAgent);
+                const env = getEnvironment(userAgent);
+                const isBrowser = env === 'browser';
 
                 // 检查用户名是否已存在
                 const { data: existing } = await supabase
@@ -91,8 +104,8 @@ export default async function handler(req: any, res: any) {
                     .single();
 
                 const isFirstOnDevice = !device;
-                // 只有移动端首次注册才赠送额度
-                const initialCredits = (isFirstOnDevice && isMobile) ? 5 : 0;
+                // 只有【手机浏览器】首次注册才赠送额度 (排除微信和QQ)
+                const initialCredits = (isFirstOnDevice && isBrowser) ? 5 : 0;
 
                 // 创建用户
                 const { data: newUser, error: userError } = await supabase
@@ -118,8 +131,8 @@ export default async function handler(req: any, res: any) {
                     });
                 }
 
-                // 如果有推荐人，且是移动端注册，给推荐人增加次数
-                if (referrerId && isMobile) {
+                // 如果有推荐人，且是【手机浏览器】注册，给推荐人增加次数
+                if (referrerId && isBrowser) {
                     // 检查推荐人是否存在
                     const { data: referrer } = await supabase
                         .from('users')
