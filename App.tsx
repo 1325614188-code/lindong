@@ -145,7 +145,11 @@ const App: React.FC = () => {
 
   // 显示会员中心
   if (showMember && user) {
-    return <MemberView user={user} onLogout={handleLogout} onBack={() => setShowMember(false)} />;
+    const handleUserUpdate = (updatedUser: any) => {
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    };
+    return <MemberView user={user} onLogout={handleLogout} onBack={() => setShowMember(false)} onUserUpdate={handleUserUpdate} />;
   }
 
   const renderSection = () => {

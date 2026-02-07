@@ -4,10 +4,11 @@ interface MemberViewProps {
     user: any;
     onLogout: () => void;
     onBack: () => void;
+    onUserUpdate?: (user: any) => void; // 用于同步更新父组件的 user 状态
 }
 
-const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
-    const [credits, setCredits] = useState(user?.credits || 0);
+const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserUpdate }) => {
+    // NOTE: 直接使用 user.credits，不再维护独立的本地状态，避免状态不同步
     const [redeemCode, setRedeemCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -71,7 +72,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
         }
     }, []);
 
-    // 刷新用户信息
+    // 刷新用户信息并同步到父组件
     const refreshUser = async () => {
         try {
             const res = await fetch('/api/auth', {
@@ -81,7 +82,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
             });
             const data = await res.json();
             if (data.user) {
-                setCredits(data.user.credits);
+                // 通过回调同步更新父组件的 user 状态
+                onUserUpdate?.({ ...user, credits: data.user.credits });
             }
         } catch (e) {
             console.error(e);
@@ -248,7 +250,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack }) => {
                     </div>
                     <div className="mt-3 flex justify-between items-center bg-black/10 rounded-xl px-3 py-2">
                         <span className="text-white/80 text-sm">剩余额度</span>
-                        <span className="text-xl font-bold">{credits} 次</span>
+                        <span className="text-xl font-bold">{user?.credits || 0} 次</span>
                     </div>
                 </div>
 
