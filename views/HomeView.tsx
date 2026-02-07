@@ -26,7 +26,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
   return (
     <div className="p-6">
       <header className="mb-8 text-center">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">美力实验室</h1>
+        <h1 className="text-4xl art-title mb-2">✨ 美力实验室 ✨</h1>
         <p className="text-gray-500 text-sm">✨ 发现你的独属魅力 ✨</p>
       </header>
 
