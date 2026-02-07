@@ -148,7 +148,7 @@ export default async function handler(req: any, res: any) {
                 // AI 试穿/试戴
                 const result = await requestWithRetry(async (ai) => {
                     const prompt = itemType === 'clothes'
-                        ? '将图中人物的衣服换成另一张图中的款式，保持人物面容和环境不变，生成高品质穿搭效果图。'
+                        ? '将图中人物的衣服换成另一张图中的款式，保持人物面容和环境不变，生成高品质穿搭效果图。输出图片比例必须为9:16竖版。'
                         : '在图中人物的耳朵上戴上另一张图中的耳坠。如果是正面，请在左右两侧耳朵都展示出来。效果要自然，光影和谐。';
 
                     const response = await ai.models.generateContent({
