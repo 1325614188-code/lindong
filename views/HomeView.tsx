@@ -40,7 +40,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
           <button
             key={sec.id}
             onClick={() => onNavigate(sec.id)}
-            className={`${sec.color} ${sec.textColor || 'text-gray-800'} rounded-2xl p-4 flex flex-row items-center justify-start gap-3 shadow-sm hover:shadow-md transition-all transform active:scale-95 h-16`}
+            className={`${sec.color} ${sec.textColor || 'text-gray-800'} rounded-2xl p-4 flex flex-row items-center justify-start gap-3 shadow-[0_4px_15px_rgba(255,107,157,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,157,0.4)] transition-all transform active:scale-95 h-16`}
           >
             <span className="text-2xl flex-shrink-0">{sec.icon}</span>
             <span className="font-bold text-[14px] whitespace-nowrap overflow-hidden text-ellipsis">
