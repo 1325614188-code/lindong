@@ -7,9 +7,9 @@ interface DepressionTestViewProps {
     onDeductCredit?: () => Promise<void>;
 }
 
-// 抑郁症自测50道题目 (基于PHQ-9和其他量表扩展)
+// 抑郁症自测80道题目 (基于PHQ-9、BDI-II和其他量表扩展)
 const DEPRESSION_QUESTIONS = [
-    // 情绪相关
+    // 情绪相关 - 12题
     { q: '最近两周，你是否经常感到心情低落、沮丧或绝望', category: 'mood' },
     { q: '你是否感到生活没有意义', category: 'mood' },
     { q: '你是否经常感到悲伤而无法自控', category: 'mood' },
@@ -18,56 +18,86 @@ const DEPRESSION_QUESTIONS = [
     { q: '你是否感到对未来没有希望', category: 'mood' },
     { q: '你是否感到自己是个失败者', category: 'mood' },
     { q: '你是否经常感到莫名的恐惧或不安', category: 'mood' },
-    // 兴趣相关
+    { q: '你是否经常感到烦躁易怒', category: 'mood' },
+    { q: '你是否感到无法控制自己的情绪', category: 'mood' },
+    { q: '你是否经常感到孤独寂寞', category: 'mood' },
+    { q: '你是否感到很难让自己开心起来', category: 'mood' },
+    // 兴趣相关 - 10题
     { q: '你是否对以前喜欢的事情失去了兴趣', category: 'interest' },
     { q: '你是否感到做什么都提不起劲', category: 'interest' },
     { q: '你是否不再期待任何事情', category: 'interest' },
     { q: '你是否感到生活变得乏味无聊', category: 'interest' },
     { q: '你是否很难从愉快的活动中获得满足感', category: 'interest' },
     { q: '你是否不再想参加社交活动', category: 'interest' },
-    // 睡眠相关
+    { q: '你是否对工作或学习失去热情', category: 'interest' },
+    { q: '你是否不再关心自己的外表或穿着', category: 'interest' },
+    { q: '你是否对性生活或亲密关系失去兴趣', category: 'interest' },
+    { q: '你是否感到音乐、电影等娱乐无法让你开心', category: 'interest' },
+    // 睡眠相关 - 10题
     { q: '你是否有入睡困难', category: 'sleep' },
     { q: '你是否经常在半夜醒来', category: 'sleep' },
     { q: '你是否早醒后难以再入睡', category: 'sleep' },
     { q: '你是否睡得过多（每天超过10小时）', category: 'sleep' },
     { q: '你是否即使睡了很久仍感到疲惫', category: 'sleep' },
     { q: '你是否做噩梦或睡眠质量差', category: 'sleep' },
-    // 精力相关
+    { q: '你是否害怕入睡', category: 'sleep' },
+    { q: '你是否日夜颠倒、作息紊乱', category: 'sleep' },
+    { q: '你是否经常在睡眠中惊醒', category: 'sleep' },
+    { q: '你是否感到无论睡多久都不够', category: 'sleep' },
+    // 精力相关 - 10题
     { q: '你是否经常感到疲倦、没有精力', category: 'energy' },
     { q: '你是否感到身体沉重、四肢乏力', category: 'energy' },
     { q: '你是否即使休息也无法恢复精力', category: 'energy' },
     { q: '你是否感到完成日常任务都很困难', category: 'energy' },
     { q: '你是否感到反应变慢了', category: 'energy' },
     { q: '你是否感到头脑不够清醒', category: 'energy' },
-    // 食欲相关
+    { q: '你是否感到起床是一件很艰难的事', category: 'energy' },
+    { q: '你是否经常感到体力不支', category: 'energy' },
+    { q: '你是否感到说话或思考都很费力', category: 'energy' },
+    { q: '你是否感到即使做简单的事也筋疲力尽', category: 'energy' },
+    // 食欲相关 - 6题
     { q: '你的食欲是否明显下降', category: 'appetite' },
     { q: '你是否比平时吃得多很多', category: 'appetite' },
     { q: '你的体重是否有明显变化', category: 'appetite' },
     { q: '你是否对食物失去兴趣', category: 'appetite' },
-    // 自我评价
+    { q: '你是否经常忘记吃饭', category: 'appetite' },
+    { q: '你是否用暴饮暴食来缓解情绪', category: 'appetite' },
+    // 自我评价 - 10题
     { q: '你是否经常责怪自己', category: 'self' },
     { q: '你是否觉得自己不如别人好', category: 'self' },
     { q: '你是否对自己感到失望', category: 'self' },
     { q: '你是否觉得自己是别人的负担', category: 'self' },
     { q: '你是否对自己的外表感到不满', category: 'self' },
     { q: '你是否感到自己毫无价值', category: 'self' },
-    // 注意力相关
+    { q: '你是否经常后悔过去的决定', category: 'self' },
+    { q: '你是否觉得自己一无是处', category: 'self' },
+    { q: '你是否经常批评否定自己', category: 'self' },
+    { q: '你是否觉得自己不值得被爱', category: 'self' },
+    // 注意力相关 - 8题
     { q: '你是否难以集中注意力', category: 'attention' },
     { q: '你是否难以做出决定', category: 'attention' },
     { q: '你是否经常走神发呆', category: 'attention' },
     { q: '你是否记忆力明显下降', category: 'attention' },
     { q: '你是否难以完成需要思考的任务', category: 'attention' },
-    // 行为动作相关
+    { q: '你是否经常忘记重要的事情', category: 'attention' },
+    { q: '你是否难以跟上别人的谈话', category: 'attention' },
+    { q: '你是否阅读时难以理解内容', category: 'attention' },
+    // 行为动作相关 - 8题
     { q: '你的动作是否变得比平时慢', category: 'behavior' },
     { q: '你是否经常坐立不安', category: 'behavior' },
     { q: '你是否减少了与朋友家人的联系', category: 'behavior' },
     { q: '你是否不想出门或离开家', category: 'behavior' },
-    // 严重症状
+    { q: '你是否逃避需要完成的任务', category: 'behavior' },
+    { q: '你是否经常取消已定好的计划', category: 'behavior' },
+    { q: '你是否长时间躺在床上不想动', category: 'behavior' },
+    { q: '你是否忽视个人卫生（如不洗澡、不刷牙）', category: 'behavior' },
+    // 严重症状 - 6题
     { q: '你是否有过"不如死了算了"的想法', category: 'severe' },
     { q: '你是否想过伤害自己', category: 'severe' },
     { q: '你是否感到活着没有意义', category: 'severe' },
     { q: '你是否经常想到死亡', category: 'severe' },
     { q: '你是否有过伤害自己的行为', category: 'severe' },
+    { q: '你是否有过具体的自杀计划', category: 'severe' },
 ];
 
 const DepressionTestView: React.FC<DepressionTestViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {

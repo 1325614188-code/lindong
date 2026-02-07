@@ -7,9 +7,9 @@ interface MBTITestViewProps {
     onDeductCredit?: () => Promise<void>;
 }
 
-// MBTI 50道测试题目
+// MBTI 80道测试题目
 const MBTI_QUESTIONS = [
-    // E vs I (外向 vs 内向) - 12题
+    // E vs I (外向 vs 内向) - 20题
     { q: '在社交聚会中，你通常感到精力充沛', dimension: 'EI', direction: 'E' },
     { q: '你喜欢成为众人瞩目的焦点', dimension: 'EI', direction: 'E' },
     { q: '你更喜欢独处或与少数亲密朋友在一起', dimension: 'EI', direction: 'I' },
@@ -22,7 +22,15 @@ const MBTI_QUESTIONS = [
     { q: '你享受安静独处的时光', dimension: 'EI', direction: 'I' },
     { q: '你容易与陌生人攀谈', dimension: 'EI', direction: 'E' },
     { q: '你更喜欢书面沟通而非口头交流', dimension: 'EI', direction: 'I' },
-    // S vs N (感觉 vs 直觉) - 12题
+    { q: '你喜欢参加大型派对或活动', dimension: 'EI', direction: 'E' },
+    { q: '你在人群中待久了会感到疲惫', dimension: 'EI', direction: 'I' },
+    { q: '你善于活跃气氛', dimension: 'EI', direction: 'E' },
+    { q: '你更喜欢深入交流而非闲聊', dimension: 'EI', direction: 'I' },
+    { q: '你会主动组织社交活动', dimension: 'EI', direction: 'E' },
+    { q: '你觉得独自思考比讨论更有效', dimension: 'EI', direction: 'I' },
+    { q: '你喜欢边说边想', dimension: 'EI', direction: 'E' },
+    { q: '你倾向于先观察再行动', dimension: 'EI', direction: 'I' },
+    // S vs N (感觉 vs 直觉) - 20题
     { q: '你更关注当下的实际情况', dimension: 'SN', direction: 'S' },
     { q: '你喜欢想象未来的可能性', dimension: 'SN', direction: 'N' },
     { q: '你注重细节和具体事实', dimension: 'SN', direction: 'S' },
@@ -35,7 +43,15 @@ const MBTI_QUESTIONS = [
     { q: '你对抽象概念感兴趣', dimension: 'SN', direction: 'N' },
     { q: '你更相信看得见摸得着的东西', dimension: 'SN', direction: 'S' },
     { q: '你喜欢探索事物背后的深层含义', dimension: 'SN', direction: 'N' },
-    // T vs F (思考 vs 情感) - 13题
+    { q: '你更擅长记住具体细节', dimension: 'SN', direction: 'S' },
+    { q: '你常常展望遥远的未来', dimension: 'SN', direction: 'N' },
+    { q: '你喜欢循序渐进地学习', dimension: 'SN', direction: 'S' },
+    { q: '你喜欢思考"如果...会怎样"', dimension: 'SN', direction: 'N' },
+    { q: '你注重事物的实际应用', dimension: 'SN', direction: 'S' },
+    { q: '你容易发现事物之间的联系', dimension: 'SN', direction: 'N' },
+    { q: '你更关心"是什么"而非"可能是什么"', dimension: 'SN', direction: 'S' },
+    { q: '你喜欢隐喻和象征性的表达', dimension: 'SN', direction: 'N' },
+    // T vs F (思考 vs 情感) - 20题
     { q: '做决定时你更依赖逻辑分析', dimension: 'TF', direction: 'T' },
     { q: '你很在意他人的感受', dimension: 'TF', direction: 'F' },
     { q: '你认为公平比和谐更重要', dimension: 'TF', direction: 'T' },
@@ -49,7 +65,14 @@ const MBTI_QUESTIONS = [
     { q: '你更擅长解决技术问题', dimension: 'TF', direction: 'T' },
     { q: '你善于调解人际冲突', dimension: 'TF', direction: 'F' },
     { q: '你认为规则比例外更重要', dimension: 'TF', direction: 'T' },
-    // J vs P (判断 vs 感知) - 13题
+    { q: '你在做决定时会考虑个人价值观', dimension: 'TF', direction: 'F' },
+    { q: '你喜欢找出争论中的逻辑漏洞', dimension: 'TF', direction: 'T' },
+    { q: '你容易对他人产生同情心', dimension: 'TF', direction: 'F' },
+    { q: '你认为事实比感受更重要', dimension: 'TF', direction: 'T' },
+    { q: '你更关心他人的需要', dimension: 'TF', direction: 'F' },
+    { q: '你在批评时直言不讳', dimension: 'TF', direction: 'T' },
+    { q: '你很难拒绝别人的请求', dimension: 'TF', direction: 'F' },
+    // J vs P (判断 vs 感知) - 20题
     { q: '你喜欢按计划行事', dimension: 'JP', direction: 'J' },
     { q: '你喜欢保持选择的开放性', dimension: 'JP', direction: 'P' },
     { q: '你做事有条理有系统', dimension: 'JP', direction: 'J' },
@@ -63,6 +86,13 @@ const MBTI_QUESTIONS = [
     { q: '你会提前安排日程', dimension: 'JP', direction: 'J' },
     { q: '你更喜欢灵活应变', dimension: 'JP', direction: 'P' },
     { q: '完成任务给你带来满足感', dimension: 'JP', direction: 'J' },
+    { q: '你喜欢同时进行多项任务', dimension: 'JP', direction: 'P' },
+    { q: '你的物品摆放整齐有序', dimension: 'JP', direction: 'J' },
+    { q: '你觉得规则可以灵活变通', dimension: 'JP', direction: 'P' },
+    { q: '你喜欢有明确的目标', dimension: 'JP', direction: 'J' },
+    { q: '你享受探索过程中的不确定性', dimension: 'JP', direction: 'P' },
+    { q: '你常常列清单来管理任务', dimension: 'JP', direction: 'J' },
+    { q: '你更喜欢顺其自然', dimension: 'JP', direction: 'P' },
 ];
 
 // MBTI 类型描述
