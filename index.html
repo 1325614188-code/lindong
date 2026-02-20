@@ -66,6 +66,14 @@
 
 <body>
   <div id="root"></div>
+  <script>
+    window.deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('[Global] Captured beforeinstallprompt early');
+      e.preventDefault();
+      window.deferredPrompt = e;
+    });
+  </script>
   <script type="module" src="/index.tsx"></script>
 </body>
 

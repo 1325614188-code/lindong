@@ -35,7 +35,14 @@ const InstallPWA: React.FC = () => {
 
         if (checkIfInstalled()) return;
 
+        // 检查是否在 index.html 中已经提前捕获了事件
+        if ((window as any).deferredPrompt) {
+            console.log('[InstallPWA] Found early captured beforeinstallprompt event');
+            setDeferredPrompt((window as any).deferredPrompt);
+        }
+
         const handleBeforeInstallPrompt = (e: Event) => {
+            console.log('[InstallPWA] Captured beforeinstallprompt event');
             e.preventDefault();
             setDeferredPrompt(e as BeforeInstallPromptEvent);
         };
