@@ -119,6 +119,43 @@ export default async function handler(req: any, res: any) {
                 // 只有【手机浏览器】首次注册才赠送额度 (排除微信和QQ)
                 const initialCredits = (isFirstOnDevice && isBrowser) ? 5 : 0;
 
+                // 解析真实推荐人ID (处理 8 位短码)
+                let realReferrerId = referrerId;
+                if (referrerId && referrerId.length < 32) {
+                    const suffix = referrerId.substring(0, 6);
+
+                    const { data: potentialReferrers } = await supabase
+                        .from('users')
+                        .select('id, device_id')
+                        .ilike('device_id', `%${suffix}%`)
+                        .order('created_at', { ascending: true })
+                        .limit(10);
+
+                    if (potentialReferrers && potentialReferrers.length > 0) {
+                        for (const pr of potentialReferrers) {
+                            if (!pr.device_id) continue;
+                            let hash = 0;
+                            for (let i = 0; i < pr.device_id.length; i++) {
+                                hash = (hash << 5) - hash + pr.device_id.charCodeAt(i);
+                                hash |= 0;
+                            }
+                            const char1 = String.fromCharCode(65 + Math.abs(hash) % 26);
+                            const char2 = String.fromCharCode(65 + Math.abs(hash >> 5) % 26);
+                            const expectedShortCode = `${suffix.toUpperCase()}${char1}${char2}`;
+
+                            if (expectedShortCode === referrerId) {
+                                realReferrerId = pr.id; // 解析到了真正的 UUID
+                                break;
+                            }
+                        }
+                    }
+
+                    // 如果短码解析失败（没找到对应 UUID），为了防止数据库 UUID 类型报错，将其置空
+                    if (realReferrerId === referrerId) {
+                        realReferrerId = null;
+                    }
+                }
+
                 // 创建用户
                 const { data: newUser, error: userError } = await supabase
                     .from('users')
@@ -128,7 +165,7 @@ export default async function handler(req: any, res: any) {
                         nickname: nickname || username,
                         credits: initialCredits,
                         device_id: deviceId,
-                        referrer_id: referrerId || null
+                        referrer_id: realReferrerId || null
                     })
                     .select()
                     .single();
@@ -143,43 +180,8 @@ export default async function handler(req: any, res: any) {
                     });
                 }
 
-                // 如果有推荐人标识(UUID 或短码)，尝试找到真正的推荐人ID
-                if (referrerId) {
-                    let realReferrerId = referrerId;
-
-                    // 如果长度不是 UUID 格式(通常是36位)，而是我们的8位短码
-                    if (referrerId.length < 32) {
-                        const suffix = referrerId.substring(0, 6);
-
-                        // 查找具有匹配设备后缀的最早用户 (可能有多设备同后缀，取第一个)
-                        const { data: potentialReferrers } = await supabase
-                            .from('users')
-                            .select('id, device_id')
-                            .ilike('device_id', `%${suffix}%`)
-                            .order('created_at', { ascending: true })
-                            .limit(10);
-
-                        if (potentialReferrers && potentialReferrers.length > 0) {
-                            // 验证 hash 后缀
-                            for (const pr of potentialReferrers) {
-                                if (!pr.device_id) continue;
-                                let hash = 0;
-                                for (let i = 0; i < pr.device_id.length; i++) {
-                                    hash = (hash << 5) - hash + pr.device_id.charCodeAt(i);
-                                    hash |= 0;
-                                }
-                                const char1 = String.fromCharCode(65 + Math.abs(hash) % 26);
-                                const char2 = String.fromCharCode(65 + Math.abs(hash >> 5) % 26);
-                                const expectedShortCode = `${suffix.toUpperCase()}${char1}${char2}`;
-
-                                if (expectedShortCode === referrerId) {
-                                    realReferrerId = pr.id;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
+                // 如果有推荐人标识，给推荐人增加次数
+                if (realReferrerId) {
                     // 检查推荐人是否存在
                     const { data: referrer } = await supabase
                         .from('users')
