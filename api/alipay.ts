@@ -147,7 +147,7 @@ export default async function handler(req: any, res: any) {
                     const { data: order, error: fetchError } = await supabase
                         .from('orders')
                         .select('*')
-                        .eq('id', out_trade_no) // out_trade_no 即为数据库中的 id (UUID)
+                        .eq('trade_no', out_trade_no) // 使用 trade_no 进行查询
                         .single();
 
                     if (fetchError || !order) {
@@ -168,7 +168,7 @@ export default async function handler(req: any, res: any) {
                             trade_no: trade_no,
                             paid_at: new Date().toISOString()
                         })
-                        .eq('id', out_trade_no);
+                        .eq('trade_no', out_trade_no);
 
                     if (updateError) {
                         console.error('[Alipay Notify] Update Order Error:', updateError);
@@ -240,7 +240,7 @@ export default async function handler(req: any, res: any) {
                 const { data: order, error: orderError } = await supabase
                     .from('orders')
                     .select('*')
-                    .eq('id', orderId)
+                    .eq('trade_no', orderId)
                     .single();
 
                 if (orderError || !order) {
@@ -260,7 +260,7 @@ export default async function handler(req: any, res: any) {
                         trade_no: `manual_${Date.now()}`,
                         paid_at: new Date().toISOString()
                     })
-                    .eq('id', orderId);
+                    .eq('trade_no', orderId);
 
                 if (updateError) throw updateError;
 
