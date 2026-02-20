@@ -25,13 +25,14 @@ const WealthView: React.FC<WealthViewProps> = ({ onBack, onCheckCredits, onDeduc
     // 计算农历
     useEffect(() => {
         try {
-            const solar = Solar.fromYmd(year, month, day);
+            const solar = Solar.fromYmdHms(year, month, day, hour, 0, 0);
             const lunar = solar.getLunar();
-            setLunarText(`农历：${lunar.getYearInGanZhi()}年 ${lunar.getMonthInChinese()}月 ${lunar.getDayInChinese()}`);
+            const shiChen = lunar.getTimeZhi() + '时';
+            setLunarText(`农历：${lunar.getYearInGanZhi()}年 ${lunar.getMonthInChinese()}月 ${lunar.getDayInChinese()} ${shiChen}`);
         } catch (e) {
             setLunarText('日期无效');
         }
-    }, [year, month, day]);
+    }, [year, month, day, hour]);
 
     const handleAnalyze = async () => {
         const birthInfo = `${year}年${month}月${day}日 ${hour}:00`;
