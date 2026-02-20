@@ -204,25 +204,38 @@ export default async function handler(req: any, res: any) {
                     return res.status(400).json({ error: '用户名和密码不能为空' });
                 }
 
+                // 使用 * 选择，避免因缺少某些后期加入的字段（如 points, commission_balance）导致整个查询失败
                 const { data: user, error } = await supabase
                     .from('users')
-                    .select('id, username, nickname, credits, points, commission_balance, is_admin')
+                    .select('*')
                     .eq('username', username)
                     .eq('password_hash', hashPassword(password))
                     .maybeSingle();
 
                 if (error) {
                     console.error('[Login Error Detail]', error);
-                    return res.status(500).json({ error: '登录服务异常，请稍后重试' });
+                    // 额外尝试只查询基础字段，以确认是否是字段缺失问题
+                    const { error: basicError } = await supabase.from('users').select('id').limit(1);
+                    if (basicError) {
+                        return res.status(500).json({ error: `数据库连接异常: ${basicError.message}` });
+                    }
+                    return res.status(500).json({ error: `登录服务异常 (可能是数据库字段缺失): ${error.message}` });
                 }
 
                 if (!user) {
                     return res.status(401).json({ error: '用户名或密码错误' });
                 }
 
+                // 确保返回给前端的对象包含默认值
+                const safeUser = {
+                    ...user,
+                    points: user.points ?? 0,
+                    commission_balance: user.commission_balance ?? 0
+                };
+
                 return res.status(200).json({
                     success: true,
-                    user
+                    user: safeUser
                 });
             }
 
