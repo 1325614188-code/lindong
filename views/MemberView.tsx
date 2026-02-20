@@ -280,7 +280,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         <span className="text-sm text-pink-500 font-bold">已获得 {referralCount} 次</span>
                     </div>
                     <p className="text-sm text-gray-500 mb-3">
-                        分享专属链接，好友注册后您将获得1次额度。充值还可获得高额现金分佣！
+                        分享专属链接，好友<span className="text-pink-500 font-bold">在手机浏览器</span>注册后您将获得1次额度 <span className="text-orange-500">⚠️ 好友必须在【手机浏览器】注册才能获得奖励（微信/QQ内注册无效）</span>
                     </p>
                     <div className="flex gap-2">
                         <input

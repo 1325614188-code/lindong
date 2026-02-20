@@ -113,8 +113,8 @@ export default async function handler(req: any, res: any) {
                     .maybeSingle();
 
                 const isFirstOnDevice = !device;
-                // 首次注册赠送额度 (移除手机浏览器限制，所有环境通用)
-                const initialCredits = isFirstOnDevice ? 5 : 0;
+                // 只有【手机浏览器】首次注册才赠送额度 (排除微信和QQ)
+                const initialCredits = (isFirstOnDevice && isBrowser) ? 5 : 0;
 
                 // 创建用户
                 const { data: newUser, error: userError } = await supabase
