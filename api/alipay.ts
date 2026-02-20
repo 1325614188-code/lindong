@@ -120,7 +120,7 @@ export default async function handler(req: any, res: any) {
                 });
 
                 // 生成支付宝支付参数
-                const returnUrl = req.headers.origin || 'https://www.qczj.xyz';
+                const returnUrl = req.headers.origin || 'https://qczj.xyz';
                 const params = buildAlipayParams(config, orderId, amount, credits, returnUrl);
                 const gateway = config.alipay_gateway || 'https://openapi.alipay.com/gateway.do';
 
