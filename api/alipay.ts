@@ -147,33 +147,46 @@ export default async function handler(req: any, res: any) {
                             .eq('trade_no', out_trade_no);
 
                         // 增加用户额度
-                        await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
+                        const { error: creditError } = await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
+                        if (creditError) console.error('[Alipay Notify] Credit RPC Error:', creditError);
 
-                        // 推荐佣金逻辑 (40%)
-                        const { data: user } = await supabase
+                        // 推荐佣金逻辑
+                        const { data: user, error: userError } = await supabase
                             .from('users')
                             .select('referrer_id')
                             .eq('id', order.user_id)
                             .single();
 
+                        if (userError) console.error('[Alipay Notify] Get User Error:', userError);
+
                         if (user?.referrer_id) {
+                            console.log('[Alipay Notify] Processing commission for referrer:', user.referrer_id);
                             // 获取佣金比例配置 (默认 40%)
                             const alipayConfig = await getAlipayConfig();
                             const rate = parseInt(alipayConfig.commission_rate || '40') / 100;
                             const commissionAmount = Number(order.amount) * rate;
 
                             // 增加推荐人佣金余额
-                            await supabase.rpc('add_commission', {
+                            const { error: commissionError } = await supabase.rpc('add_commission', {
                                 user_id: user.referrer_id,
                                 amount: commissionAmount
                             });
-                            // 记录佣金日志
-                            await supabase.from('commissions').insert({
-                                user_id: user.referrer_id,
-                                source_user_id: order.user_id,
-                                order_id: order.id,
-                                amount: commissionAmount
-                            });
+
+                            if (commissionError) {
+                                console.error('[Alipay Notify] Commission RPC Error:', commissionError);
+                            } else {
+                                // 记录佣金流水
+                                await supabase.from('commissions').insert({
+                                    user_id: user.referrer_id,
+                                    source_user_id: order.user_id,
+                                    order_id: order.id,
+                                    amount: commissionAmount,
+                                    status: 'completed'
+                                });
+                                console.log('[Alipay Notify] Commission recorded:', commissionAmount);
+                            }
+                        } else {
+                            console.log('[Alipay Notify] No referrer found for user:', order.user_id);
                         }
                     }
                 }
@@ -223,31 +236,52 @@ export default async function handler(req: any, res: any) {
                     .eq('trade_no', orderId);
 
                 // 增加用户额度
-                await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
+                const { error: creditError } = await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
+                if (creditError) console.error('[ConfirmOrder] Credit RPC Error:', creditError);
 
-                // 推荐佣金逻辑 (40%)
-                const { data: user } = await supabase
+                // 推荐佣金逻辑
+                const { data: user, error: userError } = await supabase
                     .from('users')
                     .select('referrer_id')
                     .eq('id', order.user_id)
                     .single();
 
+                if (userError) console.error('[ConfirmOrder] Get User Error:', userError);
+
                 if (user?.referrer_id) {
-                    // 获取佣金比例配置 (默认 40%)
+                    console.log('[ConfirmOrder] Processing commission for referrer:', user.referrer_id);
+                    // 获取分佣比例
                     const alipayConfig = await getAlipayConfig();
                     const rate = parseInt(alipayConfig.commission_rate || '40') / 100;
                     const commissionAmount = Number(order.amount) * rate;
 
-                    await supabase.rpc('add_commission', {
+                    // 增加推荐人佣金
+                    const { error: commissionError } = await supabase.rpc('add_commission', {
                         user_id: user.referrer_id,
                         amount: commissionAmount
                     });
-                    await supabase.from('commissions').insert({
-                        user_id: user.referrer_id,
-                        source_user_id: order.user_id,
-                        order_id: order.id,
-                        amount: commissionAmount
-                    });
+
+                    if (commissionError) {
+                        console.error('[ConfirmOrder] Commission RPC Error:', commissionError);
+                    } else {
+                        // 记录流水 (避免重复)
+                        const { data: existing } = await supabase
+                            .from('commissions')
+                            .select('id')
+                            .eq('order_id', order.id)
+                            .maybeSingle();
+
+                        if (!existing) {
+                            await supabase.from('commissions').insert({
+                                user_id: user.referrer_id,
+                                source_user_id: order.user_id,
+                                order_id: order.id,
+                                amount: commissionAmount,
+                                status: 'completed'
+                            });
+                            console.log('[ConfirmOrder] Commission recorded:', commissionAmount);
+                        }
+                    }
                 }
 
                 return res.status(200).json({

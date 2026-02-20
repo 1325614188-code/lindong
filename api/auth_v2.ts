@@ -139,8 +139,8 @@ export default async function handler(req: any, res: any) {
                     });
                 }
 
-                // 如果有推荐人，且是【手机浏览器】注册，给推荐人增加次数
-                if (referrerId && isBrowser) {
+                // 如果有推荐人，给推荐人增加次数
+                if (referrerId) {
                     // 检查推荐人是否存在
                     const { data: referrer } = await supabase
                         .from('users')

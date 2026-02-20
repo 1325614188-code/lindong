@@ -253,15 +253,15 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         </div>
                     </div>
                     <div className="mt-3 flex gap-2">
-                        <div className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center">
-                            <span className="text-white/60 text-[10px]">剩余额度</span>
+                        <div onClick={refreshUser} className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center cursor-pointer hover:bg-black/20 transition-all">
+                            <span className="text-white/60 text-[10px]">剩余额度 (点此同步)</span>
                             <span className="text-lg font-bold">{user?.credits || 0}</span>
                         </div>
-                        <div className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center">
+                        <div onClick={refreshUser} className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center cursor-pointer hover:bg-black/20 transition-all">
                             <span className="text-white/60 text-[10px]">推广收益(元)</span>
                             <span className="text-lg font-bold">¥{user?.commission_balance || '0.00'}</span>
                         </div>
-                        <div className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center">
+                        <div onClick={refreshUser} className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center cursor-pointer hover:bg-black/20 transition-all">
                             <span className="text-white/60 text-[10px]">奖励积分</span>
                             <span className="text-lg font-bold">{user?.points || 0}</span>
                         </div>
@@ -275,7 +275,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         <span className="text-sm text-pink-500 font-bold">已获得 {referralCount} 次</span>
                     </div>
                     <p className="text-sm text-gray-500 mb-3">
-                        分享专属链接，好友<span className="text-pink-500 font-bold">在手机浏览器</span>注册后您将获得1次额度 <span className="text-orange-500">⚠️ 好友必须在【手机浏览器】注册才能获得奖励（微信/QQ内注册无效）</span>
+                        分享专属链接，好友注册后您将获得1次额度。充值还可获得高额现金分佣！
                     </p>
                     <div className="flex gap-2">
                         <input
