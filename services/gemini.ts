@@ -148,11 +148,12 @@ export const analysisMarriage = async (birthInfo: string, gender: string) => {
   return result;
 };
 
-export const generatePartnerImage = async (description: string, gender: string) => {
+export const generatePartnerImage = async (description: string, gender: string, userImage?: string) => {
   const { result } = await callApi({
     action: 'generatePartner',
     description,
-    gender
+    gender,
+    userImage
   });
   return result;
 };

@@ -279,21 +279,41 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
 
             case 'generatePartner': {
                 // 根据相术描述生成理想另一半
-                const { description, gender } = req.body;
+                const { description, gender, userImage } = req.body;
                 const targetGender = gender === '男' ? '女' : '男';
-                const prompt = `生成一位理想的中国${targetGender}性形象。
-          特征描述：${description}。
-          要求：
-          1. 形象要有亲和力，气质高雅或帅气。
-          2. 必须符合中国人的审美特征。
-          3. 高品质、真实感强的写真风格（Photorealistic）。
-          4. 纯净背景或温馨生活场景。`;
 
                 const result = await requestWithRetry(async (ai) => {
+                    const prompt = `你是一位顶级的形象设计师和命理专家。
+请为图中这位${gender}性生成一位【命中注定、高度匹配】的中华${targetGender}性。
+
+【目标形象要求】：
+1. 必须基于以下相术描述进行创作：${description}。
+2. 气质上要与原图中的人物形成绝佳的“夫妻相”或“互补美”。
+3. 必须符合东方审美，容貌俊美/秀丽，气质出众。
+4. 照片级别真实感（Photorealistic），背景为温馨的生活化场景或纯净背景。
+5. 两个人的风格要统一，仿佛生活在同一个次元。
+
+【如果不提供原图，请直接生成符合描述的中国${targetGender}性写真】。`;
+
+                    const contents: any = {
+                        parts: []
+                    };
+
+                    if (userImage) {
+                        contents.parts.push({
+                            inlineData: {
+                                mimeType: 'image/jpeg',
+                                data: userImage.split(',')[1]
+                            }
+                        });
+                    }
+
+                    contents.parts.push({ text: prompt });
+
                     const response = await ai.models.generateContent({
                         model: 'gemini-2.5-flash-image',
-                        contents: { parts: [{ text: prompt }] }
-                    });
+                        contents
+                    } as any);
 
                     for (const part of response.candidates?.[0]?.content?.parts || []) {
                         if (part.inlineData) {

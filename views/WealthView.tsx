@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Solar } from 'lunar-javascript';
 import { analysisWealth } from '../services/gemini';
 
 interface WealthViewProps {
@@ -9,16 +10,31 @@ interface WealthViewProps {
 }
 
 const WealthView: React.FC<WealthViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
-    const [birthInfo, setBirthInfo] = useState('');
+    // 日期选择状态
+    const date = new Date();
+    const [year, setYear] = useState(date.getFullYear() - 30);
+    const [month, setMonth] = useState(date.getMonth() + 1);
+    const [day, setDay] = useState(date.getDate());
+    const [hour, setHour] = useState(12);
+    const [lunarText, setLunarText] = useState('');
+
     const [gender, setGender] = useState<'男' | '女'>('女');
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<string | null>(null);
 
-    const handleAnalyze = async () => {
-        if (!birthInfo) {
-            alert('请先输入出生信息哦～');
-            return;
+    // 计算农历
+    useEffect(() => {
+        try {
+            const solar = Solar.fromYmd(year, month, day);
+            const lunar = solar.getLunar();
+            setLunarText(`农历：${lunar.getYearInGanZhi()}年 ${lunar.getMonthInChinese()}月 ${lunar.getDayInChinese()}`);
+        } catch (e) {
+            setLunarText('日期无效');
         }
+    }, [year, month, day]);
+
+    const handleAnalyze = async () => {
+        const birthInfo = `${year}年${month}月${day}日 ${hour}:00`;
 
         const hasCredits = await onCheckCredits();
         if (!hasCredits) return;
@@ -57,8 +73,14 @@ const WealthView: React.FC<WealthViewProps> = ({ onBack, onCheckCredits, onDeduc
         );
     }
 
+    // 生成选项
+    const years = Array.from({ length: 100 }, (_, i) => 2024 - i);
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+    const days = Array.from({ length: 31 }, (_, i) => i + 1);
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+
     return (
-        <div className="p-6 flex flex-col gap-6">
+        <div className="p-6 flex flex-col gap-6 pb-20">
             <div className="flex items-center gap-4">
                 <button onClick={onBack} className="text-2xl">←</button>
                 <h2 className="text-xl font-bold">看财富</h2>
@@ -66,14 +88,38 @@ const WealthView: React.FC<WealthViewProps> = ({ onBack, onCheckCredits, onDeduc
 
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-amber-100 flex flex-col gap-5">
                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">出生信息 (新历)</label>
-                    <input
-                        type="text"
-                        placeholder="如：1992年5月20日 08:30"
-                        value={birthInfo}
-                        onChange={(e) => setBirthInfo(e.target.value)}
-                        className="w-full h-12 px-4 rounded-xl border border-amber-100 bg-amber-50/30 focus:outline-none focus:ring-2 focus:ring-amber-200 transition-all"
-                    />
+                    <label className="block text-sm font-bold text-gray-700 mb-3">出生信息 (新历)</label>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                        <select
+                            value={year}
+                            onChange={(e) => setYear(parseInt(e.target.value))}
+                            className="h-11 px-3 rounded-xl border border-amber-50 bg-amber-50/20 text-sm focus:outline-none"
+                        >
+                            {years.map(y => <option key={y} value={y}>{y}年</option>)}
+                        </select>
+                        <select
+                            value={month}
+                            onChange={(e) => setMonth(parseInt(e.target.value))}
+                            className="h-11 px-3 rounded-xl border border-amber-50 bg-amber-50/20 text-sm focus:outline-none"
+                        >
+                            {months.map(m => <option key={m} value={m}>{m}月</option>)}
+                        </select>
+                        <select
+                            value={day}
+                            onChange={(e) => setDay(parseInt(e.target.value))}
+                            className="h-11 px-3 rounded-xl border border-amber-50 bg-amber-50/20 text-sm focus:outline-none"
+                        >
+                            {days.map(d => <option key={d} value={d}>{d}日</option>)}
+                        </select>
+                        <select
+                            value={hour}
+                            onChange={(e) => setHour(parseInt(e.target.value))}
+                            className="h-11 px-3 rounded-xl border border-amber-50 bg-amber-50/20 text-sm focus:outline-none"
+                        >
+                            {hours.map(h => <option key={h} value={h}>{h}时</option>)}
+                        </select>
+                    </div>
+                    <p className="text-[10px] text-amber-500 font-medium px-1">{lunarText}</p>
                 </div>
 
                 <div>
