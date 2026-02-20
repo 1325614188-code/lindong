@@ -33,18 +33,28 @@ const InstallPWA: React.FC = () => {
             return false;
         };
 
-        if (checkIfInstalled()) return;
-
         // 检查是否在 index.html 中已经提前捕获了事件
-        if ((window as any).deferredPrompt) {
-            console.log('[InstallPWA] Found early captured beforeinstallprompt event');
-            setDeferredPrompt((window as any).deferredPrompt);
-        }
+        const checkGlobalPrompt = () => {
+            if ((window as any).deferredPrompt) {
+                console.log('[InstallPWA] Found early captured beforeinstallprompt event');
+                setDeferredPrompt((window as any).deferredPrompt);
+                return true;
+            }
+            return false;
+        };
+
+        if (checkGlobalPrompt()) return;
+
+        // 轮询一小段时间，防止有些浏览器发送事件略晚
+        const timer = setInterval(() => {
+            if (checkGlobalPrompt()) clearInterval(timer);
+        }, 1000);
 
         const handleBeforeInstallPrompt = (e: Event) => {
             console.log('[InstallPWA] Captured beforeinstallprompt event');
             e.preventDefault();
             setDeferredPrompt(e as BeforeInstallPromptEvent);
+            (window as any).deferredPrompt = e; // 同步给全局，防止状态丢失
         };
 
         const handleAppInstalled = () => {
@@ -56,6 +66,7 @@ const InstallPWA: React.FC = () => {
         window.addEventListener('appinstalled', handleAppInstalled);
 
         return () => {
+            clearInterval(timer);
             window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
             window.removeEventListener('appinstalled', handleAppInstalled);
         };
@@ -77,12 +88,24 @@ const InstallPWA: React.FC = () => {
             return;
         }
 
-        if (deferredPrompt) {
-            await deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            if (outcome === 'accepted') setDeferredPrompt(null);
+        // 优先使用最新的事件对象
+        const prompt = deferredPrompt || (window as any).deferredPrompt;
+
+        if (prompt) {
+            try {
+                await prompt.prompt();
+                const { outcome } = await prompt.userChoice;
+                if (outcome === 'accepted') {
+                    setDeferredPrompt(null);
+                    (window as any).deferredPrompt = null;
+                }
+            } catch (err) {
+                console.error('[PWA] Prompt error:', err);
+                setShowGuide('social');
+            }
         } else {
-            alert('请点击浏览器菜单中的“添加到主屏幕”手动安装');
+            // 如果完全没有事件（比如部分国产浏览器中），则显示手动引导
+            setShowGuide('social');
         }
     };
 
@@ -114,9 +137,13 @@ const InstallPWA: React.FC = () => {
                             </div>
                         ) : (
                             <div className="text-center">
-                                <h3 className="text-xl font-bold mb-4">提示</h3>
-                                <p className="text-gray-600 mb-6">当前环境不支持直接安装，请点击右上角选择<span className="text-pink-500 font-bold">“在浏览器中打开”</span>后再操作哦～</p>
-                                <button onClick={() => setShowGuide(null)} className="w-full py-3 bg-gray-100 text-gray-600 rounded-xl font-bold">关闭</button>
+                                <h3 className="text-xl font-bold mb-4">如何安装？</h3>
+                                <div className="space-y-4 text-left text-gray-600 text-sm">
+                                    <p>1. 点击浏览器底部的菜单按钮（或右上角三个点）</p>
+                                    <p>2. 在菜单中找到<span className="text-pink-500 font-bold">“添加至主屏幕”</span>或<span className="text-pink-500 font-bold">“安装应用”</span></p>
+                                    <p>3. 这样就能像 App 一样从桌面快速打开啦！✨</p>
+                                </div>
+                                <button onClick={() => setShowGuide(null)} className="mt-8 w-full py-3 bg-pink-500 text-white rounded-xl font-bold italic">我知道了</button>
                             </div>
                         )}
                     </div>

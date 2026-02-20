@@ -10,6 +10,7 @@
   <meta name="theme-color" content="#ff4d6d" />
   <meta name="description" content="你的专属AI颜究院 - 发现你的独属魅力" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="美力实验室" />
   <link rel="icon" type="image/svg+xml" href="/logo.svg" />
@@ -67,9 +68,9 @@
 <body>
   <div id="root"></div>
   <script>
-    window.deferredPrompt = null;
+    // 提前捕获 PWA 安装事件，防止 React 加载过慢导致错过
     window.addEventListener('beforeinstallprompt', (e) => {
-      console.log('[Global] Captured beforeinstallprompt early');
+      console.log('[PWA] Captured beforeinstallprompt early');
       e.preventDefault();
       window.deferredPrompt = e;
     });
