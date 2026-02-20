@@ -407,6 +407,58 @@ export default async function handler(req: any, res: any) {
             }
 
 
+            case 'getReferralHistory': {
+                const { userId } = data;
+
+                // 查询通过我的链接注册的所有用户
+                const { data: users, error: usersError } = await supabase
+                    .from('users')
+                    .select('id, username, created_at')
+                    .eq('referrer_id', userId)
+                    .order('created_at', { ascending: false });
+
+                if (usersError) {
+                    return res.status(500).json({ error: 'Failed to fetch referral history' });
+                }
+
+                if (!users || users.length === 0) {
+                    return res.status(200).json({ history: [] });
+                }
+
+                const userIds = users.map(u => u.id);
+
+                // 查询这些用户的所有已付款订单
+                const { data: orders, error: ordersError } = await supabase
+                    .from('orders')
+                    .select('user_id, amount')
+                    .in('user_id', userIds)
+                    .eq('status', 'paid');
+
+                if (ordersError) {
+                    return res.status(500).json({ error: 'Failed to fetch order history' });
+                }
+
+                // 组装数据
+                const history = users.map(u => {
+                    const userOrders = orders?.filter(o => o.user_id === u.id) || [];
+                    const totalRecharge = userOrders.reduce((sum, o) => sum + Number(o.amount || 0), 0);
+
+                    // 隐藏部分用户名保护隐私
+                    const displayUsername = u.username.length > 4
+                        ? `${u.username.substring(0, 2)}***${u.username.substring(u.username.length - 2)}`
+                        : `${u.username.substring(0, 1)}***`;
+
+                    return {
+                        id: u.id,
+                        username: displayUsername, // 脱敏处理
+                        created_at: u.created_at,
+                        total_recharge: totalRecharge
+                    };
+                });
+
+                return res.status(200).json({ history });
+            }
+
             case 'getReferralStats': {
                 const { userId } = data;
 

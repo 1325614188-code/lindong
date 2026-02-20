@@ -17,6 +17,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
     const [rechargeMessage, setRechargeMessage] = useState('');
     const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
     const [referralCount, setReferralCount] = useState(0);
+    const [referralHistory, setReferralHistory] = useState<any[]>([]);
     const [userPoints, setUserPoints] = useState(0);
     const [pointsMessage, setPointsMessage] = useState('');
 
@@ -65,6 +66,16 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
             })
                 .then(res => res.json())
                 .then(data => setReferralCount(data.referralCount || 0))
+                .catch(console.error);
+
+            // 加载分享历史记录
+            fetch(`/api/auth_v2?t=${ts}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getReferralHistory', userId: user.id })
+            })
+                .then(res => res.json())
+                .then(data => setReferralHistory(data.history || []))
                 .catch(console.error);
 
             // 加载积分
@@ -389,6 +400,36 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     <p className="mt-3 text-[10px] text-gray-400 text-center">
                         * 余额满额后可联系客服申请提现（微信：{config.contact_wechat || 'sekesm'}）
                     </p>
+                </div>
+
+                {/* 推荐记录 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                        <span className="text-xl">👥</span>
+                        <h4 className="font-bold">推荐记录</h4>
+                    </div>
+                    {referralHistory.length === 0 ? (
+                        <p className="text-sm text-gray-400 text-center py-4">暂无推荐记录</p>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="flex text-xs text-gray-400 border-b pb-2">
+                                <div className="flex-1">用户</div>
+                                <div className="w-24 text-center">注册时间</div>
+                                <div className="w-20 text-right">累计充值</div>
+                            </div>
+                            {referralHistory.map((record: any, index: number) => (
+                                <div key={index} className="flex items-center text-sm py-1 border-b border-gray-50 last:border-0">
+                                    <div className="flex-1 font-medium text-gray-700">{record.username}</div>
+                                    <div className="w-24 text-xs text-gray-500 text-center">
+                                        {new Date(record.created_at).toLocaleDateString()}
+                                    </div>
+                                    <div className="w-20 text-right text-orange-500 font-bold">
+                                        ¥{(record.total_recharge || 0).toFixed(2)}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* 推荐奖励积分 (根据后台逻辑显示) */}
