@@ -447,7 +447,10 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 {/* 充值 (根据后台开关显示) */}
                 {config.recharge_enabled === 'true' && (
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
-                        <h4 className="font-bold mb-2">💰 充值次数</h4>
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-bold">💰 充值次数</h4>
+                            <span className="text-[10px] text-gray-400">支付成功后，刷新网页更新次数</span>
+                        </div>
 
                         {/* 支付状态轮询提示 */}
                         {pendingOrderId && (
