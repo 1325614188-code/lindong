@@ -18,12 +18,12 @@ const InstallPWA: React.FC = () => {
     const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
     const [isInstalled, setIsInstalled] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [showFallback, setShowFallback] = useState(false);
 
     useEffect(() => {
         const ua = window.navigator.userAgent;
         setIsMobile(/Android|iPhone|iPad|iPod|Windows Phone|Mobile/i.test(ua));
 
-        // 检查是否已经安装
         const checkIfInstalled = () => {
             if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
                 setIsInstalled(true);
@@ -32,7 +32,6 @@ const InstallPWA: React.FC = () => {
             return false;
         };
 
-        // 检查是否在 index.html 中已经提前捕获了事件
         const checkGlobalPrompt = () => {
             if ((window as any).deferredPrompt) {
                 setDeferredPrompt((window as any).deferredPrompt);
@@ -41,9 +40,9 @@ const InstallPWA: React.FC = () => {
             return false;
         };
 
-        if (checkGlobalPrompt()) return;
+        if (checkIfInstalled()) return;
+        checkGlobalPrompt();
 
-        // 持续轮询，直到捕捉到事件
         const timer = setInterval(() => {
             if (checkGlobalPrompt()) clearInterval(timer);
         }, 1000);
@@ -82,24 +81,40 @@ const InstallPWA: React.FC = () => {
                     (window as any).deferredPrompt = null;
                 }
             } catch (err) {
-                console.error('[PWA] Native prompt failed:', err);
+                setShowFallback(true);
             }
+        } else {
+            // 如果没有捕捉到原生信号（如 iOS 或部分国产浏览器拦截）
+            setShowFallback(true);
+            // 3秒后自动关闭提示
+            setTimeout(() => setShowFallback(false), 5000);
         }
     };
 
-    // 只有在【未安装】且【已捕捉到原生安装信号】时才显示按钮
-    // 这保证了点击按钮必然弹出系统原生安装框，不再有任何“手动操作”
-    const activePrompt = deferredPrompt || (window as any).deferredPrompt;
-    if (isInstalled || !isMobile || !activePrompt) return null;
+    if (isInstalled || !isMobile) return null;
 
     return (
-        <button
-            onClick={handleInstallClick}
-            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] active:scale-95 mb-6"
-        >
-            <span className="text-xl">📲</span>
-            <span>把网站添加到桌面</span>
-        </button>
+        <div className="relative w-full mb-6">
+            <button
+                onClick={handleInstallClick}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] active:scale-95"
+            >
+                <span className="text-xl">📲</span>
+                <span>把网站添加到桌面</span>
+            </button>
+
+            {showFallback && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white/90 backdrop-blur-md border border-pink-100 p-4 rounded-2xl shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-start gap-3">
+                        <span className="text-xl">💡</span>
+                        <div className="text-sm text-gray-700 leading-relaxed font-medium">
+                            <p>由于当前浏览器限制，无法点击一键添加。</p>
+                            <p className="mt-1">请点击浏览器菜单中的 <span className="text-pink-600 font-bold">“添加至主屏幕”</span> 即可完成。✨</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 
