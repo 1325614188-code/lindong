@@ -172,6 +172,9 @@ export default async function handler(req: any, res: any) {
 
                 if (userError) throw userError;
 
+                // 尝试静默记录注册环境(若用户尚未在数据库创建 register_env 字段，此行报错将被忽略，防止注册崩溃)
+                await supabase.from('users').update({ register_env: env }).eq('id', newUser.id);
+
                 // 记录设备首个用户
                 if (isFirstOnDevice) {
                     await supabase.from('devices').insert({
@@ -413,7 +416,7 @@ export default async function handler(req: any, res: any) {
                 // 查询通过我的链接注册的所有用户
                 const { data: users, error: usersError } = await supabase
                     .from('users')
-                    .select('id, username, created_at')
+                    .select('*')
                     .eq('referrer_id', userId)
                     .order('created_at', { ascending: false });
 
@@ -452,6 +455,7 @@ export default async function handler(req: any, res: any) {
                         id: u.id,
                         username: displayUsername, // 脱敏处理
                         created_at: u.created_at,
+                        register_env: u.register_env || 'unknown',
                         total_recharge: totalRecharge
                     };
                 });

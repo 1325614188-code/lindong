@@ -402,36 +402,6 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     </p>
                 </div>
 
-                {/* 推荐记录 */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4">
-                        <span className="text-xl">👥</span>
-                        <h4 className="font-bold">推荐记录</h4>
-                    </div>
-                    {referralHistory.length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-4">暂无推荐记录</p>
-                    ) : (
-                        <div className="space-y-3">
-                            <div className="flex text-xs text-gray-400 border-b pb-2">
-                                <div className="flex-1">用户</div>
-                                <div className="w-24 text-center">注册时间</div>
-                                <div className="w-20 text-right">累计充值</div>
-                            </div>
-                            {referralHistory.map((record: any, index: number) => (
-                                <div key={index} className="flex items-center text-sm py-1 border-b border-gray-50 last:border-0">
-                                    <div className="flex-1 font-medium text-gray-700">{record.username}</div>
-                                    <div className="w-24 text-xs text-gray-500 text-center">
-                                        {new Date(record.created_at).toLocaleDateString()}
-                                    </div>
-                                    <div className="w-20 text-right text-orange-500 font-bold">
-                                        ¥{(record.total_recharge || 0).toFixed(2)}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
                 {/* 推荐奖励积分 (根据后台逻辑显示) */}
                 {config.referral_points_enabled === 'true' && (
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -559,6 +529,43 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 >
                     退出登录
                 </button>
+
+                {/* 推荐记录 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm mt-4">
+                    <div className="flex items-center gap-2 mb-4">
+                        <span className="text-xl">👥</span>
+                        <h4 className="font-bold">推荐记录</h4>
+                    </div>
+                    {referralHistory.length === 0 ? (
+                        <p className="text-sm text-gray-400 text-center py-4">暂无推荐记录</p>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="flex text-xs text-gray-400 border-b pb-2">
+                                <div className="flex-1">用户</div>
+                                <div className="w-20 text-center shrink-0">注册时间</div>
+                                <div className="w-20 text-center shrink-0">浏览器注册</div>
+                                <div className="w-16 text-right shrink-0">充值金额</div>
+                            </div>
+                            {referralHistory.map((record: any, index: number) => (
+                                <div key={index} className="flex items-center text-sm py-2 border-b border-gray-50 last:border-0">
+                                    <div className="flex-1 font-medium text-gray-700 truncate pr-1">{record.username}</div>
+                                    <div className="w-20 text-xs text-gray-500 text-center shrink-0">
+                                        {new Date(record.created_at).toLocaleDateString()}
+                                    </div>
+                                    <div className="w-20 text-xs text-center shrink-0">
+                                        {record.register_env === 'browser'
+                                            ? <span className="text-green-500">✅是</span>
+                                            : (record.register_env === 'unknown' ? <span className="text-gray-400">❓未知</span> : <span className="text-red-400">❌否</span>)
+                                        }
+                                    </div>
+                                    <div className="w-16 text-right text-orange-500 font-bold shrink-0">
+                                        ¥{(record.total_recharge || 0).toFixed(2)}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
