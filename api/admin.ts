@@ -39,7 +39,7 @@ export default async function handler(req: any, res: any) {
 
         switch (action) {
             case 'initAdmin': {
-                // 初始化管理员账户
+                // 初始化/重置管理员账户
                 const { data: existing } = await supabase
                     .from('users')
                     .select('id')
@@ -54,6 +54,15 @@ export default async function handler(req: any, res: any) {
                         credits: 9999,
                         is_admin: true
                     });
+                } else {
+                    // 如果已存在，则重置密码和管理员权限
+                    await supabase
+                        .from('users')
+                        .update({
+                            password_hash: hashPassword(ADMIN_PASSWORD),
+                            is_admin: true
+                        })
+                        .eq('username', ADMIN_USERNAME);
                 }
 
                 return res.status(200).json({ success: true });
