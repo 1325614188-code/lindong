@@ -26,10 +26,22 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         return deviceId.slice(-6).toUpperCase();
     };
 
-    // 生成分享链接
+    // 生成更短的分享链接：设备后缀(6位) + 基于设备ID的2位字母校验码 = 8位短码
     const getShareLink = (): string => {
         const baseUrl = window.location.origin;
-        return `${baseUrl}?ref=${user?.id}&d=${getDeviceIdSuffix()}`;
+        const deviceId = localStorage.getItem('device_id') || '';
+
+        // 计算基于 deviceId 的2位字母
+        let hash = 0;
+        for (let i = 0; i < deviceId.length; i++) {
+            hash = (hash << 5) - hash + deviceId.charCodeAt(i);
+            hash |= 0;
+        }
+        const char1 = String.fromCharCode(65 + Math.abs(hash) % 26);
+        const char2 = String.fromCharCode(65 + Math.abs(hash >> 5) % 26);
+
+        const shortCode = `${getDeviceIdSuffix()}${char1}${char2}`;
+        return `${baseUrl}?ref=${shortCode}`;
     };
 
     // 加载配置

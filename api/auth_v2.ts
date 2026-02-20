@@ -143,13 +143,48 @@ export default async function handler(req: any, res: any) {
                     });
                 }
 
-                // 如果有推荐人，给推荐人增加次数
+                // 如果有推荐人标识(UUID 或短码)，尝试找到真正的推荐人ID
                 if (referrerId) {
+                    let realReferrerId = referrerId;
+
+                    // 如果长度不是 UUID 格式(通常是36位)，而是我们的8位短码
+                    if (referrerId.length < 32) {
+                        const suffix = referrerId.substring(0, 6);
+
+                        // 查找具有匹配设备后缀的最早用户 (可能有多设备同后缀，取第一个)
+                        const { data: potentialReferrers } = await supabase
+                            .from('users')
+                            .select('id, device_id')
+                            .ilike('device_id', `%${suffix}%`)
+                            .order('created_at', { ascending: true })
+                            .limit(10);
+
+                        if (potentialReferrers && potentialReferrers.length > 0) {
+                            // 验证 hash 后缀
+                            for (const pr of potentialReferrers) {
+                                if (!pr.device_id) continue;
+                                let hash = 0;
+                                for (let i = 0; i < pr.device_id.length; i++) {
+                                    hash = (hash << 5) - hash + pr.device_id.charCodeAt(i);
+                                    hash |= 0;
+                                }
+                                const char1 = String.fromCharCode(65 + Math.abs(hash) % 26);
+                                const char2 = String.fromCharCode(65 + Math.abs(hash >> 5) % 26);
+                                const expectedShortCode = `${suffix.toUpperCase()}${char1}${char2}`;
+
+                                if (expectedShortCode === referrerId) {
+                                    realReferrerId = pr.id;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
                     // 检查推荐人是否存在
                     const { data: referrer } = await supabase
                         .from('users')
                         .select('id')
-                        .eq('id', referrerId)
+                        .eq('id', realReferrerId)
                         .single();
 
                     if (referrer) {
@@ -157,13 +192,13 @@ export default async function handler(req: any, res: any) {
                         const { data: existingReward } = await supabase
                             .from('referral_rewards')
                             .select('id')
-                            .eq('referrer_id', referrerId)
+                            .eq('referrer_id', realReferrerId)
                             .eq('device_id', deviceId)
                             .single();
 
                         if (!existingReward) {
                             // 使用 add_credits 函数增加次数
-                            await supabase.rpc('add_credits', { user_id: referrerId, amount: 1 });
+                            await supabase.rpc('add_credits', { user_id: realReferrerId, amount: 1 });
 
                             // 检查是否开启了积分奖励
                             const { data: config } = await supabase
@@ -174,12 +209,12 @@ export default async function handler(req: any, res: any) {
 
                             if (config?.value === 'true') {
                                 // 增加1个推荐积分
-                                await supabase.rpc('add_points', { user_id: referrerId, amount: 1 });
+                                await supabase.rpc('add_points', { user_id: realReferrerId, amount: 1 });
                             }
 
                             // 记录奖励
                             await supabase.from('referral_rewards').insert({
-                                referrer_id: referrerId,
+                                referrer_id: realReferrerId,
                                 new_user_id: newUser.id,
                                 device_id: deviceId
                             });
