@@ -126,12 +126,14 @@ export default async function handler(req: any, res: any) {
 
                     const { data: potentialReferrers } = await supabase
                         .from('users')
-                        .select('id, device_id')
+                        .select('id, device_id, is_admin')
                         .ilike('device_id', `%${suffix}%`)
                         .order('created_at', { ascending: true })
-                        .limit(10);
+                        .limit(50);
 
                     if (potentialReferrers && potentialReferrers.length > 0) {
+                        let matchedUsers: any[] = [];
+
                         for (const pr of potentialReferrers) {
                             if (!pr.device_id) continue;
                             let hash = 0;
@@ -144,8 +146,17 @@ export default async function handler(req: any, res: any) {
                             const expectedShortCode = `${suffix.toUpperCase()}${char1}${char2}`;
 
                             if (expectedShortCode === referrerId) {
-                                realReferrerId = pr.id; // 解析到了真正的 UUID
-                                break;
+                                matchedUsers.push(pr);
+                            }
+                        }
+
+                        if (matchedUsers.length > 0) {
+                            // 优先级：1. 管理员 2. 也是最早注册的账号
+                            const adminUser = matchedUsers.find(u => u.is_admin);
+                            if (adminUser) {
+                                realReferrerId = adminUser.id;
+                            } else {
+                                realReferrerId = matchedUsers[0].id;
                             }
                         }
                     }
