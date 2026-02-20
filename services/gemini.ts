@@ -23,6 +23,17 @@ async function callApi(body: Record<string, any>): Promise<any> {
   return response.json();
 }
 
+/**
+ * 检测照片是否合规（包含人脸和上半身）
+ */
+export const detectPhotoContent = async (image: string): Promise<boolean> => {
+  const { valid } = await callApi({
+    action: 'detectPhotoContent',
+    image
+  });
+  return valid;
+};
+
 export const analyzeImage = async (
   prompt: string,
   images: string[],

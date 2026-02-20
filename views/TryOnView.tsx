@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { generateTryOnImage } from '../services/gemini';
+import { generateTryOnImage, detectPhotoContent } from '../services/gemini';
 
 interface TryOnViewProps {
   type: 'clothes' | 'accessories';
@@ -15,11 +15,35 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+  const [detecting, setDetecting] = useState(false);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isFaceImage: boolean) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => setter(reader.result as string);
+      reader.onload = async () => {
+        const imageData = reader.result as string;
+
+        if (isFaceImage) {
+          setDetecting(true);
+          setFaceImage(imageData); // 先显示预览，增强反馈感
+          try {
+            const isValid = await detectPhotoContent(imageData);
+            if (!isValid) {
+              alert('检测失败：需要上传带脸部的上半身正面照片（需露出肩膀和胸部）。');
+              setFaceImage(null);
+            }
+          } catch (error) {
+            console.error('[TryOnView] Detection error:', error);
+            // 如果检测接口报错，为了不影响核心流程，默认放行或提示重传
+            // 这里选择允许，但在生成逻辑里会有 AI 最终把关
+          } finally {
+            setDetecting(false);
+          }
+        } else {
+          setItemImage(imageData);
+        }
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -63,14 +87,22 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
           <p className="text-xs font-bold text-gray-500">1. 上传上半身人脸照片</p>
           <label className="aspect-[3/4] rounded-2xl bg-white border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden cursor-pointer">
             {faceImage ? (
-              <img src={faceImage} className="w-full h-full object-cover" />
+              <div className="relative w-full h-full">
+                <img src={faceImage} className={`w-full h-full object-cover ${detecting ? 'opacity-50 grayscale' : ''}`} />
+                {detecting && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 text-white">
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mb-2" />
+                    <span className="text-[10px] font-bold">检测照片中...</span>
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <span className="text-3xl">👤</span>
                 <span className="text-xs text-gray-400 mt-2 px-2 text-center">请上传清晰的上半身照片</span>
               </>
             )}
-            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, setFaceImage)} />
+            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, true)} />
           </label>
         </div>
 
@@ -82,14 +114,14 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
             ) : (
               <span className="text-3xl">{type === 'clothes' ? '👗' : '👂'}</span>
             )}
-            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, setItemImage)} />
+            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, false)} />
           </label>
         </div>
       </div>
 
       <button
         onClick={handleGenerate}
-        disabled={!faceImage || !itemImage || loading}
+        disabled={!faceImage || !itemImage || loading || detecting}
         className="w-full h-14 bg-pink-500 text-white rounded-2xl font-bold disabled:bg-gray-300 transition-all flex items-center justify-center gap-2"
       >
         {loading ? (

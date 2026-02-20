@@ -93,9 +93,35 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const { action, type, images, gender, baseImage, itemImage, itemType, faceImage } = req.body;
+        const { action, type, images, gender, baseImage, itemImage, itemType, faceImage, image } = req.body;
 
         switch (action) {
+            case 'detectPhotoContent': {
+                // 用于检测用户上传的照片是否符合要求（脸部+上半身）
+                const result = await requestWithRetry(async (ai) => {
+                    const systemInstruction = "你是一个图像合规性审计专家。判断用户上传的图片是否同时包含【清晰的人脸】以及【至少覆盖肩膀和胸部的上半身部位】。如果是，回复 TRUE，否则回复 FALSE。只需要回复一个单词，不要说明原因。";
+                    const contents = {
+                        parts: [
+                            {
+                                inlineData: {
+                                    mimeType: 'image/jpeg',
+                                    data: image.split(',')[1] || image
+                                }
+                            },
+                            { text: "这张图是否符合：包含人脸且包含足以试穿衣服的上半身？" }
+                        ]
+                    };
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-3-flash-preview',
+                        contents,
+                        config: { systemInstruction, temperature: 0.1 }
+                    });
+                    return response.text.trim().toUpperCase() === 'TRUE';
+                });
+
+                return res.status(200).json({ valid: result });
+            }
+
             case 'analyze': {
                 // 图像分析 (颜值打分、舌诊、面诊等)
                 const isBeautyScore = type === '颜值打分';
