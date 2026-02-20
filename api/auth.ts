@@ -80,18 +80,26 @@ export default async function handler(req: any, res: any) {
 
         switch (action) {
             case 'register': {
-                const { username, password, nickname, deviceId, referrerId } = data;
+                const { username: rawUsername, password: rawPassword, nickname, deviceId, referrerId } = data;
+                const username = rawUsername?.trim();
+                const password = rawPassword?.trim();
+
+                if (!username || !password) {
+                    return res.status(400).json({ error: '用户名和密码不能为空' });
+                }
+
                 const userAgent = req.headers['user-agent'] || '';
                 const env = getEnvironment(userAgent);
                 const isBrowser = env === 'browser';
 
                 // 检查用户名是否已存在
-                const { data: existing } = await supabase
+                const { data: existing, error: checkError } = await supabase
                     .from('users')
                     .select('id')
                     .eq('username', username)
-                    .single();
+                    .maybeSingle(); // 使用 maybeSingle 避免无结果时报错
 
+                if (checkError) throw checkError;
                 if (existing) {
                     return res.status(400).json({ error: '用户名已存在' });
                 }
@@ -188,16 +196,27 @@ export default async function handler(req: any, res: any) {
             }
 
             case 'login': {
-                const { username, password } = data;
+                const { username: rawUsername, password: rawPassword } = data;
+                const username = rawUsername?.trim();
+                const password = rawPassword?.trim();
+
+                if (!username || !password) {
+                    return res.status(400).json({ error: '用户名和密码不能为空' });
+                }
 
                 const { data: user, error } = await supabase
                     .from('users')
                     .select('id, username, nickname, credits, points, commission_balance, is_admin')
                     .eq('username', username)
                     .eq('password_hash', hashPassword(password))
-                    .single();
+                    .maybeSingle();
 
-                if (error || !user) {
+                if (error) {
+                    console.error('[Login Error Detail]', error);
+                    return res.status(500).json({ error: '登录服务异常，请稍后重试' });
+                }
+
+                if (!user) {
                     return res.status(401).json({ error: '用户名或密码错误' });
                 }
 
