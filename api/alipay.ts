@@ -165,7 +165,6 @@ export default async function handler(req: any, res: any) {
                         .from('orders')
                         .update({
                             status: 'paid',
-                            trade_no: trade_no,
                             paid_at: new Date().toISOString()
                         })
                         .eq('trade_no', out_trade_no);
@@ -257,7 +256,6 @@ export default async function handler(req: any, res: any) {
                     .from('orders')
                     .update({
                         status: 'paid',
-                        trade_no: `manual_${Date.now()}`,
                         paid_at: new Date().toISOString()
                     })
                     .eq('trade_no', orderId);

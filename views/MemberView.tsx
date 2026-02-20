@@ -73,6 +73,49 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         }
     }, []);
 
+    // 监听 pendingOrderId，自动轮询支付结果
+    useEffect(() => {
+        if (!pendingOrderId) return;
+
+        let pollCount = 0;
+        const maxPolls = 100; // 最多轮询 5 分钟 (100 * 3s)
+
+        const pollStatus = async () => {
+            if (pollCount >= maxPolls) {
+                setRechargeMessage('⚠️ 支付状态查询超时，请刷新重试或联系客服');
+                localStorage.removeItem('pending_order_id');
+                setPendingOrderId(null);
+                return;
+            }
+            pollCount++;
+
+            try {
+                const res = await fetch('/api/alipay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'checkOrder', orderId: pendingOrderId })
+                });
+
+                if (!res.ok) return;
+                const data = await res.json();
+
+                if (data.status === 'paid') {
+                    setRechargeMessage(`✅ 充值成功！自动为您增加了 ${data.credits} 次额度`);
+                    localStorage.removeItem('pending_order_id');
+                    setPendingOrderId(null);
+                    refreshUser();
+                }
+            } catch (err) {
+                console.error('Polling error', err);
+            }
+        };
+
+        // 立即查询一次
+        pollStatus();
+        const timer = setInterval(pollStatus, 3000);
+        return () => clearInterval(timer);
+    }, [pendingOrderId]);
+
     // 刷新用户信息并同步到父组件
     const refreshUser = async () => {
         try {
@@ -379,16 +422,20 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
                         <h4 className="font-bold mb-2">💰 充值次数</h4>
 
-                        {/* 待确认订单提示 */}
+                        {/* 支付状态轮询提示 */}
                         {pendingOrderId && (
-                            <div className="mb-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
-                                <p className="text-sm text-yellow-700 mb-2">📌 您有待确认的充值订单</p>
+                            <div className="mb-3 p-3 bg-blue-50 rounded-xl border border-blue-200 flex flex-col items-center justify-center py-4 space-y-3">
+                                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                <p className="text-sm text-blue-700 font-bold">正在自动查询支付结果...</p>
                                 <button
-                                    onClick={confirmPayment}
-                                    disabled={loading}
-                                    className="w-full h-10 bg-yellow-500 text-white rounded-xl font-bold"
+                                    onClick={() => {
+                                        localStorage.removeItem('pending_order_id');
+                                        setPendingOrderId(null);
+                                        setRechargeMessage('已取消自动查询');
+                                    }}
+                                    className="text-xs text-blue-500 underline"
                                 >
-                                    {loading ? '确认中...' : '已支付完成？点击确认'}
+                                    关闭查询
                                 </button>
                             </div>
                         )}
