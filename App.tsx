@@ -79,6 +79,7 @@ const App: React.FC = () => {
 
   const handleLogin = (loggedUser: any) => {
     setUser(loggedUser);
+    localStorage.setItem('user', JSON.stringify(loggedUser));
     setShowLogin(false);
 
     // 如果是管理员，显示管理后台

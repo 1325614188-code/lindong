@@ -85,7 +85,16 @@ export default async function handler(req: any, res: any) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        const { action, ...data } = req.body;
+        // 解析请求数据 (兼容 JSON 和 form-urlencoded)
+        let body = req.body || {};
+        const query = req.query || {};
+
+        // 自动检测支付宝回调 (通常包含 trade_no 和 out_trade_no)
+        const isAlipayNotify = body.trade_no && body.out_trade_no && (body.trade_status || body.notify_id);
+        const action = isAlipayNotify ? 'notify' : (body.action || query.action);
+        const data = body;
+
+        console.log(`[Alipay Handler] Action: ${action}, Method: ${req.method}, Notify: ${isAlipayNotify}`);
 
         switch (action) {
             case 'createOrder': {
@@ -94,6 +103,7 @@ export default async function handler(req: any, res: any) {
                 // 获取支付宝配置
                 const config = await getAlipayConfig();
                 if (!config.alipay_app_id || !config.alipay_private_key) {
+                    console.error('[createOrder] Alipay config incomplete.');
                     return res.status(400).json({ error: '支付宝配置不完整' });
                 }
 
@@ -132,61 +142,73 @@ export default async function handler(req: any, res: any) {
                 const { out_trade_no, trade_status } = data;
 
                 if (trade_status === 'TRADE_SUCCESS' || trade_status === 'TRADE_FINISHED') {
-                    // 更新订单状态
-                    const { data: order } = await supabase
+                    const { trade_no } = data;
+                    // 1. 获取订单详情 (确保订单存在且未支付)
+                    const { data: order, error: fetchError } = await supabase
                         .from('orders')
-                        .select('id, user_id, credits, amount, status')
-                        .eq('trade_no', out_trade_no)
+                        .select('*')
+                        .eq('id', out_trade_no) // out_trade_no 即为数据库中的 id (UUID)
                         .single();
 
-                    if (order && order.status === 'pending') {
-                        // 更新订单为已支付
-                        await supabase
-                            .from('orders')
-                            .update({ status: 'paid', paid_at: new Date().toISOString() })
-                            .eq('trade_no', out_trade_no);
+                    if (fetchError || !order) {
+                        console.error('[Alipay Notify] Order not found:', out_trade_no, fetchError);
+                        return res.status(200).send('success'); // 告诉支付宝处理过，止损
+                    }
 
-                        // 增加用户额度
-                        const { error: creditError } = await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
-                        if (creditError) console.error('[Alipay Notify] Credit RPC Error:', creditError);
+                    if (order.status === 'paid') {
+                        console.log('[Alipay Notify] Order already paid:', out_trade_no);
+                        return res.status(200).send('success');
+                    }
 
-                        // 推荐佣金逻辑
-                        const { data: user, error: userError } = await supabase
-                            .from('users')
-                            .select('referrer_id')
-                            .eq('id', order.user_id)
-                            .single();
+                    // 2. 更新订单状态
+                    const { error: updateError } = await supabase
+                        .from('orders')
+                        .update({
+                            status: 'paid',
+                            trade_no: trade_no,
+                            paid_at: new Date().toISOString()
+                        })
+                        .eq('id', out_trade_no);
 
-                        if (userError) console.error('[Alipay Notify] Get User Error:', userError);
+                    if (updateError) {
+                        console.error('[Alipay Notify] Update Order Error:', updateError);
+                        throw updateError;
+                    }
 
-                        if (user?.referrer_id) {
-                            console.log('[Alipay Notify] Processing commission for referrer:', user.referrer_id);
-                            // 获取佣金比例配置 (默认 40%)
-                            const alipayConfig = await getAlipayConfig();
-                            const rate = parseInt(alipayConfig.commission_rate || '40') / 100;
-                            const commissionAmount = Number(order.amount) * rate;
+                    // 3. 增加用户额度
+                    const { error: creditError } = await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
+                    if (creditError) console.error('[Alipay Notify] Credit RPC Error:', creditError);
 
-                            // 增加推荐人佣金余额
-                            const { error: commissionError } = await supabase.rpc('add_commission', {
-                                user_id: user.referrer_id,
-                                amount: commissionAmount
-                            });
+                    // 4. 推荐佣金逻辑
+                    const { data: user, error: userError } = await supabase
+                        .from('users')
+                        .select('referrer_id')
+                        .eq('id', order.user_id)
+                        .single();
 
-                            if (commissionError) {
-                                console.error('[Alipay Notify] Commission RPC Error:', commissionError);
-                            } else {
-                                // 记录佣金流水
-                                await supabase.from('commissions').insert({
-                                    user_id: user.referrer_id,
-                                    source_user_id: order.user_id,
-                                    order_id: order.id,
-                                    amount: commissionAmount,
-                                    status: 'completed'
-                                });
-                                console.log('[Alipay Notify] Commission recorded:', commissionAmount);
-                            }
+                    if (userError) console.error('[Alipay Notify] Get User Error:', userError);
+
+                    if (user?.referrer_id) {
+                        console.log('[Alipay Notify] Processing commission for referrer:', user.referrer_id);
+                        const alipayConfig = await getAlipayConfig();
+                        const rate = parseInt(alipayConfig.commission_rate || '40') / 100;
+                        const commissionAmount = Number(order.amount) * rate;
+
+                        const { error: commissionError } = await supabase.rpc('add_commission', {
+                            user_id: user.referrer_id,
+                            amount: commissionAmount
+                        });
+
+                        if (commissionError) {
+                            console.error('[Alipay Notify] Commission RPC Error:', commissionError);
                         } else {
-                            console.log('[Alipay Notify] No referrer found for user:', order.user_id);
+                            await supabase.from('commissions').insert({
+                                user_id: user.referrer_id,
+                                source_user_id: order.user_id,
+                                order_id: order.id,
+                                amount: commissionAmount,
+                                status: 'completed'
+                            });
                         }
                     }
                 }
@@ -213,33 +235,40 @@ export default async function handler(req: any, res: any) {
 
             case 'confirmOrder': {
                 // 用户主动确认订单（用于回调失效时）
-                const { orderId, userId } = data;
-
-                const { data: order } = await supabase
+                const { orderId } = data;
+                // 1. 获取订单
+                const { data: order, error: orderError } = await supabase
                     .from('orders')
-                    .select('id, user_id, credits, amount, status')
-                    .eq('trade_no', orderId)
+                    .select('*')
+                    .eq('id', orderId)
                     .single();
 
-                if (!order) {
+                if (orderError || !order) {
+                    console.error('[ConfirmOrder] Order not found:', orderId);
                     return res.status(404).json({ error: '订单不存在' });
                 }
 
                 if (order.status === 'paid') {
-                    return res.status(200).json({ success: true, message: '订单已处理', credits: order.credits });
+                    return res.status(200).json({ success: true, message: '订单已支付', credits: order.credits });
                 }
 
-                // 更新订单为已支付
-                await supabase
+                // 2. 更新订单状态
+                const { error: updateError } = await supabase
                     .from('orders')
-                    .update({ status: 'paid', paid_at: new Date().toISOString() })
-                    .eq('trade_no', orderId);
+                    .update({
+                        status: 'paid',
+                        trade_no: `manual_${Date.now()}`,
+                        paid_at: new Date().toISOString()
+                    })
+                    .eq('id', orderId);
 
-                // 增加用户额度
+                if (updateError) throw updateError;
+
+                // 3. 增加用户额度
                 const { error: creditError } = await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
                 if (creditError) console.error('[ConfirmOrder] Credit RPC Error:', creditError);
 
-                // 推荐佣金逻辑
+                // 4. 推荐佣金逻辑
                 const { data: user, error: userError } = await supabase
                     .from('users')
                     .select('referrer_id')
@@ -250,12 +279,10 @@ export default async function handler(req: any, res: any) {
 
                 if (user?.referrer_id) {
                     console.log('[ConfirmOrder] Processing commission for referrer:', user.referrer_id);
-                    // 获取分佣比例
                     const alipayConfig = await getAlipayConfig();
                     const rate = parseInt(alipayConfig.commission_rate || '40') / 100;
                     const commissionAmount = Number(order.amount) * rate;
 
-                    // 增加推荐人佣金
                     const { error: commissionError } = await supabase.rpc('add_commission', {
                         user_id: user.referrer_id,
                         amount: commissionAmount
@@ -264,23 +291,13 @@ export default async function handler(req: any, res: any) {
                     if (commissionError) {
                         console.error('[ConfirmOrder] Commission RPC Error:', commissionError);
                     } else {
-                        // 记录流水 (避免重复)
-                        const { data: existing } = await supabase
-                            .from('commissions')
-                            .select('id')
-                            .eq('order_id', order.id)
-                            .maybeSingle();
-
-                        if (!existing) {
-                            await supabase.from('commissions').insert({
-                                user_id: user.referrer_id,
-                                source_user_id: order.user_id,
-                                order_id: order.id,
-                                amount: commissionAmount,
-                                status: 'completed'
-                            });
-                            console.log('[ConfirmOrder] Commission recorded:', commissionAmount);
-                        }
+                        await supabase.from('commissions').insert({
+                            user_id: user.referrer_id,
+                            source_user_id: order.user_id,
+                            order_id: order.id,
+                            amount: commissionAmount,
+                            status: 'completed'
+                        });
                     }
                 }
 
@@ -292,7 +309,8 @@ export default async function handler(req: any, res: any) {
             }
 
             default:
-                return res.status(400).json({ error: 'Invalid action' });
+                console.warn('[Alipay Handler] Invalid action:', action, 'Body:', body);
+                return res.status(400).json({ error: 'Invalid action', received: action });
         }
     } catch (error: any) {
         console.error('[Alipay Error]', error);

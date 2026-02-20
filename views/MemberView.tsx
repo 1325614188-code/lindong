@@ -249,7 +249,12 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         </div>
                         <div>
                             <h3 className="text-lg font-bold">@{user?.username}</h3>
-                            <p className="text-white/80 text-xs">本机识别码: {getDeviceIdSuffix()}</p>
+                            <div className="flex flex-col">
+                                <span className="text-white/80 text-[10px]">本机识别码: {getDeviceIdSuffix()}</span>
+                                {user?.referrer_id && (
+                                    <span className="text-white/60 text-[9px]">已绑定上级: {user.referrer_id.slice(0, 8)}...</span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className="mt-3 flex gap-2">

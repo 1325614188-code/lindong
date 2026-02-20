@@ -80,7 +80,8 @@ export default async function handler(req: any, res: any) {
 
         switch (action) {
             case 'register': {
-                const { username: rawUsername, password: rawPassword, nickname, deviceId, referrerId } = data;
+                const { username: rawUsername, password: rawPassword, nickname, deviceId, referrerId: rawReferrerId } = data;
+                const referrerId = rawReferrerId && rawReferrerId.trim() !== '' ? rawReferrerId : null;
                 const username = rawUsername?.trim();
                 const password = rawPassword?.trim();
 
@@ -109,11 +110,11 @@ export default async function handler(req: any, res: any) {
                     .from('devices')
                     .select('first_user_id')
                     .eq('device_id', deviceId)
-                    .single();
+                    .maybeSingle();
 
                 const isFirstOnDevice = !device;
-                // 只有【手机浏览器】首次注册才赠送额度 (排除微信和QQ)
-                const initialCredits = (isFirstOnDevice && isBrowser) ? 5 : 0;
+                // 首次注册赠送额度 (移除手机浏览器限制，所有环境通用)
+                const initialCredits = isFirstOnDevice ? 5 : 0;
 
                 // 创建用户
                 const { data: newUser, error: userError } = await supabase
