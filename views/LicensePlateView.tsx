@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 interface LicensePlateViewProps {
     onBack: () => void;
     onCheckCredits?: () => Promise<boolean>;
-    onDeductCredit?: () => Promise<void>;
+    onDeductCredit?: () => Promise<boolean>;
 }
 
 // 时辰对照表

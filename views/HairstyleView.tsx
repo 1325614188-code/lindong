@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 interface HairstyleViewProps {
   onBack: () => void;
   onCheckCredits?: () => Promise<boolean>;
-  onDeductCredit?: () => Promise<void>;
+  onDeductCredit?: () => Promise<boolean>;
 }
 
 // 男生发型风格

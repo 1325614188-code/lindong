@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 interface DepressionTestViewProps {
     onBack: () => void;
     onCheckCredits?: () => Promise<boolean>;
-    onDeductCredit?: () => Promise<void>;
+    onDeductCredit?: () => Promise<boolean>;
 }
 
 // 抑郁症自测80道题目 (基于PHQ-9、BDI-II和其他量表扩展)

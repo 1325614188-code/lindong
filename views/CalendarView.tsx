@@ -6,7 +6,7 @@ import ReactMarkdown from 'https://esm.sh/react-markdown';
 interface CalendarViewProps {
   onBack: () => void;
   onCheckCredits?: () => Promise<boolean>;
-  onDeductCredit?: () => Promise<void>;
+  onDeductCredit?: () => Promise<boolean>;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {

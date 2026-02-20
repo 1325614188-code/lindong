@@ -9,7 +9,7 @@ interface AnalysisViewProps {
   onBack: () => void;
   helpText?: string;
   onCheckCredits?: () => Promise<boolean>;
-  onDeductCredit?: () => Promise<void>;
+  onDeductCredit?: () => Promise<boolean>;
 }
 
 const AnalysisView: React.FC<AnalysisViewProps> = ({ title, type, onBack, helpText, onCheckCredits, onDeductCredit }) => {

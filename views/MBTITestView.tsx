@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 interface MBTITestViewProps {
     onBack: () => void;
     onCheckCredits?: () => Promise<boolean>;
-    onDeductCredit?: () => Promise<void>;
+    onDeductCredit?: () => Promise<boolean>;
 }
 
 // MBTI 80道测试题目

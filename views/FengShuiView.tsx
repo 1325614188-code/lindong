@@ -6,7 +6,7 @@ import ReactMarkdown from 'https://esm.sh/react-markdown';
 interface FengShuiViewProps {
   onBack: () => void;
   onCheckCredits?: () => Promise<boolean>;
-  onDeductCredit?: () => Promise<void>;
+  onDeductCredit?: () => Promise<boolean>;
 }
 
 const FengShuiView: React.FC<FengShuiViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {

@@ -6,7 +6,7 @@ interface TryOnViewProps {
   type: 'clothes' | 'accessories';
   onBack: () => void;
   onCheckCredits?: () => Promise<boolean>;
-  onDeductCredit?: () => Promise<void>;
+  onDeductCredit?: () => Promise<boolean>;
 }
 
 const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onDeductCredit }) => {
