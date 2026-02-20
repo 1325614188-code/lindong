@@ -45,7 +45,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
         // 加载分享统计
         if (user?.id) {
-            fetch('/api/auth', {
+            const ts = Date.now();
+            fetch(`/api/auth_v2?t=${ts}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getReferralStats', userId: user.id })
@@ -55,7 +56,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 .catch(console.error);
 
             // 加载积分
-            fetch('/api/auth', {
+            fetch(`/api/auth_v2?t=${ts}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getPointsStats', userId: user.id })
@@ -75,7 +76,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
     // 刷新用户信息并同步到父组件
     const refreshUser = async () => {
         try {
-            const res = await fetch('/api/auth', {
+            const ts = Date.now();
+            const res = await fetch(`/api/auth_v2?t=${ts}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getUser', userId: user.id })
@@ -83,7 +85,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
             const data = await res.json();
             if (data.user) {
                 // 通过回调同步更新父组件的 user 状态
-                onUserUpdate?.({ ...user, credits: data.user.credits });
+                onUserUpdate?.(data.user);
             }
         } catch (e) {
             console.error(e);
@@ -98,7 +100,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
         try {
             const deviceId = localStorage.getItem('device_id') || '';
-            const res = await fetch('/api/auth', {
+            const ts = Date.now();
+            const res = await fetch(`/api/auth_v2?t=${ts}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -139,7 +142,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         setPointsMessage('提交中...');
 
         try {
-            const res = await fetch('/api/auth', {
+            const ts = Date.now();
+            const res = await fetch(`/api/auth_v2?t=${ts}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

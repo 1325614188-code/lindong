@@ -24,12 +24,18 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
         return deviceId;
     };
 
-    // 检查URL中的推荐人
+    // 检查URL或本地存储中的推荐人
     React.useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const ref = params.get('ref');
         if (ref) {
             setReferrerId(ref);
+            localStorage.setItem('referrer_id', ref);
+        } else {
+            const savedRef = localStorage.getItem('referrer_id');
+            if (savedRef) {
+                setReferrerId(savedRef);
+            }
         }
     }, []);
 
@@ -40,7 +46,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
 
         try {
             const deviceId = await getDeviceId();
-            const response = await fetch('/api/auth', {
+            const ts = Date.now();
+            const response = await fetch(`/api/auth_v2?t=${ts}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

@@ -28,14 +28,23 @@ const App: React.FC = () => {
 
   // 从 localStorage 恢复用户状态，并从数据库获取最新数据
   useEffect(() => {
+    // 处理推荐人 ID 持久化
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      localStorage.setItem('referrer_id', ref);
+      console.log('[App] 捕获并保存推荐人 ID:', ref);
+    }
+
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
 
-        // 从数据库获取最新用户数据
-        fetch('/api/auth', {
+        // 从数据库获取最新用户数据 - 加入时间戳防止缓存
+        const ts = Date.now();
+        fetch(`/api/auth_v2?t=${ts}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'getUser', userId: parsedUser.id })
@@ -43,7 +52,7 @@ const App: React.FC = () => {
           .then(res => res.json())
           .then(data => {
             if (data.user) {
-              const updatedUser = { ...parsedUser, credits: data.user.credits };
+              const updatedUser = { ...parsedUser, credits: data.user.credits, points: data.user.points, commission_balance: data.user.commission_balance };
               setUser(updatedUser);
               localStorage.setItem('user', JSON.stringify(updatedUser));
             }
@@ -93,7 +102,8 @@ const App: React.FC = () => {
     }
 
     try {
-      const res = await fetch('/api/auth', {
+      const ts = Date.now();
+      const res = await fetch(`/api/auth_v2?t=${ts}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'useCredit', userId: user.id })
@@ -122,7 +132,8 @@ const App: React.FC = () => {
     }
     try {
       console.log('[deductCredit] 开始扣除额度，用户ID:', user.id);
-      const res = await fetch('/api/auth', {
+      const ts = Date.now();
+      const res = await fetch(`/api/auth_v2?t=${ts}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deductCredit', userId: user.id })
