@@ -103,7 +103,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     setRechargeMessage(`✅ 充值成功！自动为您增加了 ${data.credits} 次额度`);
                     localStorage.removeItem('pending_order_id');
                     setPendingOrderId(null);
-                    refreshUser();
+                    // 延迟 2 秒刷新以免出现数据库事务延迟导致的并发覆盖
+                    setTimeout(() => refreshUser(), 2000);
                 }
             } catch (err) {
                 console.error('Polling error', err);
