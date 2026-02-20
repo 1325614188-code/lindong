@@ -90,10 +90,12 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
             pollCount++;
 
             try {
-                const res = await fetch('/api/alipay', {
+                const ts = Date.now();
+                const res = await fetch(`/api/alipay?t=${ts}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'checkOrder', orderId: pendingOrderId })
+                    body: JSON.stringify({ action: 'checkOrder', orderId: pendingOrderId }),
+                    cache: 'no-store'
                 });
 
                 if (!res.ok) return;
@@ -124,7 +126,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
             const res = await fetch(`/api/auth_v2?t=${ts}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getUser', userId: user.id })
+                body: JSON.stringify({ action: 'getUser', userId: user.id }),
+                cache: 'no-store'
             });
             const data = await res.json();
             if (data.user) {
