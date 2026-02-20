@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: 'auto',
         includeAssets: ['icon.svg', 'icon-192x192.png', 'icon-512x512.png'],
         manifest: {
           name: '美力实验室',
