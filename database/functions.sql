@@ -46,3 +46,29 @@ BEGIN
   UPDATE users SET points = points + amount WHERE id = user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ==========================================
+-- 3. 佣金收益相关
+-- ==========================================
+
+-- 用户表新增佣金余额字段
+ALTER TABLE users ADD COLUMN IF NOT EXISTS commission_balance DECIMAL(10,2) DEFAULT 0.00;
+
+-- 佣金记录表
+CREATE TABLE IF NOT EXISTS commissions (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES users(id),          -- 获得佣金的人（推荐人）
+    source_user_id UUID REFERENCES users(id),   -- 产生佣金的人（被推荐人）
+    order_id UUID REFERENCES orders(id),        -- 关联订单
+    amount DECIMAL(10,2) NOT NULL,              -- 佣金金额
+    status TEXT DEFAULT 'available',            -- 状态
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 创建增减佣金余额函数
+CREATE OR REPLACE FUNCTION add_commission(user_id UUID, amount DECIMAL)
+RETURNS void AS $$
+BEGIN
+  UPDATE users SET commission_balance = commission_balance + amount WHERE id = user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

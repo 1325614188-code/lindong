@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS app_config (
 INSERT INTO app_config (key, value) VALUES
   ('contact_wechat', 'sekesm'),
   ('recharge_enabled', 'true'),
+  ('referral_points_enabled', 'true'),
   ('alipay_app_id', ''),
   ('alipay_private_key', ''),
   ('alipay_public_key', '')

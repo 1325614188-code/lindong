@@ -23,6 +23,8 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
     { id: AppSection.CALENDAR, title: '出门黄历', icon: '📅', color: 'bg-[#C69C6D]', border: 'border-[#A67C4D]', textColor: 'text-white' },
     { id: AppSection.MBTI_TEST, title: '天赋测试', icon: '🧠', color: 'bg-violet-100', border: 'border-violet-300' },
     { id: AppSection.DEPRESSION_TEST, title: '抑郁自测', icon: '💙', color: 'bg-sky-100', border: 'border-sky-300' },
+    { id: AppSection.MARRIAGE_ANALYSIS, title: '看姻缘', icon: '💘', color: 'bg-rose-50', border: 'border-rose-200' },
+    { id: AppSection.WEALTH_ANALYSIS, title: '看财富', icon: '💰', color: 'bg-amber-50', border: 'border-amber-200' },
   ];
 
   return (

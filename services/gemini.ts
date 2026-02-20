@@ -138,3 +138,30 @@ export const generateMakeupImage = async (
   });
   return result;
 };
+
+export const analysisMarriage = async (birthInfo: string, gender: string) => {
+  const { result } = await callApi({
+    action: 'marriageAnalysis',
+    birthInfo,
+    gender
+  });
+  return result;
+};
+
+export const generatePartnerImage = async (description: string, gender: string) => {
+  const { result } = await callApi({
+    action: 'generatePartner',
+    description,
+    gender
+  });
+  return result;
+};
+
+export const analysisWealth = async (birthInfo: string, gender: string) => {
+  const { result } = await callApi({
+    action: 'wealthAnalysis',
+    birthInfo,
+    gender
+  });
+  return result;
+};

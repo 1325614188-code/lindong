@@ -248,9 +248,19 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                             <p className="text-white/80 text-xs">本机识别码: {getDeviceIdSuffix()}</p>
                         </div>
                     </div>
-                    <div className="mt-3 flex justify-between items-center bg-black/10 rounded-xl px-3 py-2">
-                        <span className="text-white/80 text-sm">剩余额度</span>
-                        <span className="text-xl font-bold">{user?.credits || 0} 次</span>
+                    <div className="mt-3 flex gap-2">
+                        <div className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center">
+                            <span className="text-white/60 text-[10px]">剩余额度</span>
+                            <span className="text-lg font-bold">{user?.credits || 0}</span>
+                        </div>
+                        <div className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center">
+                            <span className="text-white/60 text-[10px]">推广收益(元)</span>
+                            <span className="text-lg font-bold">¥{user?.commission_balance || '0.00'}</span>
+                        </div>
+                        <div className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center">
+                            <span className="text-white/60 text-[10px]">奖励积分</span>
+                            <span className="text-lg font-bold">{user?.points || 0}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -279,45 +289,47 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     </div>
                 </div>
 
-                {/* 推荐奖励积分 */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-bold">⭐ 推荐奖励积分</h4>
-                        <span className="text-sm text-purple-500 font-bold">当前积分：{userPoints}</span>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-2">
-                        好友通过分享链接在<span className="text-pink-500 font-bold">手机浏览器</span>注册，您将获得<span className="text-purple-500 font-bold">1个积分</span>，积分可兑换奖励
-                    </p>
-                    <div className="bg-purple-50 rounded-xl p-3 mb-3">
-                        <p className="text-xs text-purple-700 mb-1">🎁 奖励制度：</p>
-                        <p className="text-xs text-purple-600">• 50积分 → 20元红包 &nbsp;&nbsp; • 100积分 → 50元红包</p>
-                        <p className="text-xs text-blue-500 mt-1">💡 提示：积分仅限手机浏览器注册生效，微信/QQ内注册不计入</p>
-                        <p className="text-xs text-orange-500 mt-2">⚠️ 点击兑换后，请联系微信“{config.contact_wechat || 'sekesm'}”完成兑换</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <button
-                            onClick={() => handlePointsRedeem(50, 20)}
-                            disabled={userPoints < 50}
-                            className={`h-16 rounded-xl border-2 transition-colors ${userPoints >= 50 ? 'border-purple-300 hover:border-purple-500 hover:bg-purple-50' : 'border-gray-200 opacity-50 cursor-not-allowed'}`}
-                        >
-                            <div className="text-lg font-bold text-purple-500">50积分</div>
-                            <div className="text-xs text-gray-500">→ 20元红包</div>
-                        </button>
-                        <button
-                            onClick={() => handlePointsRedeem(100, 50)}
-                            disabled={userPoints < 100}
-                            className={`h-16 rounded-xl border-2 transition-colors ${userPoints >= 100 ? 'border-purple-300 hover:border-purple-500 hover:bg-purple-50' : 'border-gray-200 opacity-50 cursor-not-allowed'}`}
-                        >
-                            <div className="text-lg font-bold text-purple-500">100积分</div>
-                            <div className="text-xs text-gray-500">→ 50元红包</div>
-                        </button>
-                    </div>
-                    {pointsMessage && (
-                        <p className={`mt-3 text-sm text-center ${pointsMessage.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>
-                            {pointsMessage}
+                {/* 推荐奖励积分 (根据后台逻辑显示) */}
+                {config.referral_points_enabled === 'true' && (
+                    <div className="bg-white rounded-2xl p-4 shadow-sm">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="font-bold">⭐ 推荐奖励积分</h4>
+                            <span className="text-sm text-purple-500 font-bold">当前积分：{userPoints}</span>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-2">
+                            好友通过分享链接在<span className="text-pink-500 font-bold">手机浏览器</span>注册，您将获得<span className="text-purple-500 font-bold">1个积分</span>，积分可兑换奖励
                         </p>
-                    )}
-                </div>
+                        <div className="bg-purple-50 rounded-xl p-3 mb-3">
+                            <p className="text-xs text-purple-700 mb-1">🎁 奖励制度：</p>
+                            <p className="text-xs text-purple-600">• 50积分 → 20元红包 &nbsp;&nbsp; • 100积分 → 50元红包</p>
+                            <p className="text-xs text-blue-500 mt-1">💡 提示：积分仅限手机浏览器注册生效，微信/QQ内注册不计入</p>
+                            <p className="text-xs text-orange-500 mt-2">⚠️ 点击兑换后，请联系微信“{config.contact_wechat || 'sekesm'}”完成兑换</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => handlePointsRedeem(50, 20)}
+                                disabled={userPoints < 50}
+                                className={`h-16 rounded-xl border-2 transition-colors ${userPoints >= 50 ? 'border-purple-300 hover:border-purple-500 hover:bg-purple-50' : 'border-gray-200 opacity-50 cursor-not-allowed'}`}
+                            >
+                                <div className="text-lg font-bold text-purple-500">50积分</div>
+                                <div className="text-xs text-gray-500">→ 20元红包</div>
+                            </button>
+                            <button
+                                onClick={() => handlePointsRedeem(100, 50)}
+                                disabled={userPoints < 100}
+                                className={`h-16 rounded-xl border-2 transition-colors ${userPoints >= 100 ? 'border-purple-300 hover:border-purple-500 hover:bg-purple-50' : 'border-gray-200 opacity-50 cursor-not-allowed'}`}
+                            >
+                                <div className="text-lg font-bold text-purple-500">100积分</div>
+                                <div className="text-xs text-gray-500">→ 50元红包</div>
+                            </button>
+                        </div>
+                        {pointsMessage && (
+                            <p className={`mt-3 text-sm text-center ${pointsMessage.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>
+                                {pointsMessage}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* 充值 (根据后台开关显示) */}
                 {config.recharge_enabled === 'true' && (

@@ -249,6 +249,90 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                 return res.status(200).json({ result });
             }
 
+            case 'marriageAnalysis': {
+                // 八字婚姻分析
+                const { birthInfo, gender } = req.body;
+                const systemInstruction = `
+          你是一位深谙中国传统八字命理与相术的姻缘大师。语气采用典型的小红书风格（多用emoji、语气助词、感叹号，排版优美，分段清晰）。
+          请根据用户提供的出生信息进行分析。
+          要求：
+          1. 标题要吸引人，使用【】括起来。
+          2. 将其对应的新历换算成农历，并排出简单的八字（干支）。
+          3. 分析其婚姻面相/命理特征：包括哪年或哪几年遇到另一半机会最大（流年机会）。
+          4. 详细描述未来另一半的特征：包括大概年龄差异、性格特点、相貌特征（如：浓眉大眼、书生气质、甚至具体的身材特征）。
+          5. 给出变美/吸引正缘的建议。
+          6. 报告内容结尾需要包含一个特殊的标记 [PARTNER_DESC:xxxxx]，其中 xxxxx 是你对理想另一半相貌特征的精炼描述（用于AI生成图片），不超过100字。
+        `;
+                const prompt = `用户出生信息：${birthInfo}，性别：${gender}。`;
+
+                const result = await requestWithRetry(async (ai) => {
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-3-flash-preview',
+                        contents: { parts: [{ text: prompt }] },
+                        config: { systemInstruction, temperature: 0.7 }
+                    });
+                    return response.text;
+                });
+
+                return res.status(200).json({ result });
+            }
+
+            case 'generatePartner': {
+                // 根据相术描述生成理想另一半
+                const { description, gender } = req.body;
+                const targetGender = gender === '男' ? '女' : '男';
+                const prompt = `生成一位理想的中国${targetGender}性形象。
+          特征描述：${description}。
+          要求：
+          1. 形象要有亲和力，气质高雅或帅气。
+          2. 必须符合中国人的审美特征。
+          3. 高品质、真实感强的写真风格（Photorealistic）。
+          4. 纯净背景或温馨生活场景。`;
+
+                const result = await requestWithRetry(async (ai) => {
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-2.5-flash-image',
+                        contents: { parts: [{ text: prompt }] }
+                    });
+
+                    for (const part of response.candidates?.[0]?.content?.parts || []) {
+                        if (part.inlineData) {
+                            return `data:image/png;base64,${part.inlineData.data}`;
+                        }
+                    }
+                    return null;
+                });
+
+                return res.status(200).json({ result });
+            }
+
+            case 'wealthAnalysis': {
+                // 八字财运分析
+                const { birthInfo, gender } = req.body;
+                const systemInstruction = `
+          你是一位资深的周易理财与职业规划大师。语气采用典型的小红书风格（多用emoji、语气助词、感叹号，排版优美，分段清晰）。
+          请根据用户提供的出生信息进行分析。
+          要求：
+          1. 标题要吸引人，使用【】括起来。
+          2. 将其对应的新历换算成农历，并分析八字中的财星。
+          3. 分析其一生财运起伏：重点指出哪年或哪几年财运比较旺（流年利财）。
+          4. 给出职业建议：适合做什么行业（根据五行喜忌），是适合打工、创业还是理财。
+          5. 给出具体的旺财建议（如家居摆设、幸运色等）。
+        `;
+                const prompt = `用户出生信息：${birthInfo}，性别：${gender}。`;
+
+                const result = await requestWithRetry(async (ai) => {
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-3-flash-preview',
+                        contents: { parts: [{ text: prompt }] },
+                        config: { systemInstruction, temperature: 0.7 }
+                    });
+                    return response.text;
+                });
+
+                return res.status(200).json({ result });
+            }
+
             case 'textAnalysis': {
                 // 纯文本分析 (五行车牌等)
                 const { prompt } = req.body;

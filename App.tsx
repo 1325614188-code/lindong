@@ -16,6 +16,8 @@ import AdminView from './views/AdminView';
 import MakeupView from './views/MakeupView';
 import MBTITestView from './views/MBTITestView';
 import DepressionTestView from './views/DepressionTestView';
+import MarriageView from './views/MarriageView';
+import WealthView from './views/WealthView';
 
 const App: React.FC = () => {
   const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
@@ -211,6 +213,12 @@ const App: React.FC = () => {
 
       case AppSection.DEPRESSION_TEST:
         return <DepressionTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />;
+
+      case AppSection.MARRIAGE_ANALYSIS:
+        return <MarriageView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />;
+
+      case AppSection.WEALTH_ANALYSIS:
+        return <WealthView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />;
 
       default:
         return <HomeView onNavigate={setCurrentSection} />;

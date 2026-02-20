@@ -198,6 +198,29 @@ export default async function handler(req: any, res: any) {
                 });
             }
 
+            case 'getCommissions': {
+                // 获取佣金记录
+                const { data: commissions } = await supabase
+                    .from('commissions')
+                    .select(`
+                        id,
+                        amount,
+                        status,
+                        created_at,
+                        users:user_id(username, nickname),
+                        source:source_user_id(username)
+                    `)
+                    .order('created_at', { ascending: false });
+
+                return res.status(200).json({ commissions: commissions || [] });
+            }
+
+            case 'updateCommission': {
+                const { userId, amount } = data;
+                await supabase.rpc('add_commission', { user_id: userId, amount });
+                return res.status(200).json({ success: true });
+            }
+
             default:
                 return res.status(400).json({ error: 'Invalid action' });
         }

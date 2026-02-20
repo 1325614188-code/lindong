@@ -135,7 +135,7 @@ export default async function handler(req: any, res: any) {
                     // 更新订单状态
                     const { data: order } = await supabase
                         .from('orders')
-                        .select('user_id, credits, status')
+                        .select('id, user_id, credits, amount, status')
                         .eq('trade_no', out_trade_no)
                         .single();
 
@@ -148,6 +148,29 @@ export default async function handler(req: any, res: any) {
 
                         // 增加用户额度
                         await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
+
+                        // 推荐佣金逻辑 (40%)
+                        const { data: user } = await supabase
+                            .from('users')
+                            .select('referrer_id')
+                            .eq('id', order.user_id)
+                            .single();
+
+                        if (user?.referrer_id) {
+                            const commissionAmount = Number(order.amount) * 0.4;
+                            // 增加推荐人佣金余额
+                            await supabase.rpc('add_commission', {
+                                user_id: user.referrer_id,
+                                amount: commissionAmount
+                            });
+                            // 记录佣金日志
+                            await supabase.from('commissions').insert({
+                                user_id: user.referrer_id,
+                                source_user_id: order.user_id,
+                                order_id: order.id,
+                                amount: commissionAmount
+                            });
+                        }
                     }
                 }
 
@@ -177,7 +200,7 @@ export default async function handler(req: any, res: any) {
 
                 const { data: order } = await supabase
                     .from('orders')
-                    .select('user_id, credits, status')
+                    .select('id, user_id, credits, amount, status')
                     .eq('trade_no', orderId)
                     .single();
 
@@ -197,6 +220,27 @@ export default async function handler(req: any, res: any) {
 
                 // 增加用户额度
                 await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
+
+                // 推荐佣金逻辑 (40%)
+                const { data: user } = await supabase
+                    .from('users')
+                    .select('referrer_id')
+                    .eq('id', order.user_id)
+                    .single();
+
+                if (user?.referrer_id) {
+                    const commissionAmount = Number(order.amount) * 0.4;
+                    await supabase.rpc('add_commission', {
+                        user_id: user.referrer_id,
+                        amount: commissionAmount
+                    });
+                    await supabase.from('commissions').insert({
+                        user_id: user.referrer_id,
+                        source_user_id: order.user_id,
+                        order_id: order.id,
+                        amount: commissionAmount
+                    });
+                }
 
                 return res.status(200).json({
                     success: true,

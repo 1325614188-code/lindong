@@ -153,8 +153,17 @@ export default async function handler(req: any, res: any) {
                             // 使用 add_credits 函数增加次数
                             await supabase.rpc('add_credits', { user_id: referrerId, amount: 1 });
 
-                            // 同时增加1个推荐积分
-                            await supabase.rpc('add_points', { user_id: referrerId, amount: 1 });
+                            // 检查是否开启了积分奖励
+                            const { data: config } = await supabase
+                                .from('app_config')
+                                .select('value')
+                                .eq('key', 'referral_points_enabled')
+                                .single();
+
+                            if (config?.value === 'true') {
+                                // 增加1个推荐积分
+                                await supabase.rpc('add_points', { user_id: referrerId, amount: 1 });
+                            }
 
                             // 记录奖励
                             await supabase.from('referral_rewards').insert({
@@ -183,7 +192,7 @@ export default async function handler(req: any, res: any) {
 
                 const { data: user, error } = await supabase
                     .from('users')
-                    .select('id, username, nickname, credits, is_admin')
+                    .select('id, username, nickname, credits, points, commission_balance, is_admin')
                     .eq('username', username)
                     .eq('password_hash', hashPassword(password))
                     .single();
@@ -207,7 +216,7 @@ export default async function handler(req: any, res: any) {
 
                 const { data: user, error } = await supabase
                     .from('users')
-                    .select('id, username, nickname, credits, points, device_id, is_admin, created_at')
+                    .select('id, username, nickname, credits, points, commission_balance, device_id, is_admin, created_at')
                     .eq('id', userId)
                     .single();
 
