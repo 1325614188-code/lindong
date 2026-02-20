@@ -66,7 +66,8 @@ INSERT INTO app_config (key, value) VALUES
   ('referral_points_enabled', 'true'),
   ('alipay_app_id', ''),
   ('alipay_private_key', ''),
-  ('alipay_public_key', '')
+  ('alipay_public_key', ''),
+  ('commission_rate', '40')
 ON CONFLICT (key) DO NOTHING;
 
 -- 创建管理员账户 (密码需要在后端加密后更新)

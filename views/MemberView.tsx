@@ -289,6 +289,40 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     </div>
                 </div>
 
+                {/* 推荐分佣说明 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-orange-100">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">💰</span>
+                        <h4 className="font-bold">推荐赚佣金计划</h4>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-3">
+                        邀请好友体验，不仅能获得免费次数，还能赚取<span className="text-orange-500 font-bold">现金佣金</span>！
+                    </p>
+                    <div className="space-y-3 bg-orange-50 rounded-xl p-3">
+                        <div className="flex gap-3">
+                            <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs shrink-0">1</div>
+                            <p className="text-xs text-orange-800 leading-relaxed">
+                                <span className="font-bold">分享链接</span>：复制上方的分享链接发送给好友或分享到朋友圈。
+                            </p>
+                        </div>
+                        <div className="flex gap-3">
+                            <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs shrink-0">2</div>
+                            <p className="text-xs text-orange-800 leading-relaxed">
+                                <span className="font-bold">好友注册</span>：好友通过链接在<span className="underline">手机浏览器</span>注册（微信内注册无效）。
+                            </p>
+                        </div>
+                        <div className="flex gap-3">
+                            <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs shrink-0">3</div>
+                            <p className="text-xs text-orange-800 leading-relaxed">
+                                <span className="font-bold">获得佣金</span>：好友产生的任何充值消费，您都将获得<span className="text-red-500 font-bold">{config.commission_rate || '40'}%</span>的现金分佣，直接转入您的推广余额。
+                            </p>
+                        </div>
+                    </div>
+                    <p className="mt-3 text-[10px] text-gray-400 text-center">
+                        * 余额满额后可联系客服申请提现（微信：{config.contact_wechat || 'sekesm'}）
+                    </p>
+                </div>
+
                 {/* 推荐奖励积分 (根据后台逻辑显示) */}
                 {config.referral_points_enabled === 'true' && (
                     <div className="bg-white rounded-2xl p-4 shadow-sm">

@@ -374,6 +374,19 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.referral_points_enabled === 'true' ? 'left-7' : 'left-1'}`} />
                                 </button>
                             </div>
+                            <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
+                                <label className="w-28 text-sm font-bold shrink-0">佣金比例 (%)</label>
+                                <div className="flex-1 flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        value={config.commission_rate || '40'}
+                                        onChange={e => updateConfig('commission_rate', e.target.value)}
+                                        className="w-20 h-10 px-3 rounded-xl border border-gray-200 text-center font-bold text-orange-500"
+                                        placeholder="40"
+                                    />
+                                    <span className="text-sm text-gray-500">好友支付后返还给推荐人的比例</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

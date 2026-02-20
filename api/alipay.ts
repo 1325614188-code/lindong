@@ -10,7 +10,7 @@ async function getAlipayConfig() {
     const { data: configs } = await supabase
         .from('app_config')
         .select('key, value')
-        .in('key', ['alipay_app_id', 'alipay_private_key', 'alipay_public_key', 'alipay_gateway', 'alipay_notify_url']);
+        .in('key', ['alipay_app_id', 'alipay_private_key', 'alipay_public_key', 'alipay_gateway', 'alipay_notify_url', 'commission_rate']);
 
     const configMap: Record<string, string> = {};
     configs?.forEach(c => { configMap[c.key] = c.value; });
@@ -157,7 +157,11 @@ export default async function handler(req: any, res: any) {
                             .single();
 
                         if (user?.referrer_id) {
-                            const commissionAmount = Number(order.amount) * 0.4;
+                            // 获取佣金比例配置 (默认 40%)
+                            const alipayConfig = await getAlipayConfig();
+                            const rate = parseInt(alipayConfig.commission_rate || '40') / 100;
+                            const commissionAmount = Number(order.amount) * rate;
+
                             // 增加推荐人佣金余额
                             await supabase.rpc('add_commission', {
                                 user_id: user.referrer_id,
@@ -229,7 +233,11 @@ export default async function handler(req: any, res: any) {
                     .single();
 
                 if (user?.referrer_id) {
-                    const commissionAmount = Number(order.amount) * 0.4;
+                    // 获取佣金比例配置 (默认 40%)
+                    const alipayConfig = await getAlipayConfig();
+                    const rate = parseInt(alipayConfig.commission_rate || '40') / 100;
+                    const commissionAmount = Number(order.amount) * rate;
+
                     await supabase.rpc('add_commission', {
                         user_id: user.referrer_id,
                         amount: commissionAmount
