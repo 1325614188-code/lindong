@@ -308,7 +308,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         <div className="flex gap-3">
                             <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs shrink-0">2</div>
                             <p className="text-xs text-orange-800 leading-relaxed">
-                                <span className="font-bold">好友注册</span>：好友通过链接在<span className="underline">手机浏览器</span>注册（微信内注册无效）。
+                                <span className="font-bold">好友注册</span>：好友通过您的专属链接完成账户注册。
                             </p>
                         </div>
                         <div className="flex gap-3">
