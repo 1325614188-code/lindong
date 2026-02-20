@@ -1,7 +1,8 @@
+import ReactMarkdown from 'react-markdown';
 
 import React, { useState } from 'react';
 import { analyzeImage } from '../services/gemini';
-import ReactMarkdown from 'https://esm.sh/react-markdown';
+
 
 interface CalendarViewProps {
   onBack: () => void;
