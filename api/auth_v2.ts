@@ -252,16 +252,22 @@ export default async function handler(req: any, res: any) {
 
                 const { data: user, error } = await supabase
                     .from('users')
-                    .select('id, username, nickname, credits, points, commission_balance, device_id, is_admin, created_at')
+                    .select('*')
                     .eq('id', userId)
                     .single();
 
-                if (error) {
+                if (error || !user) {
                     console.error('[getUser Error]', error);
                     return res.status(404).json({ error: 'User not found' });
                 }
 
-                return res.status(200).json({ user });
+                const safeUser = {
+                    ...user,
+                    points: user.points ?? 0,
+                    commission_balance: user.commission_balance ?? 0
+                };
+
+                return res.status(200).json({ user: safeUser });
             }
 
             case 'redeem': {
