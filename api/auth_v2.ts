@@ -194,8 +194,8 @@ export default async function handler(req: any, res: any) {
                     });
                 }
 
-                // 如果有推荐人标识，给推荐人增加次数
-                if (realReferrerId) {
+                // 如果有推荐人标识，且该设备是首次注册，给推荐人增加次数
+                if (realReferrerId && isFirstOnDevice) {
                     // 检查推荐人是否存在
                     const { data: referrer } = await supabase
                         .from('users')
@@ -204,13 +204,13 @@ export default async function handler(req: any, res: any) {
                         .single();
 
                     if (referrer) {
-                        // 检查是否已经奖励过（同一设备只奖励一次）
+                        // 双重检查：确保该设备从未产生过推荐奖励（防止并发或逻辑绕过）
                         const { data: existingReward } = await supabase
                             .from('referral_rewards')
                             .select('id')
-                            .eq('referrer_id', realReferrerId)
                             .eq('device_id', deviceId)
-                            .single();
+                            .limit(1)
+                            .maybeSingle();
 
                         if (!existingReward) {
                             // 使用 add_credits 函数增加次数
