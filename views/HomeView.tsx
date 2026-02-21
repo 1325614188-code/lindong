@@ -34,9 +34,19 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
         <p className="text-gray-500 text-sm">✨ 发现你的独属魅力 ✨</p>
       </header>
 
-      {/* PWA 安装按钮 */}
-      <div className="mb-6">
-        <InstallPWA />
+      <div className="mb-8 flex gap-3 items-start justify-stretch">
+        <button
+          onClick={() => {
+            // 指向项目 public 目录下的 APK 文件
+            window.location.href = '/app.apk';
+          }}
+          className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform text-[11px]"
+        >
+          <span className="text-xl">📦</span> 下载 APP
+        </button>
+        <div className="flex-1">
+          <InstallPWA />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

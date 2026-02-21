@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import { AppSection } from './types';
 import { getStableDeviceId } from './lib/fingerprint';
+import { getApiUrl } from './lib/api-config';
 import HomeView from './views/HomeView';
 import TryOnView from './views/TryOnView';
 import HairstyleView from './views/HairstyleView';
@@ -44,7 +46,7 @@ const App: React.FC = () => {
 
         // 从数据库获取最新用户数据 - 加入时间戳防止缓存
         const ts = Date.now();
-        fetch(`/api/auth_v2?t=${ts}`, {
+        fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'getUser', userId: parsedUser.id })
@@ -104,7 +106,7 @@ const App: React.FC = () => {
 
     try {
       const ts = Date.now();
-      const res = await fetch(`/api/auth_v2?t=${ts}`, {
+      const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'useCredit', userId: user.id })
@@ -134,7 +136,7 @@ const App: React.FC = () => {
     try {
       console.log('[deductCredit] 开始扣除额度，用户ID:', user.id);
       const ts = Date.now();
-      const res = await fetch(`/api/auth_v2?t=${ts}`, {
+      const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deductCredit', userId: user.id })
@@ -237,8 +239,30 @@ const App: React.FC = () => {
     }
   };
 
+  // 处理 Android 物理返回键
+  useEffect(() => {
+    const backButtonListener = CapApp.addListener('backButton', ({ canGoBack }) => {
+      if (showLogin) {
+        setShowLogin(false);
+      } else if (showAdmin) {
+        setShowAdmin(false);
+      } else if (showMember) {
+        setShowMember(false);
+      } else if (currentSection !== AppSection.HOME) {
+        setCurrentSection(AppSection.HOME);
+      } else {
+        // 如果就在首页，提示后退出或直接退出
+        CapApp.exitApp();
+      }
+    });
+
+    return () => {
+      backButtonListener.then(l => l.remove());
+    };
+  }, [currentSection, showLogin, showAdmin, showMember]);
+
   return (
-    <div className="min-h-screen max-w-md mx-auto relative overflow-hidden bg-pink-50 flex flex-col shadow-2xl">
+    <div className="min-h-screen max-w-md mx-auto relative overflow-hidden bg-pink-50 flex flex-col shadow-2xl pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
       <div className="flex-1 overflow-y-auto pb-20">
         {renderSection()}
       </div>

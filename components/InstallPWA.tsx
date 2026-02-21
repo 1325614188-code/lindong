@@ -94,13 +94,13 @@ const InstallPWA: React.FC = () => {
     if (isInstalled || !isMobile) return null;
 
     return (
-        <div className="relative w-full mb-6">
+        <div className="relative w-full h-16">
             <button
                 onClick={handleInstallClick}
-                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold py-3 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] active:scale-95"
+                className="w-full h-full flex items-center justify-center gap-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold px-2 rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] active:scale-95 text-[11px]"
             >
-                <span className="text-xl">📲</span>
-                <span>把网站添加到桌面</span>
+                <span className="text-lg">📲</span>
+                <span className="whitespace-nowrap">把网站添加到桌面</span>
             </button>
 
             {showFallback && (

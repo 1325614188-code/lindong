@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiUrl } from '../lib/api-config';
 
 interface MemberViewProps {
     user: any;
@@ -47,7 +48,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
     // 加载配置
     useEffect(() => {
-        fetch('/api/admin', {
+        fetch(getApiUrl('/api/admin'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'getConfig' })
@@ -59,7 +60,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         // 加载分享统计
         if (user?.id) {
             const ts = Date.now();
-            fetch(`/api/auth_v2?t=${ts}`, {
+            fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getReferralStats', userId: user.id })
@@ -69,7 +70,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 .catch(console.error);
 
             // 加载分享历史记录
-            fetch(`/api/auth_v2?t=${ts}`, {
+            fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getReferralHistory', userId: user.id })
@@ -79,7 +80,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 .catch(console.error);
 
             // 加载积分
-            fetch(`/api/auth_v2?t=${ts}`, {
+            fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getPointsStats', userId: user.id })
@@ -114,7 +115,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
             try {
                 const ts = Date.now();
-                const res = await fetch(`/api/alipay?t=${ts}`, {
+                const res = await fetch(getApiUrl(`/api/alipay?t=${ts}`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'checkOrder', orderId: pendingOrderId }),
@@ -146,7 +147,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
     const refreshUser = async () => {
         try {
             const ts = Date.now();
-            const res = await fetch(`/api/auth_v2?t=${ts}`, {
+            const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getUser', userId: user.id }),
@@ -171,7 +172,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         try {
             const deviceId = localStorage.getItem('device_id') || '';
             const ts = Date.now();
-            const res = await fetch(`/api/auth_v2?t=${ts}`, {
+            const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -213,7 +214,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
         try {
             const ts = Date.now();
-            const res = await fetch(`/api/auth_v2?t=${ts}`, {
+            const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -244,7 +245,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         setRechargeMessage(`正在创建订单...`);
 
         try {
-            const res = await fetch('/api/alipay', {
+            const res = await fetch(getApiUrl('/api/alipay'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -279,7 +280,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         setRechargeMessage('正在确认支付...');
 
         try {
-            const res = await fetch('/api/alipay', {
+            const res = await fetch(getApiUrl('/api/alipay'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

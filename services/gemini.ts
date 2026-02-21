@@ -3,7 +3,9 @@
  * 所有敏感的 API Key 逻辑已移至后端
  */
 
-const API_BASE = '/api/gemini';
+import { getApiUrl } from '../lib/api-config';
+
+const API_BASE = getApiUrl('/api/gemini');
 
 /**
  * 调用后端 API

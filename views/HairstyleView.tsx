@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { getApiUrl } from '../lib/api-config';
 
 interface HairstyleViewProps {
   onBack: () => void;
@@ -65,7 +66,7 @@ const HairstyleView: React.FC<HairstyleViewProps> = ({ onBack, onCheckCredits, o
       const style = hairstyles.find(s => s.id === selectedStyle);
 
       // 调用后端 API
-      const response = await fetch('/api/gemini', {
+      const response = await fetch(getApiUrl('/api/gemini'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

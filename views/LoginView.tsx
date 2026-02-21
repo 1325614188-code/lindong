@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getStableDeviceId } from '../lib/fingerprint';
+import { getApiUrl } from '../lib/api-config';
 
 interface LoginViewProps {
     onLogin: (user: any) => void;
@@ -47,7 +48,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
         try {
             const deviceId = await getDeviceId();
             const ts = Date.now();
-            const response = await fetch(`/api/auth_v2?t=${ts}`, {
+            const response = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

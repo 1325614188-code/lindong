@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getApiUrl } from '../lib/api-config';
 
 interface AdminViewProps {
     admin: any;
@@ -26,14 +27,14 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
         setLoading(true);
         try {
             // 初始化管理员
-            await fetch('/api/admin', {
+            await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'initAdmin' })
             });
 
             // 获取用户列表
-            const usersRes = await fetch('/api/admin', {
+            const usersRes = await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getUsers', adminId: admin.id })
@@ -42,7 +43,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             setUsers(usersData.users || []);
 
             // 获取配置
-            const configRes = await fetch('/api/admin', {
+            const configRes = await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getConfig', adminId: admin.id })
@@ -51,7 +52,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             setConfig(configData.config || {});
 
             // 获取统计
-            const statsRes = await fetch('/api/admin', {
+            const statsRes = await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getStats', adminId: admin.id })
@@ -60,7 +61,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             setStats(statsData);
 
             // 获取积分兑换申请
-            const redemptionsRes = await fetch('/api/admin', {
+            const redemptionsRes = await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getPointRedemptions', adminId: admin.id })
@@ -69,7 +70,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             setPointRedemptions(redemptionsData.redemptions || []);
 
             // 获取佣金记录
-            const commissionsRes = await fetch('/api/admin', {
+            const commissionsRes = await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'getCommissions', adminId: admin.id })
@@ -86,7 +87,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     // 更新配置
     const updateConfig = async (key: string, value: string) => {
         try {
-            await fetch('/api/admin', {
+            await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'updateConfig', adminId: admin.id, key, value })
@@ -100,7 +101,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     // 更新用户额度
     const updateCredits = async (userId: string, amount: number) => {
         try {
-            await fetch('/api/admin', {
+            await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'updateCredits', adminId: admin.id, userId, amount })
@@ -115,7 +116,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     // 更新用户积分
     const updatePoints = async (userId: string, amount: number) => {
         try {
-            await fetch('/api/admin', {
+            await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'updatePoints', adminId: admin.id, userId, amount })
@@ -131,7 +132,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     const processRedemption = async (redemptionId: string, approved: boolean) => {
         setProcessingId(redemptionId);
         try {
-            await fetch('/api/admin', {
+            await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
