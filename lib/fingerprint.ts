@@ -22,17 +22,25 @@ function cyrb53(str: string, seed = 0) {
  * 获取设备特征字符串
  */
 function getFingerprintData(): string {
-    const gl = document.createElement('canvas').getContext('webgl') as any;
-    const debugInfo = gl?.getExtension('WEBGL_debug_renderer_info');
-    const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown';
-
-    const features = [
-        // 核心物理硬件参数 (同一部手机的所有浏览器/WebView 都一致)
-        window.screen.width + 'x' + window.screen.height,
-        window.devicePixelRatio || 1,
-        navigator.hardwareConcurrency || 'unknown',
-        renderer,
+    const features: string[] = [
+        String(window.screen.width) + 'x' + String(window.screen.height),
+        String(window.devicePixelRatio || 1),
+        String(navigator.hardwareConcurrency || 'unknown'),
     ];
+
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as any;
+        if (gl) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'webgl-present';
+            features.push(renderer);
+        } else {
+            features.push('no-webgl');
+        }
+    } catch (e) {
+        features.push('gl-error');
+    }
 
     return features.join('###');
 }
