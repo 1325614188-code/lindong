@@ -8,6 +8,8 @@ interface HomeViewProps {
 }
 
 const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
+  const [showDownloadDialog, setShowDownloadDialog] = React.useState(false);
+
   const sections = [
     { id: AppSection.TRY_ON_CLOTHES, title: '试穿衣', icon: '👗', color: 'bg-pink-100', border: 'border-pink-300' },
     { id: AppSection.TRY_ON_ACCESSORIES, title: '试佩饰', icon: '💎', color: 'bg-purple-100', border: 'border-purple-300' },
@@ -35,17 +37,50 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
       </header>
 
       <div className="mb-8 flex gap-3 items-start justify-stretch">
-        <a
-          href="/app.apk"
-          download="美力实验室.apk"
-          className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform text-[11px] no-underline"
+        <button
+          onClick={() => setShowDownloadDialog(true)}
+          className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform text-[11px] no-underline border-0"
         >
           <span className="text-xl">📦</span> 下载 APP
-        </a>
+        </button>
         <div className="flex-1">
           <InstallPWA />
         </div>
       </div>
+
+      {/* 针对分享关系的下载引导弹窗 */}
+      {showDownloadDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDownloadDialog(false)} />
+          <div className="relative bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-200">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">🎁</div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">温馨提示</h3>
+              <div className="text-sm text-gray-500 leading-relaxed space-y-2 text-center">
+                <p>建议您先在<span className="text-pink-500 font-bold">当前页面完成注册/登录</span>后再去下载 App。</p>
+                <p>这样可以确保您的<span className="text-pink-500 font-bold">推荐奖励关系</span>被正确保存，并能享受完整会员服务哦！✨</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <a
+                href="/app.apk"
+                download="美力实验室.apk"
+                onClick={() => setShowDownloadDialog(false)}
+                className="w-full h-12 bg-pink-500 text-white rounded-xl font-bold flex items-center justify-center no-underline shadow-md active:scale-95 transition-transform"
+              >
+                我已经注册，前往下载
+              </a>
+              <button
+                onClick={() => setShowDownloadDialog(false)}
+                className="w-full h-12 bg-gray-50 text-gray-400 rounded-xl font-medium active:bg-gray-100 transition-colors"
+              >
+                先去注册/登录
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         {sections.map((sec) => (
