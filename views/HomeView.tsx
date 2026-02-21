@@ -35,15 +35,13 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
       </header>
 
       <div className="mb-8 flex gap-3 items-start justify-stretch">
-        <button
-          onClick={() => {
-            // 指向项目 public 目录下的 APK 文件
-            window.location.href = '/app.apk';
-          }}
-          className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform text-[11px]"
+        <a
+          href="/app.apk"
+          download="美力实验室.apk"
+          className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform text-[11px] no-underline"
         >
           <span className="text-xl">📦</span> 下载 APP
-        </button>
+        </a>
         <div className="flex-1">
           <InstallPWA />
         </div>
