@@ -359,6 +359,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     {message && <p className={`mt-2 text-sm ${message.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>{message}</p>}
                 </div>
 
+                <button onClick={onLogout} className="w-full h-12 border border-blue-100 rounded-2xl text-blue-400 font-bold active:bg-blue-50 transition-colors">退出登录</button>
+
                 {/* 推荐记录 */}
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
@@ -395,8 +397,6 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         </div>
                     )}
                 </div>
-
-                <button onClick={onLogout} className="w-full h-12 border border-blue-100 rounded-2xl text-blue-400 font-bold active:bg-blue-50 transition-colors">退出登录</button>
             </div>
         </div>
     );
