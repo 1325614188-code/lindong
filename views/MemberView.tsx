@@ -5,11 +5,10 @@ interface MemberViewProps {
     user: any;
     onLogout: () => void;
     onBack: () => void;
-    onUserUpdate?: (user: any) => void; // 用于同步更新父组件的 user 状态
+    onUserUpdate?: (user: any) => void;
 }
 
 const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserUpdate }) => {
-    // NOTE: 直接使用 user.credits，不再维护独立的本地状态，避免状态不同步
     const [redeemCode, setRedeemCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -25,15 +24,16 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
     // 获取设备ID后6位
     const getDeviceIdSuffix = (): string => {
         const deviceId = localStorage.getItem('device_id') || '';
+        if (!deviceId) return 'UNKNOWN';
         return deviceId.slice(-6).toUpperCase();
     };
 
-    // 生成更短的分享链接：设备后缀(6位) + 基于设备ID的2位字母校验码 = 8位短码
+    // 生成分享链接：固定生产域名
     const getShareLink = (): string => {
-        const baseUrl = 'https://www.qczj.xyz'; // 强制使用生产域名，避免 App 环境出现 localhost
-        const deviceId = localStorage.getItem('device_id') || '';
+        const baseUrl = 'https://www.qczj.xyz';
+        const deviceId = localStorage.getItem('device_id') || 'GUEST';
 
-        // 计算基于 deviceId 的2位字母
+        // 计算基于 deviceId 的2位字母校验码
         let hash = 0;
         for (let i = 0; i < deviceId.length; i++) {
             hash = (hash << 5) - hash + deviceId.charCodeAt(i);
@@ -42,71 +42,80 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         const char1 = String.fromCharCode(65 + Math.abs(hash) % 26);
         const char2 = String.fromCharCode(65 + Math.abs(hash >> 5) % 26);
 
-        const shortCode = `${getDeviceIdSuffix()}${char1}${char2}`;
+        const shortCode = `${deviceId.slice(-6).toUpperCase()}${char1}${char2}`;
         return `${baseUrl}?ref=${shortCode}`;
     };
 
-    // 加载配置
+    // 加载配置和统计
     useEffect(() => {
-        fetch(getApiUrl('/api/admin'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'getConfig' })
-        })
-            .then(res => res.json())
-            .then(data => setConfig(data.config || {}))
-            .catch(console.error);
+        const loadStats = async () => {
+            try {
+                // 1. 获取配置
+                const adminRes = await fetch(getApiUrl('/api/admin'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'getConfig' })
+                });
+                if (adminRes.ok) {
+                    const adminData = await adminRes.json();
+                    setConfig(adminData.config || {});
+                }
 
-        // 加载分享统计
-        if (user?.id) {
-            const ts = Date.now();
-            fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getReferralStats', userId: user.id })
-            })
-                .then(res => res.json())
-                .then(data => setReferralCount(data.referralCount || 0))
-                .catch(console.error);
+                if (user?.id) {
+                    const ts = Date.now();
+                    // 2. 分享统计
+                    const statsRes = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'getReferralStats', userId: user.id })
+                    });
+                    if (statsRes.ok) {
+                        const statsData = await statsRes.json();
+                        setReferralCount(statsData.referralCount || 0);
+                    }
 
-            // 加载分享历史记录
-            fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getReferralHistory', userId: user.id })
-            })
-                .then(res => res.json())
-                .then(data => setReferralHistory(data.history || []))
-                .catch(console.error);
+                    // 3. 历史记录
+                    const historyRes = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'getReferralHistory', userId: user.id })
+                    });
+                    if (historyRes.ok) {
+                        const historyData = await historyRes.json();
+                        setReferralHistory(historyData.history || []);
+                    }
 
-            // 加载积分
-            fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getPointsStats', userId: user.id })
-            })
-                .then(res => res.json())
-                .then(data => setUserPoints(data.points || 0))
-                .catch(console.error);
-        }
+                    // 4. 积分
+                    const pointsRes = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'getPointsStats', userId: user.id })
+                    });
+                    if (pointsRes.ok) {
+                        const pointsData = await pointsRes.json();
+                        setUserPoints(pointsData.points || 0);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load member stats:', err);
+            }
+        };
 
-        // 检查是否有待确认的订单
+        loadStats();
+
         const savedOrderId = localStorage.getItem('pending_order_id');
-        if (savedOrderId) {
-            setPendingOrderId(savedOrderId);
-        }
-    }, []);
+        if (savedOrderId) setPendingOrderId(savedOrderId);
+    }, [user?.id]);
 
-    // 监听 pendingOrderId，自动轮询支付结果
+    // 支付查询逻辑
     useEffect(() => {
         if (!pendingOrderId) return;
-
         let pollCount = 0;
-        const maxPolls = 100; // 最多轮询 5 分钟 (100 * 3s)
+        const maxPolls = 100;
 
         const pollStatus = async () => {
             if (pollCount >= maxPolls) {
-                setRechargeMessage('⚠️ 支付状态查询超时，请刷新重试或联系客服');
+                setRechargeMessage('⚠️ 支付超时，请联系客服');
                 localStorage.removeItem('pending_order_id');
                 setPendingOrderId(null);
                 return;
@@ -118,214 +127,124 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 const res = await fetch(getApiUrl(`/api/alipay?t=${ts}`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'checkOrder', orderId: pendingOrderId }),
-                    cache: 'no-store'
+                    body: JSON.stringify({ action: 'checkOrder', orderId: pendingOrderId })
                 });
-
-                if (!res.ok) return;
-                const data = await res.json();
-
-                if (data.status === 'paid') {
-                    setRechargeMessage(`✅ 充值成功！自动为您增加了 ${data.credits} 次额度`);
-                    localStorage.removeItem('pending_order_id');
-                    setPendingOrderId(null);
-                    // 延迟 2 秒刷新以免出现数据库事务延迟导致的并发覆盖
-                    setTimeout(() => refreshUser(), 2000);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'paid') {
+                        setRechargeMessage(`✅ 充值成功！自动为您增加了 ${data.credits} 次额度`);
+                        localStorage.removeItem('pending_order_id');
+                        setPendingOrderId(null);
+                        setTimeout(() => refreshUser(), 2000);
+                    }
                 }
-            } catch (err) {
-                console.error('Polling error', err);
-            }
+            } catch (err) { console.error(err); }
         };
 
-        // 立即查询一次
-        pollStatus();
         const timer = setInterval(pollStatus, 3000);
         return () => clearInterval(timer);
     }, [pendingOrderId]);
 
-    // 刷新用户信息并同步到父组件
     const refreshUser = async () => {
         try {
+            if (!user?.id) return;
             const ts = Date.now();
             const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getUser', userId: user.id }),
-                cache: 'no-store'
+                body: JSON.stringify({ action: 'getUser', userId: user.id })
             });
             const data = await res.json();
-            if (data.user) {
-                // 通过回调同步更新父组件的 user 状态
-                onUserUpdate?.(data.user);
-            }
-        } catch (e) {
-            console.error(e);
-        }
+            if (data.user) onUserUpdate?.(data.user);
+        } catch (e) { console.error(e); }
     };
 
-    // 兑换码兑换
     const handleRedeem = async () => {
-        if (!redeemCode.trim()) return;
+        if (!redeemCode.trim() || !user?.id) return;
         setLoading(true);
         setMessage('');
-
         try {
             const deviceId = localStorage.getItem('device_id') || '';
             const ts = Date.now();
             const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'redeem',
-                    userId: user.id,
-                    code: redeemCode.toUpperCase(),
-                    deviceId
-                })
+                body: JSON.stringify({ action: 'redeem', userId: user.id, code: redeemCode.toUpperCase(), deviceId })
             });
-
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-
             setMessage('🎉 ' + data.message);
             setRedeemCode('');
             refreshUser();
-        } catch (err: any) {
-            setMessage('❌ ' + err.message);
-        } finally {
-            setLoading(false);
-        }
+        } catch (err: any) { setMessage('❌ ' + err.message); } finally { setLoading(false); }
     };
 
-    // 复制分享链接
     const copyShareLink = () => {
-        navigator.clipboard.writeText(getShareLink());
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        const link = getShareLink();
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(link).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            }).catch(() => {
+                alert('复制失败，请手动长按输入框复制：' + link);
+            });
+        } else {
+            alert('当前浏览器不支持自动复制，请手动复制：' + link);
+        }
     };
 
-    // 积分兑换申请
     const handlePointsRedeem = async (pointsUsed: number, rewardAmount: number) => {
-        if (userPoints < pointsUsed) {
-            setPointsMessage('❌ 积分不足');
-            return;
-        }
-
+        if (userPoints < pointsUsed || !user?.id) return;
         setPointsMessage('提交中...');
-
         try {
             const ts = Date.now();
             const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'redeemPoints',
-                    userId: user.id,
-                    pointsUsed,
-                    rewardAmount
-                })
+                body: JSON.stringify({ action: 'redeemPoints', userId: user.id, pointsUsed, rewardAmount })
             });
-
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-
             setPointsMessage(`🎉 ${data.message}，请联系微信“${config.contact_wechat || 'sekesm'}”完成兑换`);
-        } catch (err: any) {
-            setPointsMessage('❌ ' + err.message);
-        }
+        } catch (err: any) { setPointsMessage('❌ ' + err.message); }
     };
 
-    // 处理充值
     const handleRecharge = async (amount: number, creditsToAdd: number) => {
-        // 检查支付宝配置
         if (!config.alipay_app_id || !config.alipay_private_key) {
             setRechargeMessage('⚠️ 支付功能配置中，请联系管理员');
             return;
         }
-
         setRechargeMessage(`正在创建订单...`);
-
         try {
             const res = await fetch(getApiUrl('/api/alipay'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'createOrder',
-                    userId: user.id,
-                    amount,
-                    credits: creditsToAdd
-                })
+                body: JSON.stringify({ action: 'createOrder', userId: user.id, amount, credits: creditsToAdd })
             });
-
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-
-            // 保存订单ID用于返回后确认
             localStorage.setItem('pending_order_id', data.orderId);
             setPendingOrderId(data.orderId);
-
             setRechargeMessage('正在跳转支付宝...');
-
-            // 跳转到支付宝支付页面
             window.location.href = data.payUrl;
-        } catch (err: any) {
-            setRechargeMessage('❌ ' + (err.message || '支付失败'));
-        }
-    };
-
-    // 确认支付（支付完成后点击）
-    const confirmPayment = async () => {
-        if (!pendingOrderId) return;
-
-        setLoading(true);
-        setRechargeMessage('正在确认支付...');
-
-        try {
-            const res = await fetch(getApiUrl('/api/alipay'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'confirmOrder',
-                    orderId: pendingOrderId,
-                    userId: user.id
-                })
-            });
-
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
-
-            setRechargeMessage(`✅ ${data.message}，已增加 ${data.credits} 次额度`);
-            localStorage.removeItem('pending_order_id');
-            setPendingOrderId(null);
-            refreshUser();
-        } catch (err: any) {
-            setRechargeMessage('❌ ' + (err.message || '确认失败'));
-        } finally {
-            setLoading(false);
-        }
+        } catch (err: any) { setRechargeMessage('❌ ' + (err.message || '支付失败')); }
     };
 
     return (
-        <div className="p-6">
+        <div className="p-6 pb-24">
             <div className="flex items-center gap-4 mb-6">
-                <button onClick={onBack} className="text-2xl">←</button>
+                <button onClick={onBack} className="text-2xl p-2 active:bg-pink-50 rounded-full transition-colors">←</button>
                 <h2 className="text-xl font-bold">会员中心</h2>
             </div>
 
             <div className="space-y-4">
                 {/* 用户信息卡片 */}
-                <div className="bg-gradient-to-r from-pink-400 to-purple-500 rounded-2xl p-4 text-white">
+                <div className="bg-gradient-to-r from-pink-400 to-purple-500 rounded-2xl p-4 text-white shadow-lg">
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-xl">
-                            👤
-                        </div>
+                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-xl">👤</div>
                         <div>
-                            <h3 className="text-lg font-bold">@{user?.username}</h3>
-                            <div className="flex flex-col">
-                                <span className="text-white/80 text-[10px]">本机识别码: {getDeviceIdSuffix()}</span>
-                                {user?.referrer_id && (
-                                    <span className="text-white/60 text-[9px]">已绑定上级: {user.referrer_id.slice(0, 8)}...</span>
-                                )}
-                            </div>
+                            <h3 className="text-lg font-bold">@{user?.username || '用户'}</h3>
+                            <span className="text-white/80 text-[10px]">本机识别码: {getDeviceIdSuffix()}</span>
                         </div>
                     </div>
                     <div className="mt-3 flex gap-2">
@@ -347,23 +266,19 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 {/* 分享获客 */}
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
                     <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-bold">📤 分享免费获得次数</h4>
+                        <h4 className="font-bold">📤 分享获得次数</h4>
                         <span className="text-sm text-pink-500 font-bold">已获得 {referralCount} 次</span>
                     </div>
-                    <p className="text-sm text-gray-500 mb-3">
-                        分享专属链接，好友完成注册后您将获得1次额度奖励！推广越多，奖励越多。
-                    </p>
+                    <p className="text-sm text-gray-500 mb-3">分享专属链接，好友完成注册后您将获得 1 次额度奖励！推广越多，奖励越多。</p>
                     <div className="flex gap-2">
                         <input
                             type="text"
                             value={getShareLink()}
                             readOnly
-                            className="flex-1 h-10 px-3 rounded-xl bg-gray-100 text-sm"
+                            className="flex-1 h-10 px-3 rounded-xl bg-gray-100 text-sm border-0 focus:ring-0"
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
                         />
-                        <button
-                            onClick={copyShareLink}
-                            className="px-4 h-10 bg-pink-500 text-white rounded-xl text-sm"
-                        >
+                        <button onClick={copyShareLink} className="px-4 h-10 bg-pink-500 text-white rounded-xl text-sm font-bold active:scale-95 transition-transform">
                             {copied ? '已复制' : '复制'}
                         </button>
                     </div>
@@ -375,200 +290,76 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         <span className="text-xl">💰</span>
                         <h4 className="font-bold">推荐赚佣金计划</h4>
                     </div>
-                    <p className="text-sm text-gray-500 mb-3">
-                        邀请好友体验，不仅能获得免费次数，还能赚取<span className="text-orange-500 font-bold">现金佣金</span>！
-                    </p>
-                    <div className="space-y-3 bg-orange-50 rounded-xl p-3">
-                        <div className="flex gap-3">
-                            <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs shrink-0">1</div>
-                            <p className="text-xs text-orange-800 leading-relaxed">
-                                <span className="font-bold">分享链接</span>：复制上方的分享链接发送给好友或分享到朋友圈。
-                            </p>
-                        </div>
-                        <div className="flex gap-3">
-                            <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs shrink-0">2</div>
-                            <p className="text-xs text-orange-800 leading-relaxed">
-                                <span className="font-bold">好友注册</span>：好友通过您的专属链接完成账户注册。
-                            </p>
-                        </div>
-                        <div className="flex gap-3">
-                            <div className="w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs shrink-0">3</div>
-                            <p className="text-xs text-orange-800 leading-relaxed">
-                                <span className="font-bold">获得佣金</span>：好友产生的任何充值消费，您都将获得<span className="text-red-500 font-bold">{config.commission_rate || '40'}%</span>的现金分佣，直接转入您的推广余额。
-                            </p>
-                        </div>
+                    <p className="text-sm text-gray-500 mb-3">邀请好友体验，还能赚取现金佣金！</p>
+                    <div className="space-y-3 bg-orange-50 rounded-xl p-3 text-xs text-orange-800">
+                        <p><span className="font-bold">1. 分享链接</span>：复制上方链接发送给好友。</p>
+                        <p><span className="font-bold">2. 好友注册</span>：好友通过链接完成账户注册。</p>
+                        <p><span className="font-bold">3. 获得佣金</span>：好友充值，你得 <span className="text-red-500 font-bold">{config.commission_rate || '40'}%</span> 分佣。</p>
                     </div>
-                    <p className="mt-3 text-[10px] text-gray-400 text-center">
-                        * 余额满额后可联系客服申请提现（微信：{config.contact_wechat || 'sekesm'}）
-                    </p>
+                    <p className="mt-3 text-[10px] text-gray-400 text-center">* 满额后联系微信：{config.contact_wechat || 'sekesm'} 提现</p>
                 </div>
 
-                {/* 推荐奖励积分 (根据后台逻辑显示) */}
+                {/* 积分兑换 */}
                 {config.referral_points_enabled === 'true' && (
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
                         <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-bold">⭐ 推荐奖励积分</h4>
+                            <h4 className="font-bold">⭐ 积分兑换</h4>
                             <span className="text-sm text-purple-500 font-bold">当前积分：{userPoints}</span>
                         </div>
-                        <p className="text-sm text-gray-500 mb-2">
-                            好友通过分享链接注册，您将获得<span className="text-purple-500 font-bold">1个积分</span>，积分可兑换现金奖励。
-                        </p>
-                        <div className="bg-purple-50 rounded-xl p-3 mb-3">
-                            <p className="text-xs text-purple-700 mb-1">🎁 奖励制度：</p>
-                            <p className="text-xs text-purple-600">• 50积分 → 20元红包 &nbsp;&nbsp; • 100积分 → 50元红包</p>
-                            <p className="text-xs text-orange-500 mt-2">⚠️ 点击兑换后，请联系微信“{config.contact_wechat || 'sekesm'}”完成兑换</p>
+                        <div className="bg-purple-50 rounded-xl p-3 mb-3 text-xs text-purple-600">
+                            <p>🎁 50积分 → 20元红包 &nbsp;&nbsp; • 100积分 → 50元红包</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={() => handlePointsRedeem(50, 20)}
-                                disabled={userPoints < 50}
-                                className={`h-16 rounded-xl border-2 transition-colors ${userPoints >= 50 ? 'border-purple-300 hover:border-purple-500 hover:bg-purple-50' : 'border-gray-200 opacity-50 cursor-not-allowed'}`}
-                            >
+                            <button onClick={() => handlePointsRedeem(50, 20)} disabled={userPoints < 50} className={`h-16 rounded-xl border-2 transition-all ${userPoints >= 50 ? 'border-purple-300 active:bg-purple-50' : 'border-gray-200 opacity-50'}`}>
                                 <div className="text-lg font-bold text-purple-500">50积分</div>
-                                <div className="text-xs text-gray-500">→ 20元红包</div>
+                                <div className="text-[10px] text-gray-500">换 20元红包</div>
                             </button>
-                            <button
-                                onClick={() => handlePointsRedeem(100, 50)}
-                                disabled={userPoints < 100}
-                                className={`h-16 rounded-xl border-2 transition-colors ${userPoints >= 100 ? 'border-purple-300 hover:border-purple-500 hover:bg-purple-50' : 'border-gray-200 opacity-50 cursor-not-allowed'}`}
-                            >
+                            <button onClick={() => handlePointsRedeem(100, 50)} disabled={userPoints < 100} className={`h-16 rounded-xl border-2 transition-all ${userPoints >= 100 ? 'border-purple-300 active:bg-purple-50' : 'border-gray-200 opacity-50'}`}>
                                 <div className="text-lg font-bold text-purple-500">100积分</div>
-                                <div className="text-xs text-gray-500">→ 50元红包</div>
+                                <div className="text-[10px] text-gray-500">换 50元红包</div>
                             </button>
                         </div>
-                        {pointsMessage && (
-                            <p className={`mt-3 text-sm text-center ${pointsMessage.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>
-                                {pointsMessage}
-                            </p>
-                        )}
+                        {pointsMessage && <p className="mt-3 text-sm text-center text-purple-500">{pointsMessage}</p>}
                     </div>
                 )}
 
-                {/* 充值 (根据后台开关显示) */}
+                {/* 充值 */}
                 {config.recharge_enabled === 'true' && (
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
-                        <div className="flex justify-between items-center mb-2">
-                            <h4 className="font-bold">💰 充值次数</h4>
-                            <span className="text-[10px] text-gray-400">支付成功后，刷新网页更新次数</span>
-                        </div>
-
-                        {/* 支付状态轮询提示 */}
-                        {pendingOrderId && (
-                            <div className="mb-3 p-3 bg-blue-50 rounded-xl border border-blue-200 flex flex-col items-center justify-center py-4 space-y-3">
-                                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                <p className="text-sm text-blue-700 font-bold">正在自动查询支付结果...</p>
-                                <button
-                                    onClick={() => {
-                                        localStorage.removeItem('pending_order_id');
-                                        setPendingOrderId(null);
-                                        setRechargeMessage('已取消自动查询');
-                                    }}
-                                    className="text-xs text-blue-500 underline"
-                                >
-                                    关闭查询
-                                </button>
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={() => handleRecharge(9.9, 12)}
-                                className="h-20 rounded-xl border-2 border-pink-200 hover:border-pink-400 hover:bg-pink-50 transition-colors"
-                            >
-                                <div className="text-2xl font-bold text-pink-500">12次</div>
-                                <div className="text-sm text-gray-500">¥9.9</div>
+                        <h4 className="font-bold mb-3">💎 充值额度</h4>
+                        <div className="grid grid-cols-2 gap-3 text-center">
+                            <button onClick={() => handleRecharge(9.9, 12)} className="h-20 rounded-xl border-2 border-pink-100 active:bg-pink-50">
+                                <div className="text-xl font-bold text-pink-500">12次</div>
+                                <div className="text-sm text-gray-400">¥9.9</div>
                             </button>
-                            <button
-                                onClick={() => handleRecharge(19.9, 30)}
-                                className="h-20 rounded-xl border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-colors"
-                            >
-                                <div className="text-2xl font-bold text-purple-500">30次</div>
-                                <div className="text-sm text-gray-500">¥19.9</div>
+                            <button onClick={() => handleRecharge(19.9, 30)} className="h-20 rounded-xl border-2 border-purple-100 active:bg-purple-50">
+                                <div className="text-xl font-bold text-purple-500">30次</div>
+                                <div className="text-sm text-gray-400">¥19.9</div>
                             </button>
                         </div>
-                        {rechargeMessage && (
-                            <p className="mt-3 text-sm text-center text-orange-500">{rechargeMessage}</p>
-                        )}
+                        {rechargeMessage && <p className="mt-3 text-sm text-center text-orange-500">{rechargeMessage}</p>}
                     </div>
                 )}
 
                 {/* 兑换码 */}
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
                     <h4 className="font-bold mb-2">🎁 兑换码</h4>
-                    <p className="text-xs text-gray-400 mb-1">
-                        一个兑换码可免费获得<span className="text-pink-500 font-bold">5次</span>使用额度，每月可兑换一次
-                    </p>
-                    <p className="text-xs text-gray-400 mb-3">
-                        添加微信"<span className="text-pink-500">{config.contact_wechat || 'sekesm'}</span>"，免费获得兑换码
-                    </p>
                     <div className="flex gap-2">
                         <input
                             type="text"
                             value={redeemCode}
                             onChange={e => setRedeemCode(e.target.value.toUpperCase())}
                             placeholder="输入兑换码"
-                            className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
-                            maxLength={9}
+                            className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-sm"
                         />
-                        <button
-                            onClick={handleRedeem}
-                            disabled={loading}
-                            className="px-4 h-10 bg-purple-500 text-white rounded-xl text-sm"
-                        >
+                        <button onClick={handleRedeem} disabled={loading} className="px-4 h-10 bg-purple-500 text-white rounded-xl text-sm font-bold">
                             {loading ? '...' : '兑换'}
                         </button>
                     </div>
-                    {message && (
-                        <p className={`mt-2 text-sm ${message.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>
-                            {message}
-                        </p>
-                    )}
+                    {message && <p className={`mt-2 text-sm ${message.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>{message}</p>}
                 </div>
 
-                {/* 退出登录 */}
-                <button
-                    onClick={onLogout}
-                    className="w-full h-12 border border-gray-200 rounded-2xl text-gray-500"
-                >
-                    退出登录
-                </button>
-
-                {/* 推荐记录 */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm mt-4">
-                    <div className="flex items-center gap-2 mb-4">
-                        <span className="text-xl">👥</span>
-                        <h4 className="font-bold">推荐记录</h4>
-                    </div>
-                    {referralHistory.length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-4">暂无推荐记录</p>
-                    ) : (
-                        <div className="space-y-3">
-                            <div className="flex text-xs text-gray-400 border-b pb-2">
-                                <div className="flex-1">用户</div>
-                                <div className="w-20 text-center shrink-0">注册时间</div>
-                                <div className="w-20 text-center shrink-0">浏览器注册</div>
-                                <div className="w-16 text-right shrink-0">充值金额</div>
-                            </div>
-                            {referralHistory.map((record: any, index: number) => (
-                                <div key={index} className="flex items-center text-sm py-2 border-b border-gray-50 last:border-0">
-                                    <div className="flex-1 font-medium text-gray-700 truncate pr-1">{record.username}</div>
-                                    <div className="w-20 text-xs text-gray-500 text-center shrink-0">
-                                        {new Date(record.created_at).toLocaleDateString()}
-                                    </div>
-                                    <div className="w-20 text-xs text-center shrink-0">
-                                        {record.register_env === 'browser'
-                                            ? <span className="text-green-500">✅是</span>
-                                            : (record.register_env === 'unknown' ? <span className="text-gray-400">❓未知</span> : <span className="text-red-400">❌否</span>)
-                                        }
-                                    </div>
-                                    <div className="w-16 text-right text-orange-500 font-bold shrink-0">
-                                        ¥{(record.total_recharge || 0).toFixed(2)}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                <button onClick={onLogout} className="w-full h-12 border border-blue-100 rounded-2xl text-blue-400 font-bold active:bg-blue-50 transition-colors">退出登录</button>
             </div>
         </div>
     );
