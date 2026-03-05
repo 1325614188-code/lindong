@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { AppSection } from './types';
+import { AppSection, User } from './types';
 import { getStableDeviceId } from './lib/fingerprint';
 import { getApiUrl } from './lib/api-config';
 import HomeView from './views/HomeView';
@@ -53,10 +53,26 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 const App: React.FC = () => {
   const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
-  const [user, setUser] = useState<any>(null);
+  // 【问题1修复】user 类型从 any 改为 User | null
+  const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showMember, setShowMember] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+
+  // 【问题2修复】并发锁：防止 checkCredits 通过后在 AI 处理期间被再次调用
+  const isProcessingRef = useRef(false);
+
+  // 【问题5修复】用 ref 保存最新的状态值，供返回键回调读取，避免闭包陷阱
+  const currentSectionRef = useRef(currentSection);
+  const showLoginRef = useRef(showLogin);
+  const showMemberRef = useRef(showMember);
+  const showAdminRef = useRef(showAdmin);
+
+  // 同步 state 到 ref（每次 state 变化时自动更新）
+  useEffect(() => { currentSectionRef.current = currentSection; }, [currentSection]);
+  useEffect(() => { showLoginRef.current = showLogin; }, [showLogin]);
+  useEffect(() => { showMemberRef.current = showMember; }, [showMember]);
+  useEffect(() => { showAdminRef.current = showAdmin; }, [showAdmin]);
 
   // 1. 初始化用户状态 (Effect #1)
   useEffect(() => {
@@ -68,7 +84,7 @@ const App: React.FC = () => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
-        const parsedUser = JSON.parse(savedUser);
+        const parsedUser: User = JSON.parse(savedUser);
         setUser(parsedUser);
 
         // 增量更新用户信息
@@ -81,7 +97,7 @@ const App: React.FC = () => {
           .then(res => res.json())
           .then(data => {
             if (data.user) {
-              const upUser = { ...parsedUser, ...data.user };
+              const upUser: User = { ...parsedUser, ...data.user };
               setUser(upUser);
               localStorage.setItem('user', JSON.stringify(upUser));
             }
@@ -105,17 +121,18 @@ const App: React.FC = () => {
   }, []);
 
   // 3. Android 物理返回键监听 (Effect #3)
+  // 【问题5修复】依赖数组为空 []，只注册一次。回调通过 ref 读取最新 state，避免频繁重注册。
   useEffect(() => {
-    // 只有在 Native 环境下且存在 addListener 时才运行
     if (typeof CapApp === 'undefined' || !CapApp.addListener) return;
 
     let listener: any = null;
     const setupListener = async () => {
       listener = await CapApp.addListener('backButton', () => {
-        if (showLogin) setShowLogin(false);
-        else if (showAdmin) setShowAdmin(false);
-        else if (showMember) setShowMember(false);
-        else if (currentSection !== AppSection.HOME) setCurrentSection(AppSection.HOME);
+        // NOTE: 通过 ref 读取最新状态，避免旧闭包问题
+        if (showLoginRef.current) setShowLogin(false);
+        else if (showAdminRef.current) setShowAdmin(false);
+        else if (showMemberRef.current) setShowMember(false);
+        else if (currentSectionRef.current !== AppSection.HOME) setCurrentSection(AppSection.HOME);
         else CapApp.exitApp();
       });
     };
@@ -125,9 +142,9 @@ const App: React.FC = () => {
     return () => {
       if (listener) listener.remove();
     };
-  }, [currentSection, showLogin, showAdmin, showMember]);
+  }, []); // NOTE: 空依赖，只挂载一次监听器
 
-  const handleLogin = (u: any) => {
+  const handleLogin = (u: User) => {
     setUser(u);
     localStorage.setItem('user', JSON.stringify(u));
     setShowLogin(false);
@@ -142,13 +159,22 @@ const App: React.FC = () => {
   };
 
   // 快捷刷新用户信息
-  const handleUserUpdate = (up: any) => {
+  const handleUserUpdate = (up: User) => {
     setUser(up);
     localStorage.setItem('user', JSON.stringify(up));
   };
 
+  /**
+   * 检查用户额度是否充足（不扣除）
+   * 【问题2修复】：加入并发锁 isProcessingRef，防止用户在 AI 处理期间重复触发
+   */
   const checkCredits = async (): Promise<boolean> => {
     if (!user) { setShowLogin(true); return false; }
+    // 如果上一次调用还未通过 deductCredit 释放锁，直接拒绝
+    if (isProcessingRef.current) {
+      console.warn('[App] checkCredits blocked: 上一个请求仍在处理中');
+      return false;
+    }
     try {
       const res = await fetch(getApiUrl('/api/auth_v2'), {
         method: 'POST',
@@ -160,10 +186,16 @@ const App: React.FC = () => {
         if (data.needCredits) { alert('额度不足'); setShowMember(true); }
         return false;
       }
+      // 检查通过后加锁，防止在 AI 处理期间重复进入
+      isProcessingRef.current = true;
       return true;
     } catch { return false; }
   };
 
+  /**
+   * 实际扣除 1 次额度（AI 生成成功后调用）
+   * 【问题2修复】：完成后释放并发锁
+   */
   const deductCredit = async (): Promise<boolean> => {
     if (!user) return false;
     try {
@@ -179,6 +211,10 @@ const App: React.FC = () => {
       }
       return false;
     } catch { return false; }
+    finally {
+      // NOTE: 无论成功或失败，都必须释放锁，防止永久阻塞
+      isProcessingRef.current = false;
+    }
   };
 
   return (

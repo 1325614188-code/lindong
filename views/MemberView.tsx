@@ -50,49 +50,62 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
     useEffect(() => {
         const loadStats = async () => {
             try {
-                // 1. 获取配置
-                const adminRes = await fetch(getApiUrl('/api/admin'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'getConfig' })
-                });
-                if (adminRes.ok) {
-                    const adminData = await adminRes.json();
+                const ts = Date.now();
+
+                // 【问题4修复】将配置、统计、历史、积分 4 个请求合并为并发执行，减少约 75% 等待时间
+                const requests: Promise<Response>[] = [
+                    // 0: 获取配置
+                    fetch(getApiUrl('/api/admin'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'getConfig' })
+                    }),
+                ];
+
+                if (user?.id) {
+                    // 1: 分享统计
+                    requests.push(fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'getReferralStats', userId: user.id })
+                    }));
+                    // 2: 推荐历史
+                    requests.push(fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'getReferralHistory', userId: user.id })
+                    }));
+                    // 3: 积分
+                    requests.push(fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'getPointsStats', userId: user.id })
+                    }));
+                }
+
+                // NOTE: 使用 allSettled 替代 all，确保单个请求失败不影响其他请求的结果
+                const results = await Promise.allSettled(requests);
+
+                // 处理配置
+                if (results[0].status === 'fulfilled' && results[0].value.ok) {
+                    const adminData = await results[0].value.json();
                     setConfig(adminData.config || {});
                 }
 
                 if (user?.id) {
-                    const ts = Date.now();
-                    // 2. 分享统计
-                    const statsRes = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'getReferralStats', userId: user.id })
-                    });
-                    if (statsRes.ok) {
-                        const statsData = await statsRes.json();
+                    // 处理分享统计
+                    if (results[1]?.status === 'fulfilled' && results[1].value.ok) {
+                        const statsData = await results[1].value.json();
                         setReferralCount(statsData.referralCount || 0);
                     }
-
-                    // 3. 历史记录
-                    const historyRes = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'getReferralHistory', userId: user.id })
-                    });
-                    if (historyRes.ok) {
-                        const historyData = await historyRes.json();
+                    // 处理推荐历史
+                    if (results[2]?.status === 'fulfilled' && results[2].value.ok) {
+                        const historyData = await results[2].value.json();
                         setReferralHistory(historyData.history || []);
                     }
-
-                    // 4. 积分
-                    const pointsRes = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'getPointsStats', userId: user.id })
-                    });
-                    if (pointsRes.ok) {
-                        const pointsData = await pointsRes.json();
+                    // 处理积分
+                    if (results[3]?.status === 'fulfilled' && results[3].value.ok) {
+                        const pointsData = await results[3].value.json();
                         setUserPoints(pointsData.points || 0);
                     }
                 }
@@ -106,6 +119,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         const savedOrderId = localStorage.getItem('pending_order_id');
         if (savedOrderId) setPendingOrderId(savedOrderId);
     }, [user?.id]);
+
 
     // 支付查询逻辑
     useEffect(() => {
@@ -306,22 +320,42 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                             <h4 className="font-bold">⭐ 积分兑换</h4>
                             <span className="text-sm text-purple-500 font-bold">当前积分：{userPoints}</span>
                         </div>
+                        {/* 积分获取说明 */}
+                        <div className="bg-purple-50 rounded-xl p-3 mb-3 text-xs text-purple-700 leading-relaxed">
+                            <p className="font-bold mb-1">📣 如何获得积分？</p>
+                            <p>成功分享一个新用户（好友通过你的链接注册），即可获得 <span className="font-bold text-purple-600">1 个积分</span>。积分可兑换现金红包奖励！</p>
+                        </div>
                         <div className="bg-purple-50 rounded-xl p-3 mb-3 text-xs text-purple-600">
-                            <p>🎁 50积分 → 20元红包 &nbsp;&nbsp; • 100积分 → 50元红包</p>
+                            <p>🎁 {config.points_threshold_1 || '50'}积分 → {config.points_reward_1 || '20'}元红包 &nbsp;&nbsp; • {config.points_threshold_2 || '100'}积分 → {config.points_reward_2 || '50'}元红包</p>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                            <button onClick={() => handlePointsRedeem(50, 20)} disabled={userPoints < 50} className={`h-16 rounded-xl border-2 transition-all ${userPoints >= 50 ? 'border-purple-300 active:bg-purple-50' : 'border-gray-200 opacity-50'}`}>
-                                <div className="text-lg font-bold text-purple-500">50积分</div>
-                                <div className="text-[10px] text-gray-500">换 20元红包</div>
+                            <button
+                                onClick={() => handlePointsRedeem(
+                                    Number(config.points_threshold_1 || 50),
+                                    Number(config.points_reward_1 || 20)
+                                )}
+                                disabled={userPoints < Number(config.points_threshold_1 || 50)}
+                                className={`h-16 rounded-xl border-2 transition-all ${userPoints >= Number(config.points_threshold_1 || 50) ? 'border-purple-300 active:bg-purple-50' : 'border-gray-200 opacity-50'}`}
+                            >
+                                <div className="text-lg font-bold text-purple-500">{config.points_threshold_1 || '50'}积分</div>
+                                <div className="text-[10px] text-gray-500">换 {config.points_reward_1 || '20'}元红包</div>
                             </button>
-                            <button onClick={() => handlePointsRedeem(100, 50)} disabled={userPoints < 100} className={`h-16 rounded-xl border-2 transition-all ${userPoints >= 100 ? 'border-purple-300 active:bg-purple-50' : 'border-gray-200 opacity-50'}`}>
-                                <div className="text-lg font-bold text-purple-500">100积分</div>
-                                <div className="text-[10px] text-gray-500">换 50元红包</div>
+                            <button
+                                onClick={() => handlePointsRedeem(
+                                    Number(config.points_threshold_2 || 100),
+                                    Number(config.points_reward_2 || 50)
+                                )}
+                                disabled={userPoints < Number(config.points_threshold_2 || 100)}
+                                className={`h-16 rounded-xl border-2 transition-all ${userPoints >= Number(config.points_threshold_2 || 100) ? 'border-purple-300 active:bg-purple-50' : 'border-gray-200 opacity-50'}`}
+                            >
+                                <div className="text-lg font-bold text-purple-500">{config.points_threshold_2 || '100'}积分</div>
+                                <div className="text-[10px] text-gray-500">换 {config.points_reward_2 || '50'}元红包</div>
                             </button>
                         </div>
                         {pointsMessage && <p className="mt-3 text-sm text-center text-purple-500">{pointsMessage}</p>}
                     </div>
                 )}
+
 
                 {/* 充值 */}
                 {config.recharge_enabled === 'true' && (

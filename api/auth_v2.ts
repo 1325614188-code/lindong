@@ -6,8 +6,10 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 密码加密
+// NOTE: 优先从环境变量读取盐值，兜底使用默认值确保现有密码不失效
+const PASSWORD_SALT = process.env.PASSWORD_SALT || 'meili_salt_2026';
 const hashPassword = (password: string): string => {
-    return crypto.createHash('sha256').update(password + 'meili_salt_2026').digest('hex');
+    return crypto.createHash('sha256').update(password + PASSWORD_SALT).digest('hex');
 };
 
 // 验证兑换码格式 - 使用北京时间 (UTC+8)

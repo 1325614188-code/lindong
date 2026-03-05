@@ -388,6 +388,55 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     <span className="text-sm text-gray-500">好友支付后返还给推荐人的比例</span>
                                 </div>
                             </div>
+
+                            {/* 积分兑换红包配置 */}
+                            <div className="mt-2 p-3 bg-purple-50 rounded-xl space-y-3">
+                                <p className="text-sm font-bold text-purple-700">⭐ 积分兑换红包配置</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-500">档位1：所需积分</label>
+                                        <input
+                                            type="number"
+                                            value={config.points_threshold_1 || '50'}
+                                            onChange={e => updateConfig('points_threshold_1', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-purple-200 text-center font-bold text-purple-600 bg-white"
+                                            placeholder="50"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-500">档位1：红包金额 (元)</label>
+                                        <input
+                                            type="number"
+                                            value={config.points_reward_1 || '20'}
+                                            onChange={e => updateConfig('points_reward_1', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-purple-200 text-center font-bold text-pink-500 bg-white"
+                                            placeholder="20"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-500">档位2：所需积分</label>
+                                        <input
+                                            type="number"
+                                            value={config.points_threshold_2 || '100'}
+                                            onChange={e => updateConfig('points_threshold_2', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-purple-200 text-center font-bold text-purple-600 bg-white"
+                                            placeholder="100"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-500">档位2：红包金额 (元)</label>
+                                        <input
+                                            type="number"
+                                            value={config.points_reward_2 || '50'}
+                                            onChange={e => updateConfig('points_reward_2', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-purple-200 text-center font-bold text-pink-500 bg-white"
+                                            placeholder="50"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400">修改后实时生效，用户端即时显示新金额</p>
+                            </div>
+
                         </div>
                     </div>
 
