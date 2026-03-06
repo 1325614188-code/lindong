@@ -34,6 +34,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
       <header className="mb-8 text-center">
         <h1 className="text-4xl art-title mb-2">✨ 美力实验室 ✨</h1>
         <p className="text-gray-500 text-sm">✨ 发现你的独属魅力 ✨</p>
+        <p className="text-[10px] text-pink-300 mt-2">v1.1 | 佣金提现功能已上线</p>
       </header>
 
       <div className="mb-8 flex gap-3 items-start justify-stretch">
@@ -41,7 +42,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
           onClick={() => setShowDownloadDialog(true)}
           className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform text-[11px] no-underline border-0"
         >
-          <span className="text-xl">📦</span> 下载 APP
+          <span className="text-xl">📦</span> 下载最新 APP
         </button>
         <div className="flex-1">
           <InstallPWA />

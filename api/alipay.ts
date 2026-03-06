@@ -177,7 +177,7 @@ export default async function handler(req: any, res: any) {
                     status: 'pending',
                     trade_no: orderId
                 });
-                const returnUrl = req.headers.origin || 'https://qczj.xyz';
+                const returnUrl = 'https://www.qczj.xyz';
                 const params = buildAlipayParams(config, orderId, amount, credits, returnUrl);
                 const gateway = config.alipay_gateway || 'https://openapi.alipay.com/gateway.do';
                 const queryString = Object.entries(params)

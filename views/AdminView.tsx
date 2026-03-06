@@ -352,6 +352,37 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                 </div>
             )}
 
+            {activeTab === 'commissions' && (
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <h3 className="font-bold mb-4 capitalize">💰 推广佣金明细</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left text-gray-500 border-b">
+                                    <th className="pb-2">获利用户</th>
+                                    <th className="pb-2">来源</th>
+                                    <th className="pb-2">金额</th>
+                                    <th className="pb-2">时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {commissions.map(req => (
+                                    <tr key={req.id} className="border-b border-gray-100">
+                                        <td className="py-3 font-bold">{req.users?.nickname || req.users?.username}</td>
+                                        <td className="py-3 text-gray-500 text-xs">{req.source_user?.username} 充值</td>
+                                        <td className="py-3 text-green-600 font-bold">+{req.amount}元</td>
+                                        <td className="py-3 text-gray-400 text-[10px]">{new Date(req.created_at).toLocaleString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {commissions.length === 0 && (
+                            <div className="py-10 text-center text-gray-400 text-xs">暂无佣金记录</div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'withdrawals' && (
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
                     <h3 className="font-bold mb-4">🏧 佣金提现管理</h3>
