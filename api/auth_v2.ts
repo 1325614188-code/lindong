@@ -554,6 +554,108 @@ export default async function handler(req: any, res: any) {
                 });
             }
 
+            case 'requestCommissionWithdrawal': {
+                const { userId, amount } = data;
+
+                if (!userId || !amount || amount < 100) {
+                    return res.status(400).json({ error: '提现金额需不少于100元' });
+                }
+
+                // 1. 检查余额
+                const { data: user, error: userError } = await supabase
+                    .from('users')
+                    .select('commission_balance, username')
+                    .eq('id', userId)
+                    .single();
+
+                if (userError || !user) {
+                    return res.status(404).json({ error: '用户不存在' });
+                }
+
+                if (Number(user.commission_balance) < amount) {
+                    return res.status(400).json({ error: '余额不足' });
+                }
+
+                // 2. 检查是否有待处理的申请 (防止重复提交)
+                const { data: pending } = await supabase
+                    .from('commission_withdrawals')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('status', 'pending')
+                    .maybeSingle();
+
+                if (pending) {
+                    return res.status(400).json({ error: '您已有待处理的申请，请关注审核进度' });
+                }
+
+                // 3. 提交申请
+                const { error: insertError } = await supabase
+                    .from('commission_withdrawals')
+                    .insert({
+                        user_id: userId,
+                        username: user.username,
+                        amount: amount,
+                        status: 'pending'
+                    });
+
+                if (insertError) throw insertError;
+
+                return res.status(200).json({ success: true, message: '申请提交成功，请等待管理员审核处理' });
+            }
+
+            case 'getWithdrawalList': {
+                const { isAdmin } = data;
+                if (!isAdmin) return res.status(403).json({ error: 'Unauthorized' });
+
+                const { data: list, error } = await supabase
+                    .from('commission_withdrawals')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                return res.status(200).json({ list });
+            }
+
+            case 'processWithdrawal': {
+                const { isAdmin, withdrawalId, status, adminNote } = data;
+                if (!isAdmin) return res.status(403).json({ error: 'Unauthorized' });
+
+                if (status === 'approved') {
+                    // 获取申请详情
+                    const { data: withdrawal } = await supabase
+                        .from('commission_withdrawals')
+                        .select('*')
+                        .eq('id', withdrawalId)
+                        .single();
+
+                    if (!withdrawal || withdrawal.status !== 'pending') {
+                        return res.status(400).json({ error: '申请不存在或已处理' });
+                    }
+
+                    // 1. 扣除余额
+                    const { error: updateBalanceError } = await supabase.rpc('add_commission', {
+                        user_id: withdrawal.user_id,
+                        amount: -Number(withdrawal.amount)
+                    });
+
+                    if (updateBalanceError) throw updateBalanceError;
+                }
+
+                // 2. 更新申请状态
+                const { error: updateStatusError } = await supabase
+                    .from('commission_withdrawals')
+                    .update({
+                        status: status,
+                        adminNote: adminNote,
+                        processed_at: new Date().toISOString()
+                    })
+                    .eq('id', withdrawalId);
+
+                if (updateStatusError) throw updateStatusError;
+
+                return res.status(200).json({ success: true });
+            }
+
             default:
                 return res.status(400).json({ error: 'Invalid action' });
         }

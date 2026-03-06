@@ -15,8 +15,9 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     const [editingPoints, setEditingPoints] = useState<{ id: string; amount: number } | null>(null);
     const [pointRedemptions, setPointRedemptions] = useState<any[]>([]);
     const [commissions, setCommissions] = useState<any[]>([]);
+    const [withdrawals, setWithdrawals] = useState<any[]>([]);
     const [processingId, setProcessingId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'config'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'withdrawals' | 'config'>('users');
 
     // 加载数据
     useEffect(() => {
@@ -77,6 +78,15 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             });
             const commissionsData = await commissionsRes.json();
             setCommissions(commissionsData.commissions || []);
+
+            // 获取佣金提现申请
+            const withdrawalsRes = await fetch(getApiUrl('/api/auth_v2'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getWithdrawalList', isAdmin: true })
+            });
+            const withdrawalsData = await withdrawalsRes.json();
+            setWithdrawals(withdrawalsData.list || []);
         } catch (e) {
             console.error(e);
         } finally {
@@ -150,6 +160,38 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
         }
     };
 
+    // 处理提现申请
+    const handleProcessWithdrawal = async (withdrawalId: string, status: 'approved' | 'rejected') => {
+        if (!confirm(`确认要${status === 'approved' ? '批准并标记为已兑付' : '拒绝'}这笔提现申请吗？`)) return;
+
+        setProcessingId(withdrawalId);
+        try {
+            const res = await fetch(getApiUrl('/api/auth_v2'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'processWithdrawal',
+                    isAdmin: true,
+                    withdrawalId,
+                    status,
+                    adminNote: status === 'approved' ? '管理员已线下兑付' : '不符合提现要求'
+                })
+            });
+            if (res.ok) {
+                alert('处理成功');
+                loadData();
+            } else {
+                const data = await res.json();
+                alert('处理失败: ' + data.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('请求异常');
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -189,13 +231,19 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                     onClick={() => setActiveTab('commissions')}
                     className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'commissions' ? 'bg-white shadow-sm text-orange-500' : 'text-gray-500'}`}
                 >
-                    💰 佣金流水
+                    💰 流水
+                </button>
+                <button
+                    onClick={() => setActiveTab('withdrawals')}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'withdrawals' ? 'bg-white shadow-sm text-red-500' : 'text-gray-500'}`}
+                >
+                    🏧 提现
                 </button>
                 <button
                     onClick={() => setActiveTab('config')}
                     className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'config' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-500'}`}
                 >
-                    ⚙️ 系统配置
+                    ⚙️ 配置
                 </button>
             </div>
 
@@ -304,32 +352,61 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                 </div>
             )}
 
-            {activeTab === 'commissions' && (
+            {activeTab === 'withdrawals' && (
                 <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <h3 className="font-bold mb-4 capitalize">💰 推广佣金明细</h3>
+                    <h3 className="font-bold mb-4">🏧 佣金提现管理</h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-left text-gray-500 border-b">
-                                    <th className="pb-2">获利用户</th>
-                                    <th className="pb-2">来源</th>
+                                    <th className="pb-2">申请用户</th>
                                     <th className="pb-2">金额</th>
+                                    <th className="pb-2">状态</th>
                                     <th className="pb-2">时间</th>
+                                    <th className="pb-2">操作</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {commissions.map(req => (
+                                {withdrawals.map(req => (
                                     <tr key={req.id} className="border-b border-gray-100">
-                                        <td className="py-3 font-bold">{req.users?.nickname || req.users?.username}</td>
-                                        <td className="py-3 text-gray-500 text-xs">{req.source_user?.username} 充值</td>
-                                        <td className="py-3 text-green-600 font-bold">+{req.amount}元</td>
-                                        <td className="py-3 text-gray-400 text-[10px]">{new Date(req.created_at).toLocaleString()}</td>
+                                        <td className="py-3">
+                                            <div className="font-bold">{req.username}</div>
+                                            <div className="text-[10px] text-gray-400">UID: {req.user_id?.slice(0, 8)}...</div>
+                                        </td>
+                                        <td className="py-3 text-red-500 font-bold">¥{req.amount}</td>
+                                        <td className="py-3">
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] ${req.status === 'pending' ? 'bg-orange-100 text-orange-600' :
+                                                req.status === 'approved' ? 'bg-green-100 text-green-600' :
+                                                    'bg-gray-100 text-gray-400'
+                                                }`}>
+                                                {req.status === 'pending' ? '待处理' : req.status === 'approved' ? '已支付' : '已拒绝'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 text-gray-400 text-[10px] whitespace-nowrap">{new Date(req.created_at).toLocaleString()}</td>
+                                        <td className="py-3">
+                                            {req.status === 'pending' ? (
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleProcessWithdrawal(req.id, 'approved')}
+                                                        disabled={processingId === req.id}
+                                                        className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold active:scale-95"
+                                                    >批准支付</button>
+                                                    <button
+                                                        onClick={() => handleProcessWithdrawal(req.id, 'rejected')}
+                                                        disabled={processingId === req.id}
+                                                        className="px-3 py-1 bg-gray-200 text-gray-500 rounded-lg text-xs font-bold active:scale-95"
+                                                    >拒绝</button>
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-300 text-xs">-</span>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-                        {commissions.length === 0 && (
-                            <div className="py-10 text-center text-gray-400 text-xs">暂无佣金记录</div>
+                        {withdrawals.length === 0 && (
+                            <div className="py-10 text-center text-gray-400 text-xs">暂无提现申请</div>
                         )}
                     </div>
                 </div>

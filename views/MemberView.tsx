@@ -244,6 +244,44 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         } catch (err: any) { setRechargeMessage('❌ ' + (err.message || '支付失败')); }
     };
 
+    const [withdrawalMessage, setWithdrawalMessage] = useState('');
+    const [withdrawing, setWithdrawing] = useState(false);
+
+    const handleWithdrawal = async () => {
+        const balance = Number(user?.commission_balance || 0);
+        if (balance < 100) {
+            setWithdrawalMessage('❌ 佣金满 100 元即可申请提现哦');
+            setTimeout(() => setWithdrawalMessage(''), 3000);
+            return;
+        }
+
+        if (!confirm(`确认申请提现全部佣金 ¥${balance} 吗？`)) return;
+
+        setWithdrawing(true);
+        setWithdrawalMessage('提交申请中...');
+        try {
+            const ts = Date.now();
+            const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'requestCommissionWithdrawal', userId: user.id, amount: balance })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            setWithdrawalMessage('🎉 ' + data.message);
+            setTimeout(() => {
+                setWithdrawalMessage('');
+                refreshUser();
+            }, 3000);
+        } catch (err: any) {
+            setWithdrawalMessage('❌ ' + err.message);
+            setTimeout(() => setWithdrawalMessage(''), 3000);
+        } finally {
+            setWithdrawing(false);
+        }
+    };
+
     return (
         <div className="p-6 pb-24">
             <div className="flex items-center gap-4 mb-6">
@@ -310,7 +348,20 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         <p><span className="font-bold">2. 好友注册</span>：好友通过链接完成账户注册。</p>
                         <p><span className="font-bold">3. 获得佣金</span>：好友充值，你得 <span className="text-red-500 font-bold">{config.commission_rate || '40'}%</span> 分佣。</p>
                     </div>
-                    <p className="mt-3 text-[10px] text-gray-400 text-center">* 满额后联系微信：{config.contact_wechat || 'sekesm'} 提现</p>
+
+                    <div className="mt-4">
+                        <button
+                            onClick={handleWithdrawal}
+                            disabled={withdrawing}
+                            className={`w-full h-11 rounded-xl font-bold transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 ${Number(user?.commission_balance || 0) >= 100 ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}
+                        >
+                            <span className="text-lg">💰</span>
+                            {withdrawing ? '处理中...' : (Number(user?.commission_balance || 0) >= 100 ? '申请提现' : '满100元起提')}
+                        </button>
+                        {withdrawalMessage && <p className={`mt-2 text-center text-xs font-medium ${withdrawalMessage.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>{withdrawalMessage}</p>}
+                    </div>
+
+                    <p className="mt-4 text-[10px] text-gray-400 text-center">* 满额后可直接点击上方按钮或联系微信：{config.contact_wechat || 'sekesm'} 提现</p>
                 </div>
 
                 {/* 积分兑换 */}
