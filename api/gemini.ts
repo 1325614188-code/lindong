@@ -441,20 +441,25 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                         ]
                     };
                     const response = await ai.models.generateContent({
-                        model: 'gemini-1.5-flash',
+                        model: 'gemini-3-flash-preview',
                         contents,
                         config: {
                             systemInstruction,
-                            temperature: 0.7,
-                            responseMimeType: "application/json"
+                            temperature: 0.7
                         }
                     });
 
+                    let text = response.text;
+                    const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        text = jsonMatch[1] || jsonMatch[0];
+                    }
+
                     try {
-                        return JSON.parse(response.text);
+                        return JSON.parse(text);
                     } catch (e) {
-                        console.error("[Jade API Parse Error]", response.text);
-                        return { error: "解析鉴定报告失败", raw: response.text };
+                        console.error("[Jade API Parse Error]", text);
+                        return { error: "解析鉴定报告失败", raw: text };
                     }
                 });
 
