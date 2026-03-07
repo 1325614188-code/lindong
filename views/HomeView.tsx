@@ -2,6 +2,7 @@
 import React from 'react';
 import { AppSection } from '../types';
 import InstallPWA from '../components/InstallPWA';
+import { getApiUrl } from '../lib/api-config';
 
 interface HomeViewProps {
   onNavigate: (section: AppSection) => void;
@@ -66,7 +67,9 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
 
             <div className="flex flex-col gap-3">
               <a
-                href="/app.apk"
+                href={getApiUrl('/app.apk')}
+                target="_blank"
+                rel="noopener noreferrer"
                 download="美力实验室.apk"
                 onClick={() => setShowDownloadDialog(false)}
                 className="w-full h-12 bg-pink-500 text-white rounded-xl font-bold flex items-center justify-center no-underline shadow-md active:scale-95 transition-transform"

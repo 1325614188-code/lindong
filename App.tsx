@@ -329,7 +329,9 @@ const App: React.FC = () => {
 
               <div className="flex flex-col gap-3">
                 <a
-                  href={updateInfo.apkUrl}
+                  href={getApiUrl(updateInfo.apkUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   download={`美力实验室_v${updateInfo.version}.apk`}
                   className="w-full h-14 bg-pink-500 text-white rounded-2xl font-bold flex items-center justify-center no-underline shadow-[0_8px_20px_rgba(236,72,153,0.3)] active:scale-95 transition-transform text-lg"
                 >
