@@ -52,6 +52,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
+const CURRENT_VERSION = '1.1'; // 当前本地版本
+
 const App: React.FC = () => {
   const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
   // 【问题1修复】user 类型从 any 改为 User | null
@@ -59,6 +61,21 @@ const App: React.FC = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [showMember, setShowMember] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+
+  // 版本更新弹窗
+  const [updateInfo, setUpdateInfo] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    version: string;
+    apkUrl: string;
+  }>({
+    show: false,
+    title: '发现新版本',
+    message: '',
+    version: '',
+    apkUrl: '/app.apk'
+  });
 
   // 【问题2修复】并发锁：防止 checkCredits 通过后在 AI 处理期间被再次调用
   const isProcessingRef = useRef(false);
@@ -119,6 +136,41 @@ const App: React.FC = () => {
       } catch (e) { console.error('[App] Fingerprint failed', e); }
     };
     initId();
+  }, []);
+
+  // 4. 版本检查 (Effect #4)
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const res = await fetch(getApiUrl('/api/admin'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'getConfig' })
+        });
+        const data = await res.json();
+        const config = data.config || {};
+        const latestVersion = config.latest_version || CURRENT_VERSION;
+
+        // 比较版本号：如果远程版本大于本地版本，则提示
+        if (latestVersion !== CURRENT_VERSION) {
+          // 简单的字符串或数字比较。如果版本号是 1.1.1 这种，可能需要更复杂的逻辑，
+          // 但目前先按简单比较处理。
+          setUpdateInfo({
+            show: true,
+            title: config.update_title || '发现新版本',
+            message: config.update_message || '为了更好的体验，请下载最新版本 APP',
+            version: latestVersion,
+            apkUrl: config.apk_url || '/app.apk'
+          });
+        }
+      } catch (e) {
+        console.error('[App] Version check failed', e);
+      }
+    };
+
+    // 延迟 2 秒检查，避免干扰核心启动逻辑
+    const timer = setTimeout(checkVersion, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
   // 3. Android 物理返回键监听 (Effect #3)
@@ -256,6 +308,43 @@ const App: React.FC = () => {
 
           </Suspense>
         </div>
+
+        {/* 版本更新弹窗 */}
+        {updateInfo.show && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center px-6">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+            <div className="relative bg-white rounded-[32px] p-8 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-300">
+              <div className="text-center mb-6">
+                <div className="w-20 h-20 bg-gradient-to-br from-pink-400 to-pink-600 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-4 shadow-lg rotate-3">🚀</div>
+                <h3 className="text-2xl font-black text-gray-800 mb-2">{updateInfo.title}</h3>
+                <div className="inline-block px-3 py-1 bg-pink-100 text-pink-500 rounded-full text-xs font-bold mb-4">
+                  v{updateInfo.version} 已就绪
+                </div>
+                <div className="text-sm text-gray-500 leading-relaxed text-left bg-gray-50 p-4 rounded-2xl border border-gray-100 max-h-40 overflow-y-auto">
+                  {updateInfo.message.split('\n').map((line, i) => (
+                    <p key={i} className="mb-1">{line}</p>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <a
+                  href={updateInfo.apkUrl}
+                  download={`美力实验室_v${updateInfo.version}.apk`}
+                  className="w-full h-14 bg-pink-500 text-white rounded-2xl font-bold flex items-center justify-center no-underline shadow-[0_8px_20px_rgba(236,72,153,0.3)] active:scale-95 transition-transform text-lg"
+                >
+                  立即升级
+                </a>
+                <button
+                  onClick={() => setUpdateInfo({ ...updateInfo, show: false })}
+                  className="w-full h-12 text-gray-400 font-medium active:text-gray-600 transition-colors"
+                >
+                  暂不更新
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab Bar - 仅在非特殊全屏页显示 */}
         {!(showLogin || showAdmin || showMember) && (

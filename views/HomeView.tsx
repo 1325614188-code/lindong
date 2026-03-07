@@ -35,7 +35,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
       <header className="mb-8 text-center">
         <h1 className="text-4xl art-title mb-2">✨ 美力实验室 ✨</h1>
         <p className="text-gray-500 text-sm">✨ 发现你的独属魅力 ✨</p>
-        <p className="text-[10px] text-pink-300 mt-2">v1.1 | 佣金提现功能已上线</p>
+        <p className="text-[10px] text-pink-300 mt-2">v1.1 | 建议注册后下载 APP 获得完整体验</p>
       </header>
 
       <div className="mb-8 flex gap-3 items-start justify-stretch">
