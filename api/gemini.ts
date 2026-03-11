@@ -26,7 +26,16 @@ const getClient = (): GoogleGenAI => {
     const keys = getApiKeys();
     if (keys.length === 0) throw new Error("未配置 GEMINI_API_KEY");
     const key = keys[currentKeyIndex % keys.length];
-    return new GoogleGenAI({ apiKey: key });
+    
+    // 支持通过环境变量设置代理地址
+    const baseUrl = process.env.GEMINI_BASE_URL;
+    
+    return new GoogleGenAI({ 
+        apiKey: key,
+        // 使用 v1beta 版本以支持最新模型
+        apiVersion: 'v1beta',
+        ...(baseUrl ? { baseUrl } : {})
+    });
 };
 
 const switchKey = (): void => {
