@@ -42,8 +42,8 @@ const switchKey = (): void => {
  */
 async function requestWithRetry<T>(
     operation: (ai: GoogleGenAI) => Promise<T>,
-    maxRetries = 20,
-    initialDelay = 500
+    maxRetries = 10,
+    initialDelay = 100
 ): Promise<T> {
     let lastError: any;
 
@@ -55,13 +55,15 @@ async function requestWithRetry<T>(
             
             console.log(`[API Request] Attempt ${i + 1}/${maxRetries + 1} using Key Index ${keyIndex}`);
             
+            // 降低内部超时时间到 8 秒，确保在 Vercel 10秒限制前能完成至少一次切换或返回
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("API 请求超时")), 25000)
+                setTimeout(() => reject(new Error("API 请求超时")), 8000)
             );
             return await Promise.race([operation(ai), timeoutPromise]) as T;
         } catch (error: any) {
             lastError = error;
             const status = error?.status || error?.code || error?.response?.status;
+            // 捕获各种超负荷和限流错误
             const isOverloaded = status === 503 || status === 'UNAVAILABLE' || error?.message?.includes("overloaded") || error?.message?.includes("demand");
             const isRateLimit = status === 429 || error?.message?.includes("Rate limit");
 
@@ -69,10 +71,11 @@ async function requestWithRetry<T>(
 
             if (i < maxRetries && (isOverloaded || isRateLimit || error?.message === "API 请求超时")) {
                 if (getApiKeys().length > 1) {
-                    switchKey();
+                    switchKey(); // 立即切换到下一个 Key
                 }
-                const delay = initialDelay * Math.pow(2, i);
-                console.log(`[Retry] 等待 ${delay}ms 后重试...`);
+                // 极短的延迟（初始 100ms），实现快速轮询
+                const delay = initialDelay * Math.pow(1.5, i); 
+                console.log(`[Retry] 快速重试，等待 ${Math.round(delay)}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
