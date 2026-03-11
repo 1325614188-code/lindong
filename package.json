@@ -1,11 +1,12 @@
 {
   "name": "美力实验室---你的专属ai颜究院",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "sync-version": "node sync-version.js",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -605,7 +605,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                             <div className="mt-2 p-4 bg-blue-50 rounded-xl space-y-4 border border-blue-100">
                                 <p className="text-sm font-bold text-blue-700 flex items-center gap-2">
                                     <span>🚀 APP 版本更新管理</span>
-                                    <span className="text-[10px] font-normal bg-blue-200 px-2 py-0.5 rounded text-blue-600">本地版本: v1.1</span>
+                                    <span className="text-[10px] font-normal bg-blue-200 px-2 py-0.5 rounded text-blue-600">本地版本: v1.2</span>
                                 </p>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="flex flex-col gap-1">
