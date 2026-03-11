@@ -52,7 +52,6 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-import { APP_VERSION } from './version';
 
 const App: React.FC = () => {
     const CURRENT_VERSION = APP_VERSION;
@@ -312,44 +311,7 @@ const App: React.FC = () => {
           </Suspense>
         </div>
 
-        {/* 版本更新弹窗 */}
-        {updateInfo.show && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center px-6">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
-            <div className="relative bg-white rounded-[32px] p-8 shadow-2xl max-w-sm w-full animate-in zoom-in-95 duration-300">
-              <div className="text-center mb-6">
-                <div className="w-20 h-20 bg-gradient-to-br from-pink-400 to-pink-600 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-4 shadow-lg rotate-3">🚀</div>
-                <h3 className="text-2xl font-black text-gray-800 mb-2">{updateInfo.title}</h3>
-                <div className="inline-block px-3 py-1 bg-pink-100 text-pink-500 rounded-full text-xs font-bold mb-4">
-                  v{updateInfo.version} 已就绪
-                </div>
-                <div className="text-sm text-gray-500 leading-relaxed text-left bg-gray-50 p-4 rounded-2xl border border-gray-100 max-h-40 overflow-y-auto">
-                  {updateInfo.message.split('\n').map((line, i) => (
-                    <p key={i} className="mb-1">{line}</p>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <a
-                  href={getApiUrl(updateInfo.apkUrl)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download={`美力实验室_v${updateInfo.version}.apk`}
-                  className="w-full h-14 bg-pink-500 text-white rounded-2xl font-bold flex items-center justify-center no-underline shadow-[0_8px_20px_rgba(236,72,153,0.3)] active:scale-95 transition-transform text-lg"
-                >
-                  立即升级
-                </a>
-                <button
-                  onClick={() => setUpdateInfo({ ...updateInfo, show: false })}
-                  className="w-full h-12 text-gray-400 font-medium active:text-gray-600 transition-colors"
-                >
-                  暂不更新
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Tab Bar - 仅在非特殊全屏页显示 */}
         {!(showLogin || showAdmin || showMember) && (
