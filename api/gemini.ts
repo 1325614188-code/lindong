@@ -49,9 +49,14 @@ async function requestWithRetry<T>(
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
+            const keys = getApiKeys();
+            const keyIndex = currentKeyIndex % keys.length;
             const ai = getClient();
+            
+            console.log(`[API Request] Attempt ${i + 1}/${maxRetries + 1} using Key Index ${keyIndex}`);
+            
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("API 请求超时")), 30000)
+                setTimeout(() => reject(new Error("API 请求超时")), 25000)
             );
             return await Promise.race([operation(ai), timeoutPromise]) as T;
         } catch (error: any) {
