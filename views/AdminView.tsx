@@ -601,55 +601,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                 />
                             </div>
 
-                            {/* APP 版本与更新配置 */}
-                            <div className="mt-2 p-4 bg-blue-50 rounded-xl space-y-4 border border-blue-100">
-                                <p className="text-sm font-bold text-blue-700 flex items-center gap-2">
-                                    <span>🚀 APP 版本更新管理</span>
-                                    <span className="text-[10px] font-normal bg-blue-200 px-2 py-0.5 rounded text-blue-600">本地版本: v1.2</span>
-                                </p>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-xs text-gray-500 font-bold">最新版本号 (e.g. 1.2)</label>
-                                        <input
-                                            type="text"
-                                            value={config.latest_version || '1.1'}
-                                            onChange={e => updateConfig('latest_version', e.target.value)}
-                                            className="h-10 px-3 rounded-xl border border-blue-200 font-bold text-blue-600 bg-white"
-                                            placeholder="1.2"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-xs text-gray-500 font-bold">更新弹窗标题</label>
-                                        <input
-                                            type="text"
-                                            value={config.update_title || '发现新版本'}
-                                            onChange={e => updateConfig('update_title', e.target.value)}
-                                            className="h-10 px-3 rounded-xl border border-blue-200 font-bold text-gray-700 bg-white"
-                                            placeholder="发现新版本"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-xs text-gray-500 font-bold">下载地址 (APK URL)</label>
-                                    <input
-                                        type="text"
-                                        value={config.apk_url || '/app.apk'}
-                                        onChange={e => updateConfig('apk_url', e.target.value)}
-                                        className="h-10 px-3 rounded-xl border border-blue-200 text-sm bg-white"
-                                        placeholder="/app.apk"
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-xs text-gray-500 font-bold">更新内容说明 (支持换行)</label>
-                                    <textarea
-                                        value={config.update_message || ''}
-                                        onChange={e => updateConfig('update_message', e.target.value)}
-                                        className="h-24 px-3 py-2 rounded-xl border border-blue-200 text-sm bg-white resize-none"
-                                        placeholder="1. 修复了一些已知问题&#10;2. 优化了部分页面的加载速度"
-                                    />
-                                </div>
-                                <p className="text-[10px] text-blue-400">🚨 当云端版本号与本地代码中的版本号不一致时，用户打开 APP 会看到更新提示。</p>
-                            </div>
+                            {/* 系统通知管理 (原有) */}
                         </div>
                     </div>
                 </div>

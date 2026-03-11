@@ -1,81 +1,35 @@
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { App as CapApp } from '@capacitor/app';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { AppSection, User } from './types';
-import { getStableDeviceId } from './lib/fingerprint';
-import { getApiUrl } from './lib/api-config';
+import ErrorBoundary from './components/ErrorBoundary';
 import HomeView from './views/HomeView';
 import TryOnView from './views/TryOnView';
 import HairstyleView from './views/HairstyleView';
+import MakeupView from './views/MakeupView';
 import AnalysisView from './views/AnalysisView';
-import CalendarView from './views/CalendarView';
 import CoupleFaceView from './views/CoupleFaceView';
 import FengShuiView from './views/FengShuiView';
 import LicensePlateView from './views/LicensePlateView';
-import LoginView from './views/LoginView';
-import MemberView from './views/MemberView';
-import AdminView from './views/AdminView';
-import MakeupView from './views/MakeupView';
+import CalendarView from './views/CalendarView';
 import MBTITestView from './views/MBTITestView';
 import DepressionTestView from './views/DepressionTestView';
 import MarriageView from './views/MarriageView';
 import WealthView from './views/WealthView';
 import JadeAppraisalView from './views/JadeAppraisalView';
-
-// --- Error Boundary Component ---
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true, error };
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-8 text-center bg-white min-h-screen flex flex-col items-center justify-center">
-          <h2 className="text-2xl font-bold text-red-500 mb-4">哎呀，页面出错了</h2>
-          <pre className="text-xs bg-gray-100 p-4 rounded-xl mb-4 w-full overflow-auto max-h-40">
-            {this.state.error?.message || '未知错误'}
-          </pre>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-pink-500 text-white rounded-full"
-          >
-            刷新重试
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
+import LoginView from './views/LoginView';
+import MemberView from './views/MemberView';
+import AdminView from './views/AdminView';
+import { getApiUrl } from './lib/api-config';
+import { App as CapApp } from '@capacitor/app';
+import { getStableDeviceId } from './lib/fingerprint';
 
 const App: React.FC = () => {
-    const CURRENT_VERSION = APP_VERSION;
     const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
   // 【问题1修复】user 类型从 any 改为 User | null
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [showMember, setShowMember] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
-
-  // 版本更新弹窗
-  const [updateInfo, setUpdateInfo] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    version: string;
-    apkUrl: string;
-  }>({
-    show: false,
-    title: '发现新版本',
-    message: '',
-    version: '',
-    apkUrl: '/app.apk'
-  });
 
   // 【问题2修复】并发锁：防止 checkCredits 通过后在 AI 处理期间被再次调用
   const isProcessingRef = useRef(false);
@@ -138,52 +92,13 @@ const App: React.FC = () => {
     initId();
   }, []);
 
-  // 4. 版本检查 (Effect #4)
-  useEffect(() => {
-    const checkVersion = async () => {
-      try {
-        const res = await fetch(getApiUrl('/api/admin'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'getConfig' })
-        });
-        const data = await res.json();
-        const config = data.config || {};
-        const latestVersion = (config.latest_version || '').trim();
-        const localVersion = (CURRENT_VERSION || '').trim();
-
-        console.log(`[VersionCheck] Local: "${localVersion}", Remote: "${latestVersion}"`);
-
-        // 仅在版本号确实不同且远程版本不为空时提示
-        if (latestVersion && latestVersion !== localVersion) {
-            console.log('[VersionCheck] Mismatch detected, showing update modal');
-            setUpdateInfo({
-                show: true,
-                title: config.update_title || '发现新版本',
-                message: config.update_message || '为了更好的体验，请下载最新版本 APP',
-                version: latestVersion,
-                apkUrl: config.apk_url || '/app.apk'
-            });
-        }
-      } catch (e) {
-        console.error('[App] Version check failed', e);
-      }
-    };
-
-    // 延迟 2 秒检查，避免干扰核心启动逻辑
-    const timer = setTimeout(checkVersion, 2000);
-    return () => clearTimeout(timer);
-  }, []);
-
   // 3. Android 物理返回键监听 (Effect #3)
-  // 【问题5修复】依赖数组为空 []，只注册一次。回调通过 ref 读取最新 state，避免频繁重注册。
   useEffect(() => {
     if (typeof CapApp === 'undefined' || !CapApp.addListener) return;
 
     let listener: any = null;
     const setupListener = async () => {
       listener = await CapApp.addListener('backButton', () => {
-        // NOTE: 通过 ref 读取最新状态，避免旧闭包问题
         if (showLoginRef.current) setShowLogin(false);
         else if (showAdminRef.current) setShowAdmin(false);
         else if (showMemberRef.current) setShowMember(false);
@@ -197,7 +112,7 @@ const App: React.FC = () => {
     return () => {
       if (listener) listener.remove();
     };
-  }, []); // NOTE: 空依赖，只挂载一次监听器
+  }, []);
 
   const handleLogin = (u: User) => {
     setUser(u);
@@ -213,19 +128,13 @@ const App: React.FC = () => {
     setShowAdmin(false);
   };
 
-  // 快捷刷新用户信息
   const handleUserUpdate = (up: User) => {
     setUser(up);
     localStorage.setItem('user', JSON.stringify(up));
   };
 
-  /**
-   * 检查用户额度是否充足（不扣除）
-   * 【问题2修复】：加入并发锁 isProcessingRef，防止用户在 AI 处理期间重复触发
-   */
   const checkCredits = async (): Promise<boolean> => {
     if (!user) { setShowLogin(true); return false; }
-    // 如果上一次调用还未通过 deductCredit 释放锁，直接拒绝
     if (isProcessingRef.current) {
       console.warn('[App] checkCredits blocked: 上一个请求仍在处理中');
       return false;
@@ -241,16 +150,11 @@ const App: React.FC = () => {
         if (data.needCredits) { alert('额度不足'); setShowMember(true); }
         return false;
       }
-      // 检查通过后加锁，防止在 AI 处理期间重复进入
       isProcessingRef.current = true;
       return true;
     } catch { return false; }
   };
 
-  /**
-   * 实际扣除 1 次额度（AI 生成成功后调用）
-   * 【问题2修复】：完成后释放并发锁
-   */
   const deductCredit = async (): Promise<boolean> => {
     if (!user) return false;
     try {
@@ -267,7 +171,6 @@ const App: React.FC = () => {
       return false;
     } catch { return false; }
     finally {
-      // NOTE: 无论成功或失败，都必须释放锁，防止永久阻塞
       isProcessingRef.current = false;
     }
   };
@@ -278,7 +181,6 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto pb-20">
           <Suspense fallback={<div className="flex items-center justify-center p-20 animate-pulse text-pink-300">加载中...</div>}>
 
-            {/* 核心页面路由逻辑 */}
             {showLogin && <LoginView onLogin={handleLogin} onBack={() => setShowLogin(false)} />}
 
             {!showLogin && showAdmin && user?.is_admin && <AdminView admin={user} onBack={() => setShowAdmin(false)} />}
@@ -311,9 +213,6 @@ const App: React.FC = () => {
           </Suspense>
         </div>
 
-        </div>
-
-        {/* Tab Bar - 仅在非特殊全屏页显示 */}
         {!(showLogin || showAdmin || showMember) && (
           <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-16 bg-white/80 backdrop-blur-md border-t flex justify-around items-center px-4 z-50">
             <button onClick={() => setCurrentSection(AppSection.HOME)} className={`flex flex-col items-center gap-1 ${currentSection === AppSection.HOME ? 'text-pink-500' : 'text-gray-500'}`}>
