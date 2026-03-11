@@ -52,10 +52,11 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-const CURRENT_VERSION = '1.1'; // 当前本地版本
+import { APP_VERSION } from './version';
 
 const App: React.FC = () => {
-  const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
+    const CURRENT_VERSION = APP_VERSION;
+    const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
   // 【问题1修复】user 类型从 any 改为 User | null
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
