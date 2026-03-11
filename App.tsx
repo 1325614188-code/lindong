@@ -150,19 +150,21 @@ const App: React.FC = () => {
         });
         const data = await res.json();
         const config = data.config || {};
-        const latestVersion = config.latest_version || CURRENT_VERSION;
+        const latestVersion = (config.latest_version || '').trim();
+        const localVersion = (CURRENT_VERSION || '').trim();
 
-        // 比较版本号：如果远程版本大于本地版本，则提示
-        if (latestVersion !== CURRENT_VERSION) {
-          // 简单的字符串或数字比较。如果版本号是 1.1.1 这种，可能需要更复杂的逻辑，
-          // 但目前先按简单比较处理。
-          setUpdateInfo({
-            show: true,
-            title: config.update_title || '发现新版本',
-            message: config.update_message || '为了更好的体验，请下载最新版本 APP',
-            version: latestVersion,
-            apkUrl: config.apk_url || '/app.apk'
-          });
+        console.log(`[VersionCheck] Local: "${localVersion}", Remote: "${latestVersion}"`);
+
+        // 仅在版本号确实不同且远程版本不为空时提示
+        if (latestVersion && latestVersion !== localVersion) {
+            console.log('[VersionCheck] Mismatch detected, showing update modal');
+            setUpdateInfo({
+                show: true,
+                title: config.update_title || '发现新版本',
+                message: config.update_message || '为了更好的体验，请下载最新版本 APP',
+                version: latestVersion,
+                apkUrl: config.apk_url || '/app.apk'
+            });
         }
       } catch (e) {
         console.error('[App] Version check failed', e);
