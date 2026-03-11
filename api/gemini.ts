@@ -42,8 +42,8 @@ const switchKey = (): void => {
  */
 async function requestWithRetry<T>(
     operation: (ai: GoogleGenAI) => Promise<T>,
-    maxRetries = 5,
-    initialDelay = 1000
+    maxRetries = 20,
+    initialDelay = 500
 ): Promise<T> {
     let lastError: any;
 
@@ -57,7 +57,7 @@ async function requestWithRetry<T>(
         } catch (error: any) {
             lastError = error;
             const status = error?.status || error?.code || error?.response?.status;
-            const isOverloaded = status === 503 || error?.message?.includes("overloaded");
+            const isOverloaded = status === 503 || status === 'UNAVAILABLE' || error?.message?.includes("overloaded") || error?.message?.includes("demand");
             const isRateLimit = status === 429 || error?.message?.includes("Rate limit");
 
             console.error(`[API Error] 尝试 ${i + 1}/${maxRetries + 1}, 错误: ${error?.message || error}`);
