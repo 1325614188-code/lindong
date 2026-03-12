@@ -30,7 +30,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
     // 生成分享链接：固定生产域名
     const getShareLink = (): string => {
-        const baseUrl = 'https://www.qczj.xyz';
+        const baseUrl = 'https://marylab.xyz';
         const deviceId = localStorage.getItem('device_id') || 'GUEST';
 
         // 计算基于 deviceId 的2位字母校验码
