@@ -602,6 +602,18 @@ export default async function handler(req: any, res: any) {
 
                 return res.status(200).json({ success: true, message: '申请提交成功，请等待管理员审核处理' });
             }
+            
+            case 'getPublicConfig': {
+                const { data: configs } = await supabase
+                    .from('app_config')
+                    .select('key, value')
+                    .in('key', ['announcement', 'contact_wechat', 'recharge_enabled']);
+
+                const configMap: Record<string, string> = {};
+                configs?.forEach(c => { configMap[c.key] = c.value; });
+
+                return res.status(200).json({ config: configMap });
+            }
 
             case 'getWithdrawalList': {
                 const { isAdmin } = data;

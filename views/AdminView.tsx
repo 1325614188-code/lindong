@@ -449,6 +449,15 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
                         <h3 className="font-bold mb-4">⚙️ 系统配置</h3>
                         <div className="space-y-3">
+                            <div className="flex flex-col gap-2 p-3 bg-pink-50 rounded-xl border border-pink-100">
+                                <label className="text-sm font-bold text-pink-700">📢 网站公告 (首页滚动展示)</label>
+                                <textarea
+                                    value={config.announcement || ''}
+                                    onChange={e => updateConfig('announcement', e.target.value)}
+                                    className="w-full h-20 px-3 py-2 rounded-xl border border-pink-200 text-sm"
+                                    placeholder="请输入公告内容，例如：欢迎使用美力实验室！新版 APP 已发布，请及时下载更新。✨"
+                                />
+                            </div>
                             <div className="flex items-center gap-4">
                                 <label className="w-28 text-sm text-gray-500 shrink-0">联系微信</label>
                                 <input

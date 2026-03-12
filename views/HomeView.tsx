@@ -10,6 +10,22 @@ interface HomeViewProps {
 }
 
 const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
+  const [announcement, setAnnouncement] = React.useState('✨ 发现你的独属魅力 ✨');
+
+  React.useEffect(() => {
+    fetch(getApiUrl('/api/auth_v2'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getPublicConfig' })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.config?.announcement) {
+          setAnnouncement(data.config.announcement);
+        }
+      })
+      .catch(err => console.error('[HomeView] Failed to fetch announcement', err));
+  }, []);
 
   const sections = [
     { id: AppSection.JADE_APPRAISAL, title: '翡翠鉴别', icon: '📿', color: 'bg-emerald-100', border: 'border-emerald-300' },
@@ -38,7 +54,12 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
     <div className="p-6">
       <header className="mb-8 text-center">
         <h1 className="text-4xl art-title mb-2">✨ 美力实验室 ✨</h1>
-        <h2 className="text-gray-500 text-sm">✨ 发现你的独属魅力 ✨</h2>
+        <div className="bg-white/50 backdrop-blur-sm border border-pink-100 rounded-full py-1 px-4 overflow-hidden relative h-8 flex items-center">
+          <div className="whitespace-nowrap inline-block animate-marquee hover:pause text-gray-500 text-sm font-medium">
+            <span className="inline-block px-4">{announcement}</span>
+            <span className="inline-block px-4">{announcement}</span>
+          </div>
+        </div>
       </header>
 
       <div className="mb-8 flex gap-3 items-start justify-stretch">

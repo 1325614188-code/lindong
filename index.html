@@ -61,6 +61,22 @@
         filter: brightness(1.1);
       }
     }
+
+    /* 公告滚动动画 */
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    .animate-marquee {
+      display: inline-block;
+      white-space: nowrap;
+      animation: marquee 15s linear infinite;
+    }
+
+    .hover\:pause:hover {
+      animation-play-state: paused;
+    }
   </style>
 
 </head>
