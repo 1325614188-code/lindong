@@ -7,10 +7,12 @@ import { getApiUrl } from '../lib/api-config';
 
 interface HomeViewProps {
   onNavigate: (section: AppSection) => void;
+  onShowLogin: () => void;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
+const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
   const [announcement, setAnnouncement] = React.useState('✨ 发现你的独属魅力 ✨');
+  const [showDownloadDialog, setShowDownloadDialog] = React.useState(false);
 
   React.useEffect(() => {
     fetch(getApiUrl('/api/auth_v2'), {
@@ -50,6 +52,26 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
   // 检测是否在原生 App 环境（Capacitor）
   const isApp = (window as any).Capacitor?.isNative;
 
+  const handleDownloadClick = () => {
+    setShowDownloadDialog(true);
+  };
+
+  const confirmDownload = () => {
+    setShowDownloadDialog(false);
+    // 触发下载
+    const link = document.createElement('a');
+    link.href = '/app.apk';
+    link.download = 'app.apk';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const goToLogin = () => {
+    setShowDownloadDialog(false);
+    onShowLogin();
+  };
+
   return (
     <div className="p-6">
       <header className="mb-8 text-center">
@@ -64,21 +86,18 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
 
       <div className="mb-8 flex gap-3 items-start justify-stretch">
         {!isApp && (
-          <a
-            href="/app.apk"
-            download="app.apk"
+          <button
+            onClick={handleDownloadClick}
             className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-transform active:scale-95 text-[11px] font-bold no-underline"
           >
             <span className="text-xl">📦</span>
             下载 APP
-          </a>
+          </button>
         )}
         <div className="flex-1">
           <InstallPWA />
         </div>
       </div>
-
-
 
       <div className="grid grid-cols-2 gap-3">
         {sections.map((sec) => (
@@ -104,6 +123,41 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
           自信的女孩最美丽！不论AI给出什么评价，你都是这世上独一无二的风景～ 记得每天都要开心鸭！🦆
         </p>
       </div>
+
+      {/* 下载提示对话框 */}
+      {showDownloadDialog && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl scale-in-center animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-pink-50 rounded-full flex items-center justify-center mb-6">
+                <span className="text-3xl">🎁</span>
+              </div>
+              
+              <h3 className="text-xl font-bold text-gray-900 mb-4">温馨提示</h3>
+              
+              <p className="text-gray-500 text-sm leading-relaxed mb-8">
+                建议您先在<span className="text-pink-500 font-bold border-b-2 border-pink-200 mx-1">当前页面完成注册/登录</span>后再去下载 App。<br /><br />
+                这样可以确保您的<span className="text-orange-500 font-bold">推荐奖励关系</span>被正确保存，并能享受完整会员服务哦！✨
+              </p>
+
+              <div className="flex flex-col w-full gap-3">
+                <button
+                  onClick={confirmDownload}
+                  className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-bold shadow-lg shadow-pink-200 active:scale-95 transition-transform"
+                >
+                  我已经注册，前往下载
+                </button>
+                <button
+                  onClick={goToLogin}
+                  className="w-full py-4 bg-gray-50 text-gray-500 rounded-2xl font-bold active:scale-95 transition-transform"
+                >
+                  先去注册/登录
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

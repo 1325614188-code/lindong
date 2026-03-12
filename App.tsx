@@ -189,7 +189,7 @@ const App: React.FC = () => {
 
             {!showLogin && !showAdmin && !showMember && (
               <>
-                {currentSection === AppSection.HOME && <HomeView onNavigate={setCurrentSection} />}
+                {currentSection === AppSection.HOME && <HomeView onNavigate={setCurrentSection} onShowLogin={() => setShowLogin(true)} />}
                 {currentSection === AppSection.TRY_ON_CLOTHES && <TryOnView type="clothes" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.TRY_ON_ACCESSORIES && <TryOnView type="accessories" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.HAIRSTYLE && <HairstyleView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
