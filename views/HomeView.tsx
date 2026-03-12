@@ -64,13 +64,14 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
 
       <div className="mb-8 flex gap-3 items-start justify-stretch">
         {!isApp && (
-          <button
-            onClick={() => window.location.href = '/app.apk'}
-            className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-transform active:scale-95 text-[11px] font-bold"
+          <a
+            href="/app.apk"
+            download="app.apk"
+            className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-transform active:scale-95 text-[11px] font-bold no-underline"
           >
             <span className="text-xl">📦</span>
             下载 APP
-          </button>
+          </a>
         )}
         <div className="flex-1">
           <InstallPWA />
