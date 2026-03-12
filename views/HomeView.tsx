@@ -31,14 +31,26 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate }) => {
     { id: AppSection.WEALTH_ANALYSIS, title: '看财富', icon: '💰', color: 'bg-amber-50', border: 'border-amber-200' },
   ];
 
+  // 检测是否在原生 App 环境（Capacitor）
+  const isApp = (window as any).Capacitor?.isNative;
+
   return (
     <div className="p-6">
       <header className="mb-8 text-center">
         <h1 className="text-4xl art-title mb-2">✨ 美力实验室 ✨</h1>
-        <p className="text-gray-500 text-sm">✨ 发现你的独属魅力 ✨</p>
+        <h2 className="text-gray-500 text-sm">✨ 发现你的独属魅力 ✨</h2>
       </header>
 
       <div className="mb-8 flex gap-3 items-start justify-stretch">
+        {!isApp && (
+          <button
+            onClick={() => window.location.href = '/app.apk'}
+            className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-transform active:scale-95 text-[11px] font-bold"
+          >
+            <span className="text-xl">📦</span>
+            下载 APP
+          </button>
+        )}
         <div className="flex-1">
           <InstallPWA />
         </div>
