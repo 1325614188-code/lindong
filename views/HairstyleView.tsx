@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { getApiUrl } from '../lib/api-config';
+import { saveImageToDevice } from '../lib/download';
 
 interface HairstyleViewProps {
   onBack: () => void;
@@ -180,12 +180,7 @@ const HairstyleView: React.FC<HairstyleViewProps> = ({ onBack, onCheckCredits, o
             <img src={resultImage} className="w-full" />
           </div>
           <button
-            onClick={() => {
-              const link = document.createElement('a');
-              link.href = resultImage;
-              link.download = 'hairstyle-result.png';
-              link.click();
-            }}
+            onClick={() => saveImageToDevice(resultImage, 'hairstyle-result')}
             className="text-rose-500 font-bold border-2 border-rose-500 rounded-xl p-3"
           >
             保存到相册

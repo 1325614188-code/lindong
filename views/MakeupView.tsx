@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { generateMakeupImage } from '../services/gemini';
+import { saveImageToDevice } from '../lib/download';
 
 interface MakeupViewProps {
     onBack: () => void;
@@ -126,12 +126,7 @@ const MakeupView: React.FC<MakeupViewProps> = ({ onBack, onCheckCredits, onDeduc
                         <img src={resultImage} className="w-full" />
                     </div>
                     <button
-                        onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = resultImage;
-                            link.download = 'makeup-result.png';
-                            link.click();
-                        }}
+                        onClick={() => saveImageToDevice(resultImage, 'makeup-result')}
                         className="text-pink-500 font-bold border-2 border-pink-500 rounded-xl p-3"
                     >
                         保存到相册

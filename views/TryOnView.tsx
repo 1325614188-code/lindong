@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { generateTryOnImage, detectPhotoContent } from '../services/gemini';
+import { saveImageToDevice } from '../lib/download';
 
 interface TryOnViewProps {
   type: 'clothes' | 'accessories';
@@ -136,12 +136,7 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
             <img src={resultImage} className="w-full" />
           </div>
           <button
-            onClick={() => {
-              const link = document.createElement('a');
-              link.href = resultImage;
-              link.download = 'try-on-result.png';
-              link.click();
-            }}
+            onClick={() => saveImageToDevice(resultImage, 'try-on-result')}
             className="text-pink-500 font-bold border-2 border-pink-500 rounded-xl p-3"
           >
             保存到相册

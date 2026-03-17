@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { generateTryOnImage, detectPhotoContent } from '../services/gemini';
+import { saveImageToDevice } from '../lib/download';
 
 interface AdvancedTryOnViewProps {
   onBack: () => void;
@@ -166,6 +167,13 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
     setCurrentResultImage(null);
     try {
       const result = await generateTryOnImage(avatarImage, selectedItemImage, 'clothes');
+      
+      // 判断是否生成失败（例如效果图和原图完全一致）
+      if (result && result === avatarImage) {
+        alert('生成效果与原图一致，判定为生成失败，本次不扣除使用次数，请尝试重新生成或更换图片');
+        return;
+      }
+
       if (result) {
         setCurrentResultImage(result);
         
@@ -223,11 +231,8 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
     }
   };
 
-  const downloadImage = (base64Str: string) => {
-    const link = document.createElement('a');
-    link.href = base64Str;
-    link.download = 'my_look.png';
-    link.click();
+  const downloadImage = async (base64Str: string) => {
+    await saveImageToDevice(base64Str, 'my_look');
   };
 
   return (
@@ -366,12 +371,33 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
                    <div className="rounded-2xl overflow-hidden mb-4 relative aspect-[3/4] bg-gray-100">
                      <img src={currentResultImage} className="w-full h-full object-cover" />
                    </div>
-                   <button
-                     onClick={() => downloadImage(currentResultImage)}
-                     className="w-full py-4 text-pink-600 font-bold border-2 border-pink-100 bg-pink-50 rounded-2xl active:scale-95 transition-transform hover:bg-pink-100"
-                   >
-                     保存穿搭大图
-                   </button>
+                   <div className="flex flex-col gap-3">
+                     <button
+                       onClick={() => downloadImage(currentResultImage)}
+                       className="w-full py-3.5 text-white font-bold bg-pink-500 rounded-xl shadow-md active:scale-95 transition-transform hover:bg-pink-600"
+                     >
+                       保存穿搭大图
+                     </button>
+                     <div className="flex gap-3">
+                       <button
+                         onClick={handleGenerate}
+                         className="flex-1 py-3 text-pink-600 font-bold border-2 border-pink-100 bg-pink-50 rounded-xl active:scale-95 transition-transform hover:bg-pink-100"
+                       >
+                         重新生成
+                       </button>
+                       <button
+                         onClick={() => {
+                           setAvatarImage(null);
+                           setSelectedItemImage(null);
+                           setCurrentResultImage(null);
+                           localStorage.removeItem('tryon_avatar');
+                         }}
+                         className="flex-1 py-3 text-gray-600 font-bold border-2 border-gray-200 bg-gray-50 rounded-xl active:scale-95 transition-transform hover:bg-gray-100"
+                       >
+                         从头再来
+                       </button>
+                     </div>
+                   </div>
                 </div>
               ) : (
                 <button
