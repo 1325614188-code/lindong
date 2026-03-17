@@ -100,10 +100,10 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
             // 可以选择恢复上一张，或者允许用户继续尝试。这里倾向于稍微宽松，仅作提示。
           }
           // 保存数字分身
-          localStorage.setItem('tryon_avatar', imageData);
+          try { localStorage.setItem('tryon_avatar', imageData); } catch(e) { console.warn('无法保存分身：', e); }
         } catch (error) {
           console.error('[AdvancedTryOnView] Detection error:', error);
-          localStorage.setItem('tryon_avatar', imageData); // 万一接口挂了也允许保存
+          try { localStorage.setItem('tryon_avatar', imageData); } catch(e) {} // 万一接口挂了也允许保存
         } finally {
           setDetectingAvatar(false);
         }
@@ -177,9 +177,30 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
           resultImage: result,
           createdAt: Date.now()
         };
-        const updatedLooks = [newLook, ...savedLooks];
+        let updatedLooks = [newLook, ...savedLooks];
         setSavedLooks(updatedLooks);
-        localStorage.setItem('tryon_history', JSON.stringify(updatedLooks));
+
+        // 利用循环自动缩减历史记录直到能够成功保存（解决 QuotaExceededError）
+        let saved = false;
+        while (!saved && updatedLooks.length > 0) {
+          try {
+            localStorage.setItem('tryon_history', JSON.stringify(updatedLooks));
+            saved = true;
+          } catch (e: any) {
+            console.warn("localStorage 容量不足，自动清理旧换装记录...");
+            if (updatedLooks.length > 1) {
+              updatedLooks.pop(); // 移除最旧的一条记录
+            } else {
+              console.warn("单条记录过大或已无可用空间");
+              break;
+            }
+          }
+        }
+        
+        // 如果发生了记录清理，更新 state
+        if (updatedLooks.length !== savedLooks.length + 1) {
+          setSavedLooks([...updatedLooks]);
+        }
 
         await onDeductCredit?.();
       } else {
