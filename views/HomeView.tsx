@@ -32,7 +32,6 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
   const sections = [
     { id: AppSection.JADE_APPRAISAL, title: '翡翠鉴别', icon: '📿', color: 'bg-emerald-100', border: 'border-emerald-300' },
     { id: AppSection.ADVANCED_TRY_ON, title: '沉浸换装', icon: '✨', color: 'bg-indigo-100', border: 'border-indigo-400', textColor: 'text-indigo-900', isNew: true },
-    { id: AppSection.TRY_ON_CLOTHES, title: '试穿衣', icon: '👗', color: 'bg-pink-100', border: 'border-pink-300' },
     { id: AppSection.TRY_ON_ACCESSORIES, title: '试佩饰', icon: '💎', color: 'bg-purple-100', border: 'border-purple-300' },
     { id: AppSection.HAIRSTYLE, title: '发型参考', icon: '💇‍♀️', color: 'bg-rose-100', border: 'border-rose-300' },
     { id: AppSection.MAKEUP, title: '美妆效果', icon: '💄', color: 'bg-fuchsia-100', border: 'border-fuchsia-300' },
