@@ -3,6 +3,7 @@ export enum AppSection {
   HOME = 'home',
   JADE_APPRAISAL = 'jade-appraisal',
   TRY_ON_CLOTHES = 'try-on-clothes',
+  ADVANCED_TRY_ON = 'advanced-try-on',
   TRY_ON_ACCESSORIES = 'try-on-accessories',
   HAIRSTYLE = 'hairstyle',
   MAKEUP = 'makeup',

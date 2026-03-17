@@ -31,6 +31,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
 
   const sections = [
     { id: AppSection.JADE_APPRAISAL, title: '翡翠鉴别', icon: '📿', color: 'bg-emerald-100', border: 'border-emerald-300' },
+    { id: AppSection.ADVANCED_TRY_ON, title: '沉浸换装', icon: '✨', color: 'bg-indigo-100', border: 'border-indigo-400', textColor: 'text-indigo-900', isNew: true },
     { id: AppSection.TRY_ON_CLOTHES, title: '试穿衣', icon: '👗', color: 'bg-pink-100', border: 'border-pink-300' },
     { id: AppSection.TRY_ON_ACCESSORIES, title: '试佩饰', icon: '💎', color: 'bg-purple-100', border: 'border-purple-300' },
     { id: AppSection.HAIRSTYLE, title: '发型参考', icon: '💇‍♀️', color: 'bg-rose-100', border: 'border-rose-300' },
@@ -104,10 +105,13 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
           <button
             key={sec.id}
             onClick={() => onNavigate(sec.id)}
-            className={`${sec.color} ${sec.border} border ${sec.textColor || 'text-gray-800'} rounded-2xl p-4 flex flex-row items-center justify-start gap-3 shadow-[0_4px_15px_rgba(255,107,157,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,157,0.4)] transition-all transform active:scale-95 h-16`}
+            className={`${sec.color} ${sec.border} border ${sec.textColor || 'text-gray-800'} rounded-2xl p-4 flex flex-row items-center justify-start gap-3 shadow-[0_4px_15px_rgba(255,107,157,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,157,0.4)] transition-all transform active:scale-95 h-16 relative overflow-hidden`}
           >
-            <span className="text-2xl flex-shrink-0">{sec.icon}</span>
-            <span className="font-bold text-[14px] whitespace-nowrap overflow-hidden text-ellipsis">
+            {sec.isNew && (
+              <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg z-10">NEW</div>
+            )}
+            <span className="text-2xl flex-shrink-0 relative z-10">{sec.icon}</span>
+            <span className="font-bold text-[14px] whitespace-nowrap overflow-hidden text-ellipsis relative z-10">
               {sec.title}
             </span>
           </button>

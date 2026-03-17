@@ -4,6 +4,7 @@ import { AppSection, User } from './types';
 import ErrorBoundary from './components/ErrorBoundary';
 import HomeView from './views/HomeView';
 import TryOnView from './views/TryOnView';
+import AdvancedTryOnView from './views/AdvancedTryOnView';
 import HairstyleView from './views/HairstyleView';
 import MakeupView from './views/MakeupView';
 import AnalysisView from './views/AnalysisView';
@@ -190,6 +191,7 @@ const App: React.FC = () => {
             {!showLogin && !showAdmin && !showMember && (
               <>
                 {currentSection === AppSection.HOME && <HomeView onNavigate={setCurrentSection} onShowLogin={() => setShowLogin(true)} />}
+                {currentSection === AppSection.ADVANCED_TRY_ON && <AdvancedTryOnView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.TRY_ON_CLOTHES && <TryOnView type="clothes" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.TRY_ON_ACCESSORIES && <TryOnView type="accessories" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.HAIRSTYLE && <HairstyleView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}

@@ -1,0 +1,3000 @@
+import React, { useState, useEffect, Suspense, useRef } from 'react';
+import { AppSection, User } from './types';
+import ErrorBoundary from './components/ErrorBoundary';
+import HomeView from './views/HomeView';
+import TryOnView from './views/TryOnView';
+import HairstyleView from './views/HairstyleView';
+import MakeupView from './views/MakeupView';
+import AnalysisView from './views/AnalysisView';
+import CoupleFaceView from './views/CoupleFaceView';
+import FengShuiView from './views/FengShuiView';
+import LicensePlateView from './views/LicensePlateView';
+import CalendarView from './views/CalendarView';
+import MBTITestView from './views/MBTITestView';
+import DepressionTestView from './views/DepressionTestView';
+import MarriageView from './views/MarriageView';
+import WealthView from './views/WealthView';
+import JadeAppraisalView from './views/JadeAppraisalView';
+import LoginView from './views/LoginView';
+import MemberView from './views/MemberView';
+import AdminView from './views/AdminView';
+import { getApiUrl } from './lib/api-config';
+import { App as CapApp } from '@capacitor/app';
+import { getStableDeviceId } from './lib/fingerprint';
+const App: React.FC = () => {
+    const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
+  const [user, setUser] = useState<User | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
+  const [showMember, setShowMember] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const isProcessingRef = useRef(false);
+  const currentSectionRef = useRef(currentSection);
+  const showLoginRef = useRef(showLogin);
+  const showMemberRef = useRef(showMember);
+  const showAdminRef = useRef(showAdmin);
+  useEffect(() => { currentSectionRef.current = currentSection; }, [currentSection]);
+  useEffect(() => { showLoginRef.current = showLogin; }, [showLogin]);
+  useEffect(() => { showMemberRef.current = showMember; }, [showMember]);
+  useEffect(() => { showAdminRef.current = showAdmin; }, [showAdmin]);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) localStorage.setItem('referrer_id', ref);
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const parsedUser: User = JSON.parse(savedUser);
+        setUser(parsedUser);
+        const ts = Date.now();
+        fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'getUser', userId: parsedUser.id })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.user) {
+              const upUser: User = { ...parsedUser, ...data.user };
+              setUser(upUser);
+              localStorage.setItem('user', JSON.stringify(upUser));
+            }
+          }).catch(e => console.error('[App] User sync failed', e));
+      } catch (e) { localStorage.removeItem('user'); }
+    }
+  }, []);
+  useEffect(() => {
+    const initId = async () => {
+      try {
+        const storedId = localStorage.getItem('device_id');
+        if (!storedId || storedId.startsWith('dev_')) {
+          const fingerId = await getStableDeviceId();
+          localStorage.setItem('device_id', fingerId);
+        }
+      } catch (e) { console.error('[App] Fingerprint failed', e); }
+    };
+    initId();
+  }, []);
+  useEffect(() => {
+    if (typeof CapApp === 'undefined' || !CapApp.addListener) return;
+    let listener: any = null;
+    const setupListener = async () => {
+      listener = await CapApp.addListener('backButton', () => {
+        if (showLoginRef.current) setShowLogin(false);
+        else if (showAdminRef.current) setShowAdmin(false);
+        else if (showMemberRef.current) setShowMember(false);
+        else if (currentSectionRef.current !== AppSection.HOME) setCurrentSection(AppSection.HOME);
+        else CapApp.exitApp();
+      });
+    };
+    setupListener();
+    return () => {
+      if (listener) listener.remove();
+    };
+  }, []);
+  const handleLogin = (u: User) => {
+    setUser(u);
+    localStorage.setItem('user', JSON.stringify(u));
+    setShowLogin(false);
+    if (u.is_admin) setShowAdmin(true);
+  };
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    setShowMember(false);
+    setShowAdmin(false);
+  };
+  const handleUserUpdate = (up: User) => {
+    setUser(up);
+    localStorage.setItem('user', JSON.stringify(up));
+  };
+  const checkCredits = async (): Promise<boolean> => {
+    if (!user) { setShowLogin(true); return false; }
+    if (isProcessingRef.current) {
+      console.warn('[App] checkCredits blocked: 上一个请求仍在处理中');
+      return false;
+    }
+    try {
+      const res = await fetch(getApiUrl('/api/auth_v2'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'useCredit', userId: user.id })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.needCredits) { alert('额度不足'); setShowMember(true); }
+        return false;
+      }
+      isProcessingRef.current = true;
+      return true;
+    } catch { return false; }
+  };
+  const deductCredit = async (): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      const res = await fetch(getApiUrl('/api/auth_v2'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deductCredit', userId: user.id })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        handleUserUpdate({ ...user, credits: data.credits });
+        return true;
+      }
+      return false;
+    } catch { return false; }
+    finally {
+      isProcessingRef.current = false;
+    }
+  };
+  return (
+    <ErrorBoundary>
+      <div className="min-h-screen max-w-md mx-auto relative overflow-hidden bg-pink-50 flex flex-col shadow-2xl pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+        <div className="flex-1 overflow-y-auto pb-20">
+          <Suspense fallback={<div className="flex items-center justify-center p-20 animate-pulse text-pink-300">加载中...</div>}>
+            {showLogin && <LoginView onLogin={handleLogin} onBack={() => setShowLogin(false)} />}
+            {!showLogin && showAdmin && user?.is_admin && <AdminView admin={user} onBack={() => setShowAdmin(false)} />}
+            {!showLogin && !showAdmin && showMember && user && <MemberView user={user} onLogout={handleLogout} onBack={() => setShowMember(false)} onUserUpdate={handleUserUpdate} />}
+            {!showLogin && !showAdmin && !showMember && (
+              <>
+                {currentSection === AppSection.HOME && <HomeView onNavigate={setCurrentSection} onShowLogin={() => setShowLogin(true)} />}
+                {currentSection === AppSection.TRY_ON_CLOTHES && <TryOnView type="clothes" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.TRY_ON_ACCESSORIES && <TryOnView type="accessories" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.HAIRSTYLE && <HairstyleView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.MAKEUP && <MakeupView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.BEAUTY_SCORE && <AnalysisView title="颜值打分" type="颜值打分" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.COUPLE_FACE && <CoupleFaceView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.TONGUE_DIAGNOSIS && <AnalysisView title="趣味舌诊" type="舌诊" onBack={() => setCurrentSection(AppSection.HOME)} helpText="请上传一张清晰的舌头照片哦～" onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.FACE_COLOR && <AnalysisView title="面色分析" type="中医面色" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.FACE_READING && <AnalysisView title="传统面相" type="传统相术" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.FENG_SHUI && <FengShuiView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.LICENSE_PLATE && <LicensePlateView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.CALENDAR && <CalendarView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.MBTI_TEST && <MBTITestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.DEPRESSION_TEST && <DepressionTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.MARRIAGE_ANALYSIS && <MarriageView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.WEALTH_ANALYSIS && <WealthView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.JADE_APPRAISAL && <JadeAppraisalView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+              </>
+            )}
+          </Suspense>
+        </div>
+        {!(showLogin || showAdmin || showMember) && (
+          <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-16 bg-white/80 backdrop-blur-md border-t flex justify-around items-center px-4 z-50">
+            <button onClick={() => setCurrentSection(AppSection.HOME)} className={`flex flex-col items-center gap-1 ${currentSection === AppSection.HOME ? 'text-pink-500' : 'text-gray-500'}`}>
+              <span className="text-xl">🏠</span>
+              <span className="text-xs">首页</span>
+            </button>
+            <button onClick={() => user ? setShowMember(true) : setShowLogin(true)} className="flex flex-col items-center gap-1 text-gray-500 hover:text-pink-500">
+              <span className="text-xl">{user ? '👤' : '🔐'}</span>
+              <span className="text-xs">{user ? '我的' : '登录'}</span>
+            </button>
+            {user?.is_admin && (
+              <button onClick={() => setShowAdmin(true)} className="flex flex-col items-center gap-1 text-gray-500 hover:text-purple-500">
+                <span className="text-xl">⚙️</span>
+                <span className="text-xs">管理</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </ErrorBoundary>
+  );
+};
+export default App;
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
+}
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+export enum AppSection {
+  HOME = 'home',
+  JADE_APPRAISAL = 'jade-appraisal',
+  TRY_ON_CLOTHES = 'try-on-clothes',
+  TRY_ON_ACCESSORIES = 'try-on-accessories',
+  HAIRSTYLE = 'hairstyle',
+  MAKEUP = 'makeup',
+  BEAUTY_SCORE = 'beauty-score',
+  COUPLE_FACE = 'couple-face',
+  TONGUE_DIAGNOSIS = 'tongue-diagnosis',
+  FACE_COLOR = 'face-color',
+  FACE_READING = 'face-reading',
+  FENG_SHUI = 'feng-shui',
+  CALENDAR = 'calendar',
+  LICENSE_PLATE = 'license-plate',
+  MBTI_TEST = 'mbti-test',
+  DEPRESSION_TEST = 'depression-test',
+  MARRIAGE_ANALYSIS = 'marriage-analysis',
+  WEALTH_ANALYSIS = 'wealth-analysis'
+}
+/**
+ * 用户数据类型 - 对应后端 auth_v2 返回的用户对象结构
+ */
+export interface User {
+  id: string;
+  username: string;
+  nickname?: string;
+  credits: number;
+  /** 是否为管理员 */
+  is_admin?: boolean;
+  /** 奖励积分（后期字段，可能为空） */
+  points?: number;
+  /** 推广佣金余额（后期字段，可能为空） */
+  commission_balance?: number;
+  /** 设备 ID */
+  device_id?: string;
+  /** 推荐人 ID */
+  referrer_id?: string | null;
+  /** 注册环境：wechat / qq / browser / other */
+  register_env?: string;
+  /** 注册时间 */
+  created_at?: string;
+}
+export interface AnalysisResult {
+  score: number;
+  report: string;
+  parts?: {
+    name: string;
+    description: string;
+  }[];
+}
+export interface HairstyleResult {
+  name: string;
+  imageUrl: string;
+}
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+interface Props {
+  children: ReactNode;
+}
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+class ErrorBoundary extends Component<Props, State> {
+  public state: State = {
+    hasError: false,
+    error: null
+  };
+  public static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Uncaught error:', error, errorInfo);
+  }
+  public render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6 bg-pink-50 text-center">
+          <div className="max-w-md p-8 bg-white rounded-2xl shadow-xl border border-pink-100">
+            <h2 className="text-2xl font-bold text-pink-600 mb-4">抱歉，出错了</h2>
+            <p className="text-gray-600 mb-6">应用渲染过程中遇到了一个意外错误。</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-pink-500 text-white rounded-full hover:bg-pink-600 transition-colors shadow-md"
+            >
+              刷新应用
+            </button>
+            {process.env.NODE_ENV === 'development' && (
+              <pre className="mt-6 p-4 bg-gray-50 rounded text-left text-xs overflow-auto max-h-40 text-red-500 border border-gray-100">
+                {this.state.error?.toString()}
+              </pre>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+export default ErrorBoundary;
+/**
+ * PWA 安装按钮组件
+ * NOTE: 监听 beforeinstallprompt 事件，提供"添加到桌面"功能
+ */
+import React, { useState, useEffect } from 'react';
+interface BeforeInstallPromptEvent extends Event {
+    readonly platforms: string[];
+    readonly userChoice: Promise<{
+        outcome: 'accepted' | 'dismissed';
+        platform: string;
+    }>;
+    prompt(): Promise<void>;
+}
+const InstallPWA: React.FC = () => {
+    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+    const [isInstalled, setIsInstalled] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+    const [showFallback, setShowFallback] = useState(false);
+    useEffect(() => {
+        const ua = window.navigator.userAgent;
+        setIsMobile(/Android|iPhone|iPad|iPod|Windows Phone|Mobile/i.test(ua));
+        const checkIfInstalled = () => {
+            if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true) {
+                setIsInstalled(true);
+                return true;
+            }
+            return false;
+        };
+        const checkGlobalPrompt = () => {
+            if ((window as any).deferredPrompt) {
+                setDeferredPrompt((window as any).deferredPrompt);
+                return true;
+            }
+            return false;
+        };
+        if (checkIfInstalled()) return;
+        checkGlobalPrompt();
+        const timer = setInterval(() => {
+            if (checkGlobalPrompt()) clearInterval(timer);
+        }, 1000);
+        const handleBeforeInstallPrompt = (e: Event) => {
+            e.preventDefault();
+            setDeferredPrompt(e as BeforeInstallPromptEvent);
+            (window as any).deferredPrompt = e;
+        };
+        const handleAppInstalled = () => {
+            setIsInstalled(true);
+            setDeferredPrompt(null);
+            (window as any).deferredPrompt = null;
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.addEventListener('appinstalled', handleAppInstalled);
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            window.removeEventListener('appinstalled', handleAppInstalled);
+        };
+    }, []);
+    const handleInstallClick = async () => {
+        const prompt = deferredPrompt || (window as any).deferredPrompt;
+        if (prompt) {
+            try {
+                await prompt.prompt();
+                const { outcome } = await prompt.userChoice;
+                if (outcome === 'accepted') {
+                    setDeferredPrompt(null);
+                    (window as any).deferredPrompt = null;
+                }
+            } catch (err) {
+                setShowFallback(true);
+            }
+        } else {
+            setShowFallback(true);
+            setTimeout(() => setShowFallback(false), 5000);
+        }
+    };
+    if (isInstalled || !isMobile) return null;
+    return (
+        <div className="relative w-full h-16">
+            <button
+                onClick={handleInstallClick}
+                className="w-full h-full flex items-center justify-center gap-1 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold px-2 rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] active:scale-95 text-[11px]"
+            >
+                <span className="text-lg">📲</span>
+                <span className="whitespace-nowrap">把网站添加到桌面</span>
+            </button>
+            {showFallback && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white/90 backdrop-blur-md border border-pink-100 p-4 rounded-2xl shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-start gap-3">
+                        <span className="text-xl">💡</span>
+                        <div className="text-sm text-gray-700 leading-relaxed font-medium">
+                            <p>由于当前浏览器限制，无法点击一键添加。</p>
+                            <p className="mt-1">请点击浏览器菜单中的 <span className="text-pink-600 font-bold">“添加至主屏幕”</span> 即可完成。✨</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+export default InstallPWA;
+import React, { useState, useEffect } from 'react';
+import { getApiUrl } from '../lib/api-config';
+interface AdminViewProps {
+    admin: any;
+    onBack: () => void;
+}
+const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
+    const [users, setUsers] = useState<any[]>([]);
+    const [config, setConfig] = useState<any>({});
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({ totalUsers: 0, totalOrders: 0 });
+    const [editingCredits, setEditingCredits] = useState<{ id: string; amount: number } | null>(null);
+    const [editingPoints, setEditingPoints] = useState<{ id: string; amount: number } | null>(null);
+    const [pointRedemptions, setPointRedemptions] = useState<any[]>([]);
+    const [commissions, setCommissions] = useState<any[]>([]);
+    const [withdrawals, setWithdrawals] = useState<any[]>([]);
+    const [processingId, setProcessingId] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'withdrawals' | 'config'>('users');
+    useEffect(() => {
+        loadData();
+    }, []);
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'initAdmin' })
+            });
+            const usersRes = await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getUsers', adminId: admin.id })
+            });
+            const usersData = await usersRes.json();
+            setUsers(usersData.users || []);
+            const configRes = await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getConfig', adminId: admin.id })
+            });
+            const configData = await configRes.json();
+            setConfig(configData.config || {});
+            const statsRes = await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getStats', adminId: admin.id })
+            });
+            const statsData = await statsRes.json();
+            setStats(statsData);
+            const redemptionsRes = await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getPointRedemptions', adminId: admin.id })
+            });
+            const redemptionsData = await redemptionsRes.json();
+            setPointRedemptions(redemptionsData.redemptions || []);
+            const commissionsRes = await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getCommissions', adminId: admin.id })
+            });
+            const commissionsData = await commissionsRes.json();
+            setCommissions(commissionsData.commissions || []);
+            const withdrawalsRes = await fetch(getApiUrl('/api/auth_v2'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getWithdrawalList', isAdmin: true })
+            });
+            const withdrawalsData = await withdrawalsRes.json();
+            setWithdrawals(withdrawalsData.list || []);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+    const updateConfig = async (key: string, value: string) => {
+        try {
+            await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'updateConfig', adminId: admin.id, key, value })
+            });
+            setConfig({ ...config, [key]: value });
+        } catch (e) {
+            console.error(e);
+        }
+    };
+    const updateCredits = async (userId: string, amount: number) => {
+        try {
+            await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'updateCredits', adminId: admin.id, userId, amount })
+            });
+            setEditingCredits(null);
+            loadData();
+        } catch (e) {
+            console.error(e);
+        }
+    };
+    const updatePoints = async (userId: string, amount: number) => {
+        try {
+            await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'updatePoints', adminId: admin.id, userId, amount })
+            });
+            setEditingPoints(null);
+            loadData();
+        } catch (e) {
+            console.error(e);
+        }
+    };
+    const processRedemption = async (redemptionId: string, approved: boolean) => {
+        setProcessingId(redemptionId);
+        try {
+            await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'processPointRedemption',
+                    adminId: admin.id,
+                    redemptionId,
+                    approved
+                })
+            });
+            loadData();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setProcessingId(null);
+        }
+    };
+    const handleProcessWithdrawal = async (withdrawalId: string, status: 'approved' | 'rejected') => {
+        if (!confirm(`确认要${status === 'approved' ? '批准并标记为已兑付' : '拒绝'}这笔提现申请吗？`)) return;
+        setProcessingId(withdrawalId);
+        try {
+            const res = await fetch(getApiUrl('/api/auth_v2'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'processWithdrawal',
+                    isAdmin: true,
+                    withdrawalId,
+                    status,
+                    adminNote: status === 'approved' ? '管理员已线下兑付' : '不符合提现要求'
+                })
+            });
+            if (res.ok) {
+                alert('处理成功');
+                loadData();
+            } else {
+                const data = await res.json();
+                alert('处理失败: ' + data.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('请求异常');
+        } finally {
+            setProcessingId(null);
+        }
+    };
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
+    return (
+        <div className="p-6 max-w-4xl mx-auto">
+            <div className="flex items-center gap-4 mb-6">
+                <button onClick={onBack} className="text-2xl">←</button>
+                <h2 className="text-xl font-bold">管理后台</h2>
+            </div>
+            {/* 统计卡片 */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-gradient-to-r from-pink-400 to-pink-500 rounded-2xl p-4 text-white">
+                    <div className="text-white/80 text-sm">注册用户</div>
+                    <div className="text-3xl font-bold">{stats.totalUsers}</div>
+                </div>
+                <div className="bg-gradient-to-r from-purple-400 to-purple-500 rounded-2xl p-4 text-white">
+                    <div className="text-white/80 text-sm">付费订单</div>
+                    <div className="text-3xl font-bold">{stats.totalOrders}</div>
+                </div>
+            </div>
+            {/* Tab 切换 */}
+            <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-2xl">
+                <button
+                    onClick={() => setActiveTab('users')}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'users' ? 'bg-white shadow-sm text-pink-500' : 'text-gray-500'}`}
+                >
+                    👥 用户管理
+                </button>
+                <button
+                    onClick={() => setActiveTab('commissions')}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'commissions' ? 'bg-white shadow-sm text-orange-500' : 'text-gray-500'}`}
+                >
+                    💰 流水
+                </button>
+                <button
+                    onClick={() => setActiveTab('withdrawals')}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'withdrawals' ? 'bg-white shadow-sm text-red-500' : 'text-gray-500'}`}
+                >
+                    🏧 提现
+                </button>
+                <button
+                    onClick={() => setActiveTab('config')}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'config' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-500'}`}
+                >
+                    ⚙️ 配置
+                </button>
+            </div>
+            {activeTab === 'users' && (
+                <div className="space-y-6">
+                    {/* 积分兑换申请 */}
+                    {pointRedemptions.filter(r => r.status === 'pending').length > 0 && (
+                        <div className="bg-white rounded-2xl p-4 shadow-sm">
+                            <h3 className="font-bold mb-4 font-bold text-pink-500">🌟 积分兑换申请 ({pointRedemptions.filter(r => r.status === 'pending').length})</h3>
+                            <div className="space-y-3">
+                                {pointRedemptions.filter(r => r.status === 'pending').map(redemption => (
+                                    <div key={redemption.id} className="flex items-center justify-between p-3 bg-purple-50 rounded-xl border border-purple-100">
+                                        <div>
+                                            <p className="font-bold text-sm">@{redemption.username || redemption.user_id}</p>
+                                            <p className="text-xs text-gray-500">
+                                                {redemption.points_used}积分 → {redemption.reward_amount}元红包
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => processRedemption(redemption.id, true)}
+                                                disabled={processingId === redemption.id}
+                                                className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold"
+                                            >
+                                                {processingId === redemption.id ? '...' : '批准'}
+                                            </button>
+                                            <button
+                                                onClick={() => processRedemption(redemption.id, false)}
+                                                disabled={processingId === redemption.id}
+                                                className="px-3 py-1 bg-red-500 text-white rounded-lg text-xs font-bold"
+                                            >
+                                                拒绝
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {/* 用户列表 */}
+                    <div className="bg-white rounded-2xl p-4 shadow-sm">
+                        <h3 className="font-bold mb-4">👥 用户管理</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-left text-gray-500 border-b">
+                                        <th className="pb-2">用户名</th>
+                                        <th className="pb-2 text-nowrap">额度</th>
+                                        <th className="pb-2 text-nowrap">积分</th>
+                                        <th className="pb-2 text-nowrap">收益</th>
+                                        <th className="pb-2">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {users.map(u => (
+                                        <tr key={u.id} className="border-b border-gray-100">
+                                            <td className="py-3">
+                                                <div className="font-bold">{u.nickname || '未命名'}</div>
+                                                <div className="text-[10px] text-gray-400">@{u.username}</div>
+                                            </td>
+                                            <td className="py-3">
+                                                <div onClick={() => setEditingCredits({ id: u.id, amount: u.credits })} className="cursor-pointer">
+                                                    {editingCredits?.id === u.id ? (
+                                                        <input
+                                                            autoFocus
+                                                            type="number"
+                                                            value={editingCredits.amount}
+                                                            onChange={e => setEditingCredits({ ...editingCredits, amount: parseInt(e.target.value) || 0 })}
+                                                            onBlur={() => updateCredits(u.id, editingCredits.amount - u.credits)}
+                                                            className="w-14 h-7 px-1 rounded border text-xs"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-pink-500 font-bold">{u.credits}</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-3">
+                                                <div onClick={() => setEditingPoints({ id: u.id, amount: u.points || 0 })} className="cursor-pointer">
+                                                    {editingPoints?.id === u.id ? (
+                                                        <input
+                                                            autoFocus
+                                                            type="number"
+                                                            value={editingPoints.amount}
+                                                            onChange={e => setEditingPoints({ ...editingPoints, amount: parseInt(e.target.value) || 0 })}
+                                                            onBlur={() => updatePoints(u.id, editingPoints.amount - u.points)}
+                                                            className="w-14 h-7 px-1 rounded border text-xs"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-purple-500 font-bold">{u.points || 0}</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-3 text-orange-500 font-bold">¥{u.commission_balance || '0.00'}</td>
+                                            <td className="py-3">
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setEditingCredits({ id: u.id, amount: u.credits })} className="text-xs text-blue-500">点此调额</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {activeTab === 'commissions' && (
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <h3 className="font-bold mb-4 capitalize">💰 推广佣金明细</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left text-gray-500 border-b">
+                                    <th className="pb-2">获利用户</th>
+                                    <th className="pb-2">来源</th>
+                                    <th className="pb-2">金额</th>
+                                    <th className="pb-2">时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {commissions.map(req => (
+                                    <tr key={req.id} className="border-b border-gray-100">
+                                        <td className="py-3 font-bold">{req.users?.nickname || req.users?.username}</td>
+                                        <td className="py-3 text-gray-500 text-xs">{req.source_user?.username} 充值</td>
+                                        <td className="py-3 text-green-600 font-bold">+{req.amount}元</td>
+                                        <td className="py-3 text-gray-400 text-[10px]">{new Date(req.created_at).toLocaleString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {commissions.length === 0 && (
+                            <div className="py-10 text-center text-gray-400 text-xs">暂无佣金记录</div>
+                        )}
+                    </div>
+                </div>
+            )}
+            {activeTab === 'withdrawals' && (
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <h3 className="font-bold mb-4">🏧 佣金提现管理</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left text-gray-500 border-b">
+                                    <th className="pb-2">申请用户</th>
+                                    <th className="pb-2">金额</th>
+                                    <th className="pb-2">状态</th>
+                                    <th className="pb-2">时间</th>
+                                    <th className="pb-2">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {withdrawals.map(req => (
+                                    <tr key={req.id} className="border-b border-gray-100">
+                                        <td className="py-3">
+                                            <div className="font-bold">{req.username}</div>
+                                            <div className="text-[10px] text-gray-400">UID: {req.user_id?.slice(0, 8)}...</div>
+                                        </td>
+                                        <td className="py-3 text-red-500 font-bold">¥{req.amount}</td>
+                                        <td className="py-3">
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] ${req.status === 'pending' ? 'bg-orange-100 text-orange-600' :
+                                                req.status === 'approved' ? 'bg-green-100 text-green-600' :
+                                                    'bg-gray-100 text-gray-400'
+                                                }`}>
+                                                {req.status === 'pending' ? '待处理' : req.status === 'approved' ? '已支付' : '已拒绝'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 text-gray-400 text-[10px] whitespace-nowrap">{new Date(req.created_at).toLocaleString()}</td>
+                                        <td className="py-3">
+                                            {req.status === 'pending' ? (
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleProcessWithdrawal(req.id, 'approved')}
+                                                        disabled={processingId === req.id}
+                                                        className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold active:scale-95"
+                                                    >批准支付</button>
+                                                    <button
+                                                        onClick={() => handleProcessWithdrawal(req.id, 'rejected')}
+                                                        disabled={processingId === req.id}
+                                                        className="px-3 py-1 bg-gray-200 text-gray-500 rounded-lg text-xs font-bold active:scale-95"
+                                                    >拒绝</button>
+                                                </div>
+                                            ) : (
+                                                <span className="text-gray-300 text-xs">-</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {withdrawals.length === 0 && (
+                            <div className="py-10 text-center text-gray-400 text-xs">暂无提现申请</div>
+                        )}
+                    </div>
+                </div>
+            )}
+            {activeTab === 'config' && (
+                <div className="space-y-6">
+                    {/* 配置管理 */}
+                    <div className="bg-white rounded-2xl p-4 shadow-sm">
+                        <h3 className="font-bold mb-4">⚙️ 系统配置</h3>
+                        <div className="space-y-3">
+                            <div className="flex flex-col gap-2 p-3 bg-pink-50 rounded-xl border border-pink-100">
+                                <label className="text-sm font-bold text-pink-700">📢 网站公告 (首页滚动展示)</label>
+                                <textarea
+                                    value={config.announcement || ''}
+                                    onChange={e => updateConfig('announcement', e.target.value)}
+                                    className="w-full h-20 px-3 py-2 rounded-xl border border-pink-200 text-sm"
+                                    placeholder="请输入公告内容，例如：欢迎使用美力实验室！新版 APP 已发布，请及时下载更新。✨"
+                                />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <label className="w-28 text-sm text-gray-500 shrink-0">联系微信</label>
+                                <input
+                                    type="text"
+                                    value={config.contact_wechat || ''}
+                                    onChange={e => updateConfig('contact_wechat', e.target.value)}
+                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
+                                    placeholder="例如: sekesm"
+                                />
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
+                                    <p className="font-bold text-sm">充值开关</p>
+                                    <p className="text-[10px] text-gray-500 text-nowrap">控制会员中心充值入口</p>
+                                </div>
+                                <button
+                                    onClick={() => updateConfig('recharge_enabled', config.recharge_enabled === 'true' ? 'false' : 'true')}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${config.recharge_enabled === 'true' ? 'bg-pink-500' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.recharge_enabled === 'true' ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
+                                    <p className="font-bold text-sm">推荐奖励积分</p>
+                                    <p className="text-[10px] text-gray-500 text-nowrap">控制注册是否赠送积分</p>
+                                </div>
+                                <button
+                                    onClick={() => updateConfig('referral_points_enabled', config.referral_points_enabled === 'true' ? 'false' : 'true')}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${config.referral_points_enabled === 'true' ? 'bg-purple-500' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.referral_points_enabled === 'true' ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
+                                <label className="w-28 text-sm font-bold shrink-0">佣金比例 (%)</label>
+                                <div className="flex-1 flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        value={config.commission_rate || '40'}
+                                        onChange={e => updateConfig('commission_rate', e.target.value)}
+                                        className="w-20 h-10 px-3 rounded-xl border border-gray-200 text-center font-bold text-orange-500"
+                                        placeholder="40"
+                                    />
+                                    <span className="text-sm text-gray-500">好友支付后返还给推荐人的比例</span>
+                                </div>
+                            </div>
+                            {/* 积分兑换红包配置 */}
+                            <div className="mt-2 p-3 bg-purple-50 rounded-xl space-y-3">
+                                <p className="text-sm font-bold text-purple-700">⭐ 积分兑换红包配置</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-500">档位1：所需积分</label>
+                                        <input
+                                            type="number"
+                                            value={config.points_threshold_1 || '50'}
+                                            onChange={e => updateConfig('points_threshold_1', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-purple-200 text-center font-bold text-purple-600 bg-white"
+                                            placeholder="50"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-500">档位1：红包金额 (元)</label>
+                                        <input
+                                            type="number"
+                                            value={config.points_reward_1 || '20'}
+                                            onChange={e => updateConfig('points_reward_1', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-purple-200 text-center font-bold text-pink-500 bg-white"
+                                            placeholder="20"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-500">档位2：所需积分</label>
+                                        <input
+                                            type="number"
+                                            value={config.points_threshold_2 || '100'}
+                                            onChange={e => updateConfig('points_threshold_2', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-purple-200 text-center font-bold text-purple-600 bg-white"
+                                            placeholder="100"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-500">档位2：红包金额 (元)</label>
+                                        <input
+                                            type="number"
+                                            value={config.points_reward_2 || '50'}
+                                            onChange={e => updateConfig('points_reward_2', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-purple-200 text-center font-bold text-pink-500 bg-white"
+                                            placeholder="50"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400">修改后实时生效，用户端即时显示新金额</p>
+                            </div>
+                        </div>
+                    </div>
+                    {/* 支付宝配置 */}
+                    <div className="bg-white rounded-2xl p-4 shadow-sm">
+                        <h3 className="font-bold mb-4">💰 支付宝配置</h3>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-4">
+                                <label className="w-28 text-sm text-gray-500 shrink-0">AppID</label>
+                                <input
+                                    type="text"
+                                    value={config.alipay_app_id || ''}
+                                    onChange={e => updateConfig('alipay_app_id', e.target.value)}
+                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
+                                    placeholder="支付宝应用AppID"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm text-gray-500">应用私钥 (明文)</label>
+                                <textarea
+                                    value={config.alipay_private_key || ''}
+                                    onChange={e => updateConfig('alipay_private_key', e.target.value)}
+                                    className="w-full h-24 px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono"
+                                    placeholder="MIIEvgIBADANBgkqhkiG9w0BAQEFAASC..."
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm text-gray-500">支付宝公钥 (明文)</label>
+                                <textarea
+                                    value={config.alipay_public_key || ''}
+                                    onChange={e => updateConfig('alipay_public_key', e.target.value)}
+                                    className="w-full h-24 px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono"
+                                    placeholder="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..."
+                                />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <label className="w-28 text-sm text-gray-500 shrink-0">支付网关</label>
+                                <input
+                                    type="text"
+                                    value={config.alipay_gateway || 'https://openapi.alipay.com/gateway.do'}
+                                    onChange={e => updateConfig('alipay_gateway', e.target.value)}
+                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-sm"
+                                    placeholder="https://openapi.alipay.com/gateway.do"
+                                />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <label className="w-28 text-sm text-gray-500 shrink-0">回调地址</label>
+                                <input
+                                    type="text"
+                                    value={config.alipay_notify_url || ''}
+                                    onChange={e => updateConfig('alipay_notify_url', e.target.value)}
+                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-sm"
+                                    placeholder="https://yourdomain.com/api/alipay/notify"
+                                />
+                            </div>
+                            {/* 系统通知管理 (原有) */}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+export default AdminView;
+import ReactMarkdown from 'react-markdown';
+import React, { useState } from 'react';
+import { generateXHSStyleReport } from '../services/gemini';
+interface AnalysisViewProps {
+  title: string;
+  type: string;
+  onBack: () => void;
+  helpText?: string;
+  onCheckCredits?: () => Promise<boolean>;
+  onDeductCredit?: () => Promise<boolean>;
+}
+const AnalysisView: React.FC<AnalysisViewProps> = ({ title, type, onBack, helpText, onCheckCredits, onDeductCredit }) => {
+  const [image, setImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [report, setReport] = useState<string | null>(null);
+  const [gender, setGender] = useState<'女' | '男' | null>(type === '颜值打分' ? '女' : null);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+  const handleAnalyze = async () => {
+    if (!image) return;
+    const hasCredits = await onCheckCredits?.();
+    if (!hasCredits) return;
+    setLoading(true);
+    try {
+      const res = await generateXHSStyleReport(type, [image], gender ? `性别：${gender}` : "");
+      if (res) {
+        setReport(res);
+        console.log('[AnalysisView] 分析成功，开始扣除额度');
+        await onDeductCredit?.();
+      } else {
+        console.warn('[AnalysisView] 分析失败，未返回结果，不扣除额度');
+        alert('分析遇到了点困难，稍后再试吧');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('分析遇到了点困难，稍后再试吧');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={onBack} className="text-2xl">←</button>
+        <h2 className="text-xl font-bold">{title}</h2>
+      </div>
+      <div className="flex flex-col gap-6">
+        <label className="w-full aspect-square max-w-[280px] mx-auto rounded-3xl bg-white border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden cursor-pointer shadow-sm">
+          {image ? (
+            <img src={image} className="w-full h-full object-cover" />
+          ) : (
+            <div className="text-center p-6">
+              <span className="text-5xl block mb-2">📸</span>
+              <p className="text-sm text-gray-400">{helpText || '上传照片开始分析'}</p>
+            </div>
+          )}
+          <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+        </label>
+        {type === '颜值打分' && (
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => setGender('女')}
+              className={`px-6 py-2 rounded-full font-bold ${gender === '女' ? 'bg-pink-500 text-white' : 'bg-white text-gray-500'}`}
+            >
+              女生
+            </button>
+            <button
+              onClick={() => setGender('男')}
+              className={`px-6 py-2 rounded-full font-bold ${gender === '男' ? 'bg-blue-500 text-white' : 'bg-white text-gray-500'}`}
+            >
+              男生
+            </button>
+          </div>
+        )}
+        <button
+          onClick={handleAnalyze}
+          disabled={!image || loading}
+          className="w-full h-14 xhs-gradient text-white rounded-2xl font-bold disabled:bg-gray-300 transition-all shadow-lg flex items-center justify-center gap-2"
+        >
+          {loading ? (
+            <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> AI分析中...</>
+          ) : '开始深度分析'}
+        </button>
+        {report && (() => {
+          const scoreMatch = report.match(/\[SCORE:(\d+)分?\]/);
+          const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
+          const cleanReport = report.replace(/\[SCORE:\d+分?\]\s*/, '');
+          return (
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-pink-50 prose prose-pink max-w-none">
+              {/* 颜值打分时显示分数卡片 */}
+              {type === '颜值打分' && score !== null && (
+                <div className="flex flex-col items-center mb-6 -mt-2">
+                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center shadow-lg">
+                    <span className="text-4xl font-bold text-white">{score}<span className="text-lg">分</span></span>
+                  </div>
+                  <p className="text-gray-500 text-sm mt-2">
+                    {score >= 90 ? '✨ 绝对惊艳！' : score >= 80 ? '🌟 超级好看!' : score >= 70 ? '💕 清新可人~' : score >= 60 ? '😊 蛮不错的' : '💪 潜力股!'}
+                  </p>
+                </div>
+              )}
+              <ReactMarkdown>{cleanReport}</ReactMarkdown>
+            </div>
+          );
+        })()}
+      </div>
+    </div>
+  );
+};
+export default AnalysisView;
+import ReactMarkdown from 'react-markdown';
+import React, { useState } from 'react';
+import { analyzeImage } from '../services/gemini';
+interface CalendarViewProps {
+  onBack: () => void;
+  onCheckCredits?: () => Promise<boolean>;
+  onDeductCredit?: () => Promise<boolean>;
+}
+const CalendarView: React.FC<CalendarViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+  const [todo, setTodo] = useState('');
+  const [report, setReport] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const today = new Date().toLocaleDateString('zh-CN', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+  });
+  const handleCheck = async () => {
+    if (!todo) return;
+    const hasCredits = await onCheckCredits?.();
+    if (!hasCredits) return;
+    setLoading(true);
+    try {
+      const systemInstruction = "你是一位精通传统黄历和时尚穿搭的博主。语气亲切，富有生活气息。";
+      const prompt = `今天是${today}。我想做的事情是：${todo}。请结合今日黄历背景，给出吉凶建议，并推荐今天适合穿什么颜色的衣服来提升好运，最后用小红书风格排版。`;
+      const res = await analyzeImage(prompt, [], systemInstruction);
+      if (res) {
+        setReport(res);
+        console.log('[CalendarView] 分析成功，开始扣除额度');
+        await onDeductCredit?.();
+      } else {
+        alert('系统繁忙，请稍后再试');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('系统繁忙，请稍后再试');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={onBack} className="text-2xl">←</button>
+        <h2 className="text-xl font-bold">出门黄历</h2>
+      </div>
+      <div className="bg-[#C69C6D] text-white p-6 rounded-3xl shadow-xl mb-8">
+        <p className="text-sm opacity-80 mb-1">公历：{today}</p>
+        <h3 className="text-2xl font-bold mb-4">今日万事如意 ✨</h3>
+        <div className="bg-white/10 p-4 rounded-xl">
+          <label className="block text-sm font-bold mb-2">今天打算去干嘛？</label>
+          <input
+            type="text"
+            value={todo}
+            onChange={(e) => setTodo(e.target.value)}
+            placeholder="如：去面试、约会、搬家..."
+            className="w-full bg-white text-gray-800 p-3 rounded-lg focus:outline-none"
+          />
+        </div>
+      </div>
+      <button
+        onClick={handleCheck}
+        disabled={!todo || loading}
+        className="w-full h-14 bg-[#C69C6D] text-white rounded-2xl font-bold shadow-lg mb-6 flex items-center justify-center gap-2"
+      >
+        {loading ? '正在夜观天象...' : '查看吉凶 & 穿搭建议'}
+      </button>
+      {report && (
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-amber-50 prose max-w-none">
+          <ReactMarkdown>{report}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+};
+export default CalendarView;
+import ReactMarkdown from 'react-markdown';
+import React, { useState } from 'react';
+import { generateXHSStyleReport } from '../services/gemini';
+interface CoupleFaceViewProps {
+  onBack: () => void;
+  onCheckCredits?: () => Promise<boolean>;
+  onDeductCredit?: () => Promise<boolean>;
+}
+const CoupleFaceView: React.FC<CoupleFaceViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+  const [maleImg, setMaleImg] = useState<string | null>(null);
+  const [femaleImg, setFemaleImg] = useState<string | null>(null);
+  const [report, setReport] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setter(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+  const handleAnalyze = async () => {
+    if (!maleImg || !femaleImg) return;
+    const hasCredits = await onCheckCredits?.();
+    if (!hasCredits) return;
+    setLoading(true);
+    try {
+      const res = await generateXHSStyleReport("夫妻相分析", [maleImg, femaleImg], "分析这两张脸的五官特征是否契合，给出夫妻相打分和情感建议。");
+      if (res) {
+        setReport(res);
+        console.log('[CoupleFaceView] 分析成功，开始扣除额度');
+        await onDeductCredit?.();
+      } else {
+        alert('分析失败');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('分析失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={onBack} className="text-2xl">←</button>
+        <h2 className="text-xl font-bold">夫妻相实验室</h2>
+      </div>
+      <div className="flex gap-4 mb-6">
+        <label className="flex-1 aspect-square rounded-2xl bg-white border-2 border-dashed border-blue-100 flex items-center justify-center overflow-hidden cursor-pointer">
+          {maleImg ? <img src={maleImg} className="w-full h-full object-cover" /> : <div className="text-center"><span className="text-3xl block">👨</span><span className="text-[10px] text-gray-400">男方照片</span></div>}
+          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, setMaleImg)} />
+        </label>
+        <div className="flex items-center text-red-400 text-2xl font-bold">❤️</div>
+        <label className="flex-1 aspect-square rounded-2xl bg-white border-2 border-dashed border-pink-100 flex items-center justify-center overflow-hidden cursor-pointer">
+          {femaleImg ? <img src={femaleImg} className="w-full h-full object-cover" /> : <div className="text-center"><span className="text-3xl block">👩</span><span className="text-[10px] text-gray-400">女方照片</span></div>}
+          <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, setFemaleImg)} />
+        </label>
+      </div>
+      <button
+        onClick={handleAnalyze}
+        disabled={!maleImg || !femaleImg || loading}
+        className="w-full h-14 bg-gradient-to-r from-red-400 to-pink-500 text-white rounded-2xl font-bold disabled:bg-gray-300 shadow-lg mb-6"
+      >
+        {loading ? 'AI月老计算中...' : '测测我们的夫妻相'}
+      </button>
+      {report && (
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-pink-50 prose prose-pink max-w-none">
+          <ReactMarkdown>{report}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+};
+export default CoupleFaceView;
+import React, { useState } from 'react';
+interface DepressionTestViewProps {
+    onBack: () => void;
+    onCheckCredits?: () => Promise<boolean>;
+    onDeductCredit?: () => Promise<boolean>;
+}
+const DEPRESSION_QUESTIONS = [
+    { q: '最近两周，你是否经常感到心情低落、沮丧或绝望', category: 'mood' },
+    { q: '你是否感到生活没有意义', category: 'mood' },
+    { q: '你是否经常感到悲伤而无法自控', category: 'mood' },
+    { q: '你是否容易因小事而想哭', category: 'mood' },
+    { q: '你是否感到内心空虚', category: 'mood' },
+    { q: '你是否感到对未来没有希望', category: 'mood' },
+    { q: '你是否感到自己是个失败者', category: 'mood' },
+    { q: '你是否经常感到莫名的恐惧或不安', category: 'mood' },
+    { q: '你是否经常感到烦躁易怒', category: 'mood' },
+    { q: '你是否感到无法控制自己的情绪', category: 'mood' },
+    { q: '你是否经常感到孤独寂寞', category: 'mood' },
+    { q: '你是否感到很难让自己开心起来', category: 'mood' },
+    { q: '你是否对以前喜欢的事情失去了兴趣', category: 'interest' },
+    { q: '你是否感到做什么都提不起劲', category: 'interest' },
+    { q: '你是否不再期待任何事情', category: 'interest' },
+    { q: '你是否感到生活变得乏味无聊', category: 'interest' },
+    { q: '你是否很难从愉快的活动中获得满足感', category: 'interest' },
+    { q: '你是否不再想参加社交活动', category: 'interest' },
+    { q: '你是否对工作或学习失去热情', category: 'interest' },
+    { q: '你是否不再关心自己的外表或穿着', category: 'interest' },
+    { q: '你是否对性生活或亲密关系失去兴趣', category: 'interest' },
+    { q: '你是否感到音乐、电影等娱乐无法让你开心', category: 'interest' },
+    { q: '你是否有入睡困难', category: 'sleep' },
+    { q: '你是否经常在半夜醒来', category: 'sleep' },
+    { q: '你是否早醒后难以再入睡', category: 'sleep' },
+    { q: '你是否睡得过多（每天超过10小时）', category: 'sleep' },
+    { q: '你是否即使睡了很久仍感到疲惫', category: 'sleep' },
+    { q: '你是否做噩梦或睡眠质量差', category: 'sleep' },
+    { q: '你是否害怕入睡', category: 'sleep' },
+    { q: '你是否日夜颠倒、作息紊乱', category: 'sleep' },
+    { q: '你是否经常在睡眠中惊醒', category: 'sleep' },
+    { q: '你是否感到无论睡多久都不够', category: 'sleep' },
+    { q: '你是否经常感到疲倦、没有精力', category: 'energy' },
+    { q: '你是否感到身体沉重、四肢乏力', category: 'energy' },
+    { q: '你是否即使休息也无法恢复精力', category: 'energy' },
+    { q: '你是否感到完成日常任务都很困难', category: 'energy' },
+    { q: '你是否感到反应变慢了', category: 'energy' },
+    { q: '你是否感到头脑不够清醒', category: 'energy' },
+    { q: '你是否感到起床是一件很艰难的事', category: 'energy' },
+    { q: '你是否经常感到体力不支', category: 'energy' },
+    { q: '你是否感到说话或思考都很费力', category: 'energy' },
+    { q: '你是否感到即使做简单的事也筋疲力尽', category: 'energy' },
+    { q: '你的食欲是否明显下降', category: 'appetite' },
+    { q: '你是否比平时吃得多很多', category: 'appetite' },
+    { q: '你的体重是否有明显变化', category: 'appetite' },
+    { q: '你是否对食物失去兴趣', category: 'appetite' },
+    { q: '你是否经常忘记吃饭', category: 'appetite' },
+    { q: '你是否用暴饮暴食来缓解情绪', category: 'appetite' },
+    { q: '你是否经常责怪自己', category: 'self' },
+    { q: '你是否觉得自己不如别人好', category: 'self' },
+    { q: '你是否对自己感到失望', category: 'self' },
+    { q: '你是否觉得自己是别人的负担', category: 'self' },
+    { q: '你是否对自己的外表感到不满', category: 'self' },
+    { q: '你是否感到自己毫无价值', category: 'self' },
+    { q: '你是否经常后悔过去的决定', category: 'self' },
+    { q: '你是否觉得自己一无是处', category: 'self' },
+    { q: '你是否经常批评否定自己', category: 'self' },
+    { q: '你是否觉得自己不值得被爱', category: 'self' },
+    { q: '你是否难以集中注意力', category: 'attention' },
+    { q: '你是否难以做出决定', category: 'attention' },
+    { q: '你是否经常走神发呆', category: 'attention' },
+    { q: '你是否记忆力明显下降', category: 'attention' },
+    { q: '你是否难以完成需要思考的任务', category: 'attention' },
+    { q: '你是否经常忘记重要的事情', category: 'attention' },
+    { q: '你是否难以跟上别人的谈话', category: 'attention' },
+    { q: '你是否阅读时难以理解内容', category: 'attention' },
+    { q: '你的动作是否变得比平时慢', category: 'behavior' },
+    { q: '你是否经常坐立不安', category: 'behavior' },
+    { q: '你是否减少了与朋友家人的联系', category: 'behavior' },
+    { q: '你是否不想出门或离开家', category: 'behavior' },
+    { q: '你是否逃避需要完成的任务', category: 'behavior' },
+    { q: '你是否经常取消已定好的计划', category: 'behavior' },
+    { q: '你是否长时间躺在床上不想动', category: 'behavior' },
+    { q: '你是否忽视个人卫生（如不洗澡、不刷牙）', category: 'behavior' },
+    { q: '你是否有过"不如死了算了"的想法', category: 'severe' },
+    { q: '你是否想过伤害自己', category: 'severe' },
+    { q: '你是否感到活着没有意义', category: 'severe' },
+    { q: '你是否经常想到死亡', category: 'severe' },
+    { q: '你是否有过伤害自己的行为', category: 'severe' },
+    { q: '你是否有过具体的自杀计划', category: 'severe' },
+];
+const DepressionTestView: React.FC<DepressionTestViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+    const [currentQuestion, setCurrentQuestion] = useState(0);
+    const [answers, setAnswers] = useState<Record<number, number>>({});
+    const [showResult, setShowResult] = useState(false);
+    const [totalScore, setTotalScore] = useState(0);
+    const handleAnswer = (score: number) => {
+        setAnswers(prev => ({ ...prev, [currentQuestion]: score }));
+        if (currentQuestion < DEPRESSION_QUESTIONS.length - 1) {
+            setCurrentQuestion(prev => prev + 1);
+        }
+    };
+    const calculateResult = async () => {
+        const hasCredits = await onCheckCredits?.();
+        if (!hasCredits) return;
+        let score = 0;
+        Object.values(answers).forEach((a: number) => {
+            score += a;
+        });
+        setTotalScore(score);
+        setShowResult(true);
+        await onDeductCredit?.();
+    };
+    const getResultLevel = (score: number): { level: string; color: string; emoji: string; desc: string; advice: string } => {
+        const maxScore = DEPRESSION_QUESTIONS.length * 3;
+        const percentage = (score / maxScore) * 100;
+        if (percentage <= 20) {
+            return {
+                level: '情绪健康',
+                color: 'from-green-400 to-emerald-500',
+                emoji: '😊',
+                desc: '恭喜你！你的情绪状态非常健康，没有抑郁倾向。',
+                advice: '继续保持积极乐观的生活态度，多运动、多社交、保持良好的作息习惯。'
+            };
+        } else if (percentage <= 40) {
+            return {
+                level: '轻微情绪波动',
+                color: 'from-yellow-400 to-orange-400',
+                emoji: '🙂',
+                desc: '你有一些轻微的情绪波动，这是正常的生活压力反应。',
+                advice: '建议适当调整作息，增加运动和社交活动，培养一些兴趣爱好。如果持续感到困扰，可以与朋友倾诉。'
+            };
+        } else if (percentage <= 60) {
+            return {
+                level: '中度情绪困扰',
+                color: 'from-orange-400 to-red-400',
+                emoji: '😔',
+                desc: '你可能正在经历一定程度的情绪困扰，需要关注自己的心理健康。',
+                advice: '建议寻求家人朋友的支持，考虑咨询专业的心理咨询师。保持规律作息，适当运动，避免独处太久。'
+            };
+        } else if (percentage <= 80) {
+            return {
+                level: '明显抑郁倾向',
+                color: 'from-red-400 to-red-600',
+                emoji: '😢',
+                desc: '你可能存在明显的抑郁倾向，建议尽快寻求专业帮助。',
+                advice: '强烈建议尽快预约专业心理医生或精神科医生进行评估和治疗。请告诉身边的亲朋好友你的感受，不要独自承担。'
+            };
+        } else {
+            return {
+                level: '严重抑郁倾向',
+                color: 'from-red-600 to-purple-700',
+                emoji: '🆘',
+                desc: '你的测试结果显示可能存在严重的抑郁倾向，请立即寻求专业帮助。',
+                advice: '请立即联系心理危机干预热线（全国：400-161-9995）或前往医院精神科就诊。你不是一个人，专业帮助可以让你好起来。'
+            };
+        }
+    };
+    const progress = ((currentQuestion + 1) / DEPRESSION_QUESTIONS.length) * 100;
+    const allAnswered = Object.keys(answers).length === DEPRESSION_QUESTIONS.length;
+    if (showResult) {
+        const result = getResultLevel(totalScore);
+        const maxScore = DEPRESSION_QUESTIONS.length * 3;
+        return (
+            <div className="p-6 flex flex-col gap-6">
+                <div className="flex items-center gap-4">
+                    <button onClick={onBack} className="text-2xl">←</button>
+                    <h2 className="text-xl font-bold">抑郁自测结果</h2>
+                </div>
+                <div className={`bg-gradient-to-br ${result.color} rounded-3xl p-6 text-white text-center`}>
+                    <p className="text-6xl mb-3">{result.emoji}</p>
+                    <h1 className="text-2xl font-bold mb-2">{result.level}</h1>
+                    <p className="text-lg opacity-90">得分：{totalScore} / {maxScore}</p>
+                </div>
+                <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+                    <div>
+                        <h3 className="font-bold text-gray-800 mb-2">📊 测试解读</h3>
+                        <p className="text-gray-600 text-sm">{result.desc}</p>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-800 mb-2">💡 建议</h3>
+                        <p className="text-gray-600 text-sm">{result.advice}</p>
+                    </div>
+                </div>
+                <div className="bg-pink-50 rounded-2xl p-4 border border-pink-200">
+                    <p className="text-sm text-pink-700">
+                        ⚠️ 声明：本测试仅供参考，不能替代专业医学诊断。如有需要，请咨询专业心理医生。
+                    </p>
+                </div>
+                <div className="bg-blue-50 rounded-2xl p-4 border border-blue-200">
+                    <p className="text-sm text-blue-700 font-bold mb-1">🆘 心理援助热线</p>
+                    <p className="text-sm text-blue-600">全国心理援助热线：400-161-9995</p>
+                    <p className="text-sm text-blue-600">北京心理危机研究与干预中心：010-82951332</p>
+                </div>
+                <button onClick={onBack} className="w-full h-14 bg-blue-500 text-white rounded-2xl font-bold">
+                    返回首页
+                </button>
+            </div>
+        );
+    }
+    return (
+        <div className="p-6 flex flex-col gap-6">
+            <div className="flex items-center gap-4">
+                <button onClick={onBack} className="text-2xl">←</button>
+                <h2 className="text-xl font-bold">抑郁自测</h2>
+            </div>
+            {/* 进度条 */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-blue-500 h-2 rounded-full transition-all" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="text-sm text-gray-500 text-center">{currentQuestion + 1} / {DEPRESSION_QUESTIONS.length}</p>
+            {/* 题目 */}
+            <div className="bg-white rounded-2xl p-6 shadow-sm min-h-[120px] flex items-center justify-center">
+                <p className="text-lg text-center font-medium text-gray-800">
+                    {DEPRESSION_QUESTIONS[currentQuestion].q}
+                </p>
+            </div>
+            {/* 答案选项 */}
+            <div className="flex flex-col gap-3">
+                {[
+                    { score: 0, label: '完全没有', color: 'bg-green-500' },
+                    { score: 1, label: '偶尔有', color: 'bg-yellow-500' },
+                    { score: 2, label: '经常有', color: 'bg-orange-500' },
+                    { score: 3, label: '几乎每天', color: 'bg-red-500' },
+                ].map(opt => (
+                    <button
+                        key={opt.score}
+                        onClick={() => handleAnswer(opt.score)}
+                        className={`w-full py-3 rounded-xl text-white font-bold transition-all ${opt.color} ${answers[currentQuestion] === opt.score ? 'ring-4 ring-offset-2 ring-blue-300' : ''}`}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+            </div>
+            {/* 导航按钮 */}
+            <div className="flex gap-3">
+                <button
+                    onClick={() => setCurrentQuestion(prev => Math.max(0, prev - 1))}
+                    disabled={currentQuestion === 0}
+                    className="flex-1 py-3 rounded-xl border-2 border-gray-300 text-gray-600 font-bold disabled:opacity-50"
+                >
+                    上一题
+                </button>
+                {allAnswered ? (
+                    <button
+                        onClick={calculateResult}
+                        className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold"
+                    >
+                        查看结果 📊
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setCurrentQuestion(prev => Math.min(DEPRESSION_QUESTIONS.length - 1, prev + 1))}
+                        disabled={currentQuestion === DEPRESSION_QUESTIONS.length - 1}
+                        className="flex-1 py-3 rounded-xl border-2 border-blue-500 text-blue-500 font-bold disabled:opacity-50"
+                    >
+                        下一题
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
+export default DepressionTestView;
+import ReactMarkdown from 'react-markdown';
+import React, { useState } from 'react';
+import { generateXHSStyleReport } from '../services/gemini';
+interface FengShuiViewProps {
+  onBack: () => void;
+  onCheckCredits?: () => Promise<boolean>;
+  onDeductCredit?: () => Promise<boolean>;
+}
+const FengShuiView: React.FC<FengShuiViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+  const [image, setImage] = useState<string | null>(null);
+  const [report, setReport] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+  const handleAnalyze = async () => {
+    if (!image) return;
+    const hasCredits = await onCheckCredits?.();
+    if (!hasCredits) return;
+    setLoading(true);
+    try {
+      const res = await generateXHSStyleReport("摆设风水分析", [image], "分析图中办公桌或家居摆设的布局，给出风水评分和改进建议。");
+      if (res) {
+        setReport(res);
+        console.log('[FengShuiView] 分析成功，开始扣除额度');
+        await onDeductCredit?.();
+      } else {
+        alert('分析失败');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('分析失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="p-6">
+      <div className="flex items-center gap-4 mb-6">
+        <button onClick={onBack} className="text-2xl">←</button>
+        <h2 className="text-xl font-bold">家居摆设风水</h2>
+      </div>
+      <div className="mb-6">
+        <label className="w-full aspect-video rounded-2xl bg-white border-2 border-dashed border-yellow-200 flex items-center justify-center overflow-hidden cursor-pointer shadow-sm">
+          {image ? (
+            <img src={image} className="w-full h-full object-cover" />
+          ) : (
+            <div className="text-center">
+              <span className="text-4xl block mb-2">🪴</span>
+              <p className="text-sm text-gray-400">拍照上传办公桌或房间一角</p>
+            </div>
+          )}
+          <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+        </label>
+      </div>
+      <button
+        onClick={handleAnalyze}
+        disabled={!image || loading}
+        className="w-full h-14 bg-yellow-500 text-white rounded-2xl font-bold shadow-lg mb-6"
+      >
+        {loading ? '风水大师分析中...' : '开始风水诊断'}
+      </button>
+      {report && (
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-yellow-50 prose max-w-none">
+          <ReactMarkdown>{report}</ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+};
+export default FengShuiView;
+import React, { useState } from 'react';
+import { getApiUrl } from '../lib/api-config';
+interface HairstyleViewProps {
+  onBack: () => void;
+  onCheckCredits?: () => Promise<boolean>;
+  onDeductCredit?: () => Promise<boolean>;
+}
+const MALE_HAIRSTYLES = [
+  { id: 'pompadour', name: '现代纹理飞机头', desc: '经典飞机头的升级版，哑光发泥打造自然的蓬松纹理', icon: '✈️' },
+  { id: 'wolf', name: '软狼尾', desc: '缩短脑后长度，适合通勤，极具少年感', icon: '🐺' },
+  { id: 'french', name: '复古油头', desc: '经典背梳造型，光亮整齐，绅士复古', icon: '🎩' },
+  { id: 'fade', name: '侧爆渐变', desc: '渐变围绕耳朵呈半圆状散开，结构感强', icon: '💈' },
+  { id: 'medium', name: '流动感中长发', desc: '文艺气息长碎发，发尾微卷，慵懒高级', icon: '🌊' },
+  { id: 'mod', name: '现代英伦摩德头', desc: '层次丰富，刘海盖额，不羁摇滚感', icon: '🎸' },
+  { id: 'buzz', name: '皮肤渐变圆寸', desc: '侧边彻底见皮肤，带简洁几何线条', icon: '⚡' },
+  { id: 'comma', name: '刘海中分头', desc: '刘海向内弯曲像逗号，五官突出', icon: '🔥' },
+  { id: 'sideback', name: '侧分背头', desc: '现代侧分，保留自然光泽，温润专业', icon: '👔' },
+  { id: 'messy', name: '凌乱碎盖', desc: '覆盖额头，凌乱层次感，自带减龄效果', icon: '😎' },
+];
+const FEMALE_HAIRSTYLES = [
+  { id: 'cub', name: '幼兽剪', desc: '短发带有柔软卷度，俏皮可爱', icon: '🐱' },
+  { id: 'butterfly', name: '蝴蝶剪', desc: '层次分明蓬松自然，浪漫灵动', icon: '🦋' },
+  { id: 'birkin', name: '伯金刘海', desc: '空气感刘海，法式慵懒优雅', icon: '🇫🇷' },
+  { id: 'cloudbob', name: '浮云鲍伯', desc: '蓬松饱满短发，甜美温柔', icon: '☁️' },
+  { id: 'collarbone', name: '锁骨直切', desc: '齐锁骨长度，干练知性', icon: '✨' },
+  { id: 'retro90', name: '90年代复古碎层', desc: '复古层次感，港风气质', icon: '📼' },
+  { id: 'mullet', name: '现代鲻鱼头', desc: '前短后长，个性张扬', icon: '🔥' },
+  { id: 'mermaid', name: '人鱼剪', desc: '长发大波浪，仙气飘飘', icon: '🧜‍♀️' },
+  { id: 'pixie', name: '软精灵短发', desc: '超短修颜，干净利落', icon: '🧚' },
+  { id: 'curtain', name: '窗帘刘海碎发', desc: '八字刘海显脸小，温柔甜美', icon: '🌸' },
+];
+const HairstyleView: React.FC<HairstyleViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+  const [faceImage, setFaceImage] = useState<string | null>(null);
+  const [gender, setGender] = useState<'女' | '男'>('女');
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [resultImage, setResultImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const hairstyles = gender === '男' ? MALE_HAIRSTYLES : FEMALE_HAIRSTYLES;
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setFaceImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+  const handleGenerate = async () => {
+    if (!faceImage || !selectedStyle) return;
+    const hasCredits = await onCheckCredits?.();
+    if (!hasCredits) return;
+    setLoading(true);
+    try {
+      const style = hairstyles.find(s => s.id === selectedStyle);
+      const response = await fetch(getApiUrl('/api/gemini'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'hairstyle',
+          faceImage,
+          gender,
+          hairstyleName: style?.name || '',
+          hairstyleDesc: style?.desc || ''
+        })
+      });
+      const data = await response.json();
+      if (data.result) {
+        setResultImage(data.result);
+        console.log('[HairstyleView] 生成成功，开始扣除额度');
+        await onDeductCredit?.();
+      } else {
+        console.warn('[HairstyleView] 生成失败，未返回结果');
+        alert('生成失败，请稍后重试');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('生成失败，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div className="p-6 flex flex-col gap-6">
+      <div className="flex items-center gap-4">
+        <button onClick={onBack} className="text-2xl">←</button>
+        <h2 className="text-xl font-bold">发型参考</h2>
+      </div>
+      {/* 上传照片 */}
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-bold text-gray-500">1. 上传正面人脸照片</p>
+        <label className="aspect-[3/4] max-w-[200px] mx-auto rounded-2xl bg-white border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden cursor-pointer">
+          {faceImage ? (
+            <img src={faceImage} className="w-full h-full object-cover" />
+          ) : (
+            <>
+              <span className="text-4xl">📸</span>
+              <span className="text-xs text-gray-400 mt-2 px-2 text-center">请上传清晰的正面照片</span>
+            </>
+          )}
+          <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+        </label>
+      </div>
+      {/* 选择性别 */}
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-bold text-gray-500">2. 选择性别</p>
+        <div className="flex justify-center gap-4">
+          <button
+            onClick={() => { setGender('女'); setSelectedStyle(null); }}
+            className={`px-6 py-2 rounded-full font-bold transition-all ${gender === '女' ? 'bg-pink-500 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
+          >
+            👩 女生
+          </button>
+          <button
+            onClick={() => { setGender('男'); setSelectedStyle(null); }}
+            className={`px-6 py-2 rounded-full font-bold transition-all ${gender === '男' ? 'bg-blue-500 text-white' : 'bg-white text-gray-500 border border-gray-200'}`}
+          >
+            👨 男生
+          </button>
+        </div>
+      </div>
+      {/* 选择发型风格 */}
+      <div className="flex flex-col gap-3">
+        <p className="text-xs font-bold text-gray-500">3. 选择发型风格</p>
+        <div className="grid grid-cols-2 gap-3">
+          {hairstyles.map((style) => (
+            <button
+              key={style.id}
+              onClick={() => setSelectedStyle(style.id)}
+              className={`p-3 rounded-xl border-2 transition-all text-left ${selectedStyle === style.id
+                ? 'border-rose-500 bg-rose-50'
+                : 'border-gray-200 bg-white hover:border-rose-300'
+                }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">{style.icon}</span>
+                <span className="font-bold text-xs">{style.name}</span>
+              </div>
+              <p className="text-xs text-gray-500 line-clamp-2">{style.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* 生成按钮 */}
+      <button
+        onClick={handleGenerate}
+        disabled={!faceImage || !selectedStyle || loading}
+        className="w-full h-14 bg-rose-500 text-white rounded-2xl font-bold disabled:bg-gray-300 transition-all flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> 生成中...</>
+        ) : '生成发型效果 💇'}
+      </button>
+      {/* 结果展示 */}
+      {resultImage && (
+        <div className="mt-4 flex flex-col gap-4">
+          <p className="text-center font-bold text-gray-700">💇 这是你的发型效果图：</p>
+          <div className="rounded-3xl overflow-hidden shadow-xl">
+            <img src={resultImage} className="w-full" />
+          </div>
+          <button
+            onClick={() => {
+              const link = document.createElement('a');
+              link.href = resultImage;
+              link.download = 'hairstyle-result.png';
+              link.click();
+            }}
+            className="text-rose-500 font-bold border-2 border-rose-500 rounded-xl p-3"
+          >
+            保存到相册
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+export default HairstyleView;
+import React from 'react';
+import { AppSection } from '../types';
+import InstallPWA from '../components/InstallPWA';
+import { getApiUrl } from '../lib/api-config';
+interface HomeViewProps {
+  onNavigate: (section: AppSection) => void;
+  onShowLogin: () => void;
+}
+const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
+  const [announcement, setAnnouncement] = React.useState('✨ 发现你的独属魅力 ✨');
+  const [showDownloadDialog, setShowDownloadDialog] = React.useState(false);
+  React.useEffect(() => {
+    fetch(getApiUrl('/api/auth_v2'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'getPublicConfig' })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.config?.announcement) {
+          setAnnouncement(data.config.announcement);
+        }
+      })
+      .catch(err => console.error('[HomeView] Failed to fetch announcement', err));
+  }, []);
+  const sections = [
+    { id: AppSection.JADE_APPRAISAL, title: '翡翠鉴别', icon: '📿', color: 'bg-emerald-100', border: 'border-emerald-300' },
+    { id: AppSection.TRY_ON_CLOTHES, title: '试穿衣', icon: '👗', color: 'bg-pink-100', border: 'border-pink-300' },
+    { id: AppSection.TRY_ON_ACCESSORIES, title: '试佩饰', icon: '💎', color: 'bg-purple-100', border: 'border-purple-300' },
+    { id: AppSection.HAIRSTYLE, title: '发型参考', icon: '💇‍♀️', color: 'bg-rose-100', border: 'border-rose-300' },
+    { id: AppSection.MAKEUP, title: '美妆效果', icon: '💄', color: 'bg-fuchsia-100', border: 'border-fuchsia-300' },
+    { id: AppSection.BEAUTY_SCORE, title: '颜值打分', icon: '✨', color: 'bg-orange-100', border: 'border-orange-300' },
+    { id: AppSection.COUPLE_FACE, title: '夫妻相', icon: '👩‍❤️‍👨', color: 'bg-red-100', border: 'border-red-300' },
+    { id: AppSection.TONGUE_DIAGNOSIS, title: '趣味舌诊', icon: '👅', color: 'bg-green-100', border: 'border-green-300' },
+    { id: AppSection.FACE_COLOR, title: '面色调理', icon: '💆‍♀️', color: 'bg-blue-100', border: 'border-blue-300' },
+    { id: AppSection.FACE_READING, title: '相术面相', icon: '🧿', color: 'bg-indigo-100', border: 'border-indigo-300' },
+    { id: AppSection.FENG_SHUI, title: '摆设风水', icon: '🪑', color: 'bg-yellow-100', border: 'border-yellow-400' },
+    { id: AppSection.LICENSE_PLATE, title: '五行车牌', icon: '🚗', color: 'bg-cyan-100', border: 'border-cyan-300' },
+    { id: AppSection.CALENDAR, title: '出门黄历', icon: '📅', color: 'bg-[#C69C6D]', border: 'border-[#A67C4D]', textColor: 'text-white' },
+    { id: AppSection.MBTI_TEST, title: '天赋测试', icon: '🧠', color: 'bg-violet-100', border: 'border-violet-300' },
+    { id: AppSection.DEPRESSION_TEST, title: '抑郁自测', icon: '💙', color: 'bg-sky-100', border: 'border-sky-300' },
+    { id: AppSection.MARRIAGE_ANALYSIS, title: '看姻缘', icon: '💘', color: 'bg-rose-50', border: 'border-rose-200' },
+    { id: AppSection.WEALTH_ANALYSIS, title: '看财富', icon: '💰', color: 'bg-amber-50', border: 'border-amber-200' },
+  ];
+  const isApp = (window as any).Capacitor?.isNative;
+  const handleDownloadClick = () => {
+    setShowDownloadDialog(true);
+  };
+  const confirmDownload = () => {
+    setShowDownloadDialog(false);
+    const link = document.createElement('a');
+    link.href = '/app.apk';
+    link.download = 'app.apk';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  const goToLogin = () => {
+    setShowDownloadDialog(false);
+    onShowLogin();
+  };
+  return (
+    <div className="p-6">
+      <header className="mb-8 text-center">
+        <h1 className="text-4xl art-title mb-2">✨ 美力实验室 ✨</h1>
+        <div className="bg-white/50 backdrop-blur-sm border border-pink-100 rounded-full py-1 px-4 overflow-hidden relative h-8 flex items-center">
+          <div className="whitespace-nowrap inline-block animate-marquee hover:pause text-gray-500 text-sm font-medium">
+            <span className="inline-block px-4">{announcement}</span>
+            <span className="inline-block px-4">{announcement}</span>
+          </div>
+        </div>
+      </header>
+      <div className="mb-8 flex gap-3 items-start justify-stretch">
+        {!isApp && (
+          <button
+            onClick={handleDownloadClick}
+            className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-transform active:scale-95 text-[11px] font-bold no-underline"
+          >
+            <span className="text-xl">📦</span>
+            下载 APP
+          </button>
+        )}
+        <div className="flex-1">
+          <InstallPWA />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {sections.map((sec) => (
+          <button
+            key={sec.id}
+            onClick={() => onNavigate(sec.id)}
+            className={`${sec.color} ${sec.border} border ${sec.textColor || 'text-gray-800'} rounded-2xl p-4 flex flex-row items-center justify-start gap-3 shadow-[0_4px_15px_rgba(255,107,157,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,157,0.4)] transition-all transform active:scale-95 h-16`}
+          >
+            <span className="text-2xl flex-shrink-0">{sec.icon}</span>
+            <span className="font-bold text-[14px] whitespace-nowrap overflow-hidden text-ellipsis">
+              {sec.title}
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-10 p-5 bg-white rounded-3xl border border-pink-100 shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center text-white text-sm">❤️</div>
+          <p className="font-bold text-gray-800">今日小贴士</p>
+        </div>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          自信的女孩最美丽！不论AI给出什么评价，你都是这世上独一无二的风景～ 记得每天都要开心鸭！🦆
+        </p>
+      </div>
+      {/* 下载提示对话框 */}
+      {showDownloadDialog && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-[32px] p-8 w-full max-w-sm shadow-2xl scale-in-center animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-pink-50 rounded-full flex items-center justify-center mb-6">
+                <span className="text-3xl">🎁</span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">温馨提示</h3>
+              <p className="text-gray-500 text-sm leading-relaxed mb-8">
+                建议您先在<span className="text-pink-500 font-bold border-b-2 border-pink-200 mx-1">当前页面完成注册/登录</span>后再去下载 App。<br /><br />
+                这样可以确保您的<span className="text-orange-500 font-bold">推荐奖励关系</span>被正确保存，并能享受完整会员服务哦！✨
+              </p>
+              <div className="flex flex-col w-full gap-3">
+                <button
+                  onClick={confirmDownload}
+                  className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-bold shadow-lg shadow-pink-200 active:scale-95 transition-transform"
+                >
+                  我已经注册，前往下载
+                </button>
+                <button
+                  onClick={goToLogin}
+                  className="w-full py-4 bg-gray-50 text-gray-500 rounded-2xl font-bold active:scale-95 transition-transform"
+                >
+                  先去注册/登录
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+export default HomeView;
+import React, { useState, useRef } from 'react';
+import {
+    Camera,
+    Upload,
+    ShieldCheck,
+    Search,
+    X,
+    Loader2,
+    AlertTriangle,
+    CheckCircle2,
+    Info,
+    Gem
+} from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { analyzeJadeImages, JadeAnalysisResult } from '../services/jadeService';
+interface JadeAppraisalViewProps {
+    onBack: () => void;
+    onCheckCredits: () => Promise<boolean>;
+    onDeductCredit: () => Promise<boolean>;
+}
+const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+    const [images, setImages] = useState<string[]>([]);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [result, setResult] = useState<JadeAnalysisResult | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length + images.length > 6) {
+            setError("最多只能上传6张照片");
+            return;
+        }
+        files.forEach(file => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImages(prev => [...prev, reader.result as string]);
+            };
+            reader.readAsDataURL(file);
+        });
+        setError(null);
+    };
+    const removeImage = (index: number) => {
+        setImages(prev => prev.filter((_, i) => i !== index));
+        if (images.length <= 1) setResult(null);
+    };
+    const startAnalysis = async () => {
+        if (images.length === 0) return;
+        const hasCredit = await onCheckCredits();
+        if (!hasCredit) return;
+        setIsAnalyzing(true);
+        setError(null);
+        try {
+            const analysisResult = await analyzeJadeImages(images);
+            const deducted = await onDeductCredit();
+            if (!deducted) {
+                throw new Error("额度扣除失败，请稍后重试");
+            }
+            setResult(analysisResult);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "分析过程中出现错误");
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+    return (
+        <div className="min-h-screen bg-[#f4f7f5]">
+            {/* Custom Header for View */}
+            <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-emerald-100">
+                <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400">
+                    <X className="w-6 h-6" />
+                </button>
+                <div className="flex items-center gap-2">
+                    <Gem className="text-emerald-600 w-5 h-5" />
+                    <h2 className="font-bold text-gray-800">翡翠鉴别</h2>
+                </div>
+                <div className="w-10" /> {/* Spacer */}
+            </div>
+            <main className="p-4 space-y-6">
+                {/* Upload Section */}
+                <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                        <Camera className="w-5 h-5 text-emerald-600" />
+                        上传鉴定照片
+                    </h2>
+                    <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50/50"
+                    >
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleImageUpload}
+                            multiple
+                            accept="image/*"
+                            className="hidden"
+                        />
+                        <div className="space-y-2">
+                            <Upload className="w-8 h-8 text-slate-400 mx-auto" />
+                            <p className="text-sm font-medium text-slate-700">点击上传照片</p>
+                            <p className="text-[10px] text-slate-400">支持多角度、微距、透光照 (最多6张)</p>
+                        </div>
+                    </div>
+                    {images.length > 0 && (
+                        <div className="grid grid-cols-3 gap-2 mt-4">
+                            {images.map((img, idx) => (
+                                <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100">
+                                    <img src={img} alt="Preview" className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => removeImage(idx)}
+                                        className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <button
+                        disabled={images.length === 0 || isAnalyzing}
+                        onClick={startAnalysis}
+                        className={`w-full mt-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${images.length > 0 && !isAnalyzing
+                                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
+                                : 'bg-slate-100 text-slate-400'
+                            }`}
+                    >
+                        {isAnalyzing ? (
+                            <>
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                正在智能鉴定...
+                            </>
+                        ) : (
+                            <>
+                                <Search className="w-5 h-5" />
+                                开始严谨鉴定
+                            </>
+                        )}
+                    </button>
+                </section>
+                {/* Results / Empty State */}
+                {!result && !isAnalyzing && !error && (
+                    <div className="text-center p-10 bg-white/50 rounded-3xl border border-dashed border-slate-200">
+                        <ShieldCheck className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                        <p className="text-slate-400 text-sm">上传照片后，AI 将为您提供深度分析报告</p>
+                    </div>
+                )}
+                {error && (
+                    <div className="bg-red-50 border border-red-100 rounded-3xl p-6 text-center">
+                        <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
+                        <p className="text-red-700 text-sm">{error}</p>
+                    </div>
+                )}
+                {result && !isAnalyzing && (
+                    <div className="space-y-4">
+                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">鉴定结论</span>
+                            <h2 className="text-2xl font-bold mt-2 text-slate-900">{result.authenticity.conclusion}</h2>
+                            <div className="grid grid-cols-2 gap-2 mt-4">
+                                <div className="bg-slate-50 p-3 rounded-xl">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase">种质</p>
+                                    <p className="text-sm font-bold">{result.quality.texture}</p>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-xl">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase">水头</p>
+                                    <p className="text-sm font-bold">{result.quality.transparency}</p>
+                                </div>
+                            </div>
+                            <div className="mt-4 prose prose-sm max-w-none text-slate-600 border-t pt-4">
+                                <ReactMarkdown>{result.detailedAnalysis}</ReactMarkdown>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {/* Instructions */}
+                <section className="bg-emerald-900 text-emerald-50 rounded-3xl p-6">
+                    <h3 className="font-bold mb-4 flex items-center gap-2">
+                        <Info className="w-5 h-5 text-emerald-400" />
+                        鉴定建议
+                    </h3>
+                    <ul className="space-y-3 text-xs opacity-80 list-disc pl-4">
+                        <li>提供自然光下的正面照，展示最真实的颜色。</li>
+                        <li>提供强光透射照，有助于观察内部结构。</li>
+                        <li>微距拍摄表面，观察“翠性”等微观特征。</li>
+                    </ul>
+                </section>
+            </main>
+        </div>
+    );
+};
+export default JadeAppraisalView;
+import React, { useState } from 'react';
+import { getApiUrl } from '../lib/api-config';
+interface LicensePlateViewProps {
+    onBack: () => void;
+    onCheckCredits?: () => Promise<boolean>;
+    onDeductCredit?: () => Promise<boolean>;
+}
+const SHICHEN_MAP = [
+    { name: '子时', range: '23:00-00:59', hours: [23, 0] },
+    { name: '丑时', range: '01:00-02:59', hours: [1, 2] },
+    { name: '寅时', range: '03:00-04:59', hours: [3, 4] },
+    { name: '卯时', range: '05:00-06:59', hours: [5, 6] },
+    { name: '辰时', range: '07:00-08:59', hours: [7, 8] },
+    { name: '巳时', range: '09:00-10:59', hours: [9, 10] },
+    { name: '午时', range: '11:00-12:59', hours: [11, 12] },
+    { name: '未时', range: '13:00-14:59', hours: [13, 14] },
+    { name: '申时', range: '15:00-16:59', hours: [15, 16] },
+    { name: '酉时', range: '17:00-18:59', hours: [17, 18] },
+    { name: '戌时', range: '19:00-20:59', hours: [19, 20] },
+    { name: '亥时', range: '21:00-22:59', hours: [21, 22] },
+];
+const CAR_COLORS = [
+    { name: '白色', color: '#FFFFFF', border: true },
+    { name: '黑色', color: '#1a1a1a' },
+    { name: '银色', color: '#C0C0C0' },
+    { name: '灰色', color: '#808080' },
+    { name: '红色', color: '#DC143C' },
+    { name: '蓝色', color: '#1E90FF' },
+    { name: '绿色', color: '#228B22' },
+    { name: '黄色', color: '#FFD700' },
+    { name: '橙色', color: '#FF8C00' },
+    { name: '棕色', color: '#8B4513' },
+    { name: '紫色', color: '#9400D3' },
+    { name: '粉色', color: '#FF69B4' },
+];
+const LicensePlateView: React.FC<LicensePlateViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+    const [birthDate, setBirthDate] = useState('');
+    const [birthTime, setBirthTime] = useState('');
+    const [shichen, setShichen] = useState('');
+    const [licensePlate, setLicensePlate] = useState('');
+    const [carColor, setCarColor] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<string | null>(null);
+    const [error, setError] = useState('');
+    const handleTimeChange = (time: string) => {
+        setBirthTime(time);
+        if (time) {
+            const hour = parseInt(time.split(':')[0]);
+            const matched = SHICHEN_MAP.find(s =>
+                s.hours.includes(hour) || (hour === 0 && s.name === '子时')
+            );
+            if (matched) {
+                setShichen(matched.name);
+            }
+        }
+    };
+    const handleAnalyze = async () => {
+        if (!birthDate || !shichen || !licensePlate || !carColor) {
+            setError('请填写完整信息');
+            return;
+        }
+        const hasCredits = await onCheckCredits?.();
+        if (!hasCredits) return;
+        setLoading(true);
+        setError('');
+        setResult(null);
+        try {
+            const prompt = `你是一位精通中国传统五行命理的大师。请根据以下信息进行详细的五行车牌分析：
+**个人信息：**
+- 新历出生日期：${birthDate}
+- 出生时辰：${shichen}
+- 车牌号码：${licensePlate}
+- 车身颜色：${carColor}
+**请按以下步骤进行分析：**
+1. **新历转农历**：将新历出生日期转换为农历日期
+2. **生辰八字分析**：
+   - 计算年柱、月柱、日柱、时柱
+   - 分析五行分布（金木水火土各有多少）
+   - 指出五行中缺什么、补什么、泄什么
+3. **命主喜忌分析**：
+   - 幸运数字（1-9中哪些数字有利）
+   - 应避开的数字
+   - 幸运颜色
+   - 应避开的颜色
+4. **车牌五行分析**：
+   - 分析车牌号每个字符对应的五行属性
+   - 数字五行：1/6属水、2/7属火、3/8属木、4/9属金、5/0属土
+   - 字母五行：根据形状和笔画判断
+5. **车身颜色五行**：
+   - 分析${carColor}对应的五行属性
+   - 是否与命主五行相合或相克
+6. **综合评分**：
+   - 车牌与命主匹配度（0-100分）
+   - 车身颜色与命主匹配度（0-100分）
+   - 总体旺主指数（0-100分）
+   - 判断：旺车主还是损车主，程度如何
+7. **改善建议**：
+   - 如果车牌不利，给出化解方法
+   - 车内可以摆放什么物品增加运势
+   - 其他调整建议
+请用通俗易懂的语言，使用emoji让内容更生动，用markdown格式输出。`;
+            const response = await fetch(getApiUrl('/api/gemini'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'textAnalysis',
+                    prompt
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || '分析失败');
+            setResult(data.result || data.text);
+            await onDeductCredit?.();
+        } catch (err: any) {
+            setError(err.message || '分析失败，请重试');
+        } finally {
+            setLoading(false);
+        }
+    };
+    return (
+        <div className="p-6 pb-24">
+            <div className="flex items-center gap-4 mb-6">
+                <button onClick={onBack} className="text-2xl">←</button>
+                <h2 className="text-xl font-bold">🚗 五行车牌</h2>
+            </div>
+            <div className="space-y-4">
+                {/* 出生日期 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <label className="block text-sm font-bold mb-2">📅 出生日期（新历）</label>
+                    <input
+                        type="date"
+                        value={birthDate}
+                        onChange={e => setBirthDate(e.target.value)}
+                        className="w-full h-12 px-4 rounded-xl border border-gray-200"
+                    />
+                </div>
+                {/* 出生时间/时辰 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <label className="block text-sm font-bold mb-2">⏰ 出生时间</label>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">具体时间（可选）</p>
+                            <input
+                                type="time"
+                                value={birthTime}
+                                onChange={e => handleTimeChange(e.target.value)}
+                                className="w-full h-10 px-3 rounded-xl border border-gray-200"
+                            />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500 mb-1">或选择时辰</p>
+                            <select
+                                value={shichen}
+                                onChange={e => setShichen(e.target.value)}
+                                className="w-full h-10 px-3 rounded-xl border border-gray-200"
+                            >
+                                <option value="">请选择</option>
+                                {SHICHEN_MAP.map(s => (
+                                    <option key={s.name} value={s.name}>{s.name} ({s.range})</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    {shichen && (
+                        <p className="text-xs text-cyan-600">已选择：{shichen}</p>
+                    )}
+                </div>
+                {/* 车牌号码 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <label className="block text-sm font-bold mb-2">🔢 车牌号码</label>
+                    <input
+                        type="text"
+                        value={licensePlate}
+                        onChange={e => setLicensePlate(e.target.value.toUpperCase())}
+                        placeholder="例如：粤A12345"
+                        className="w-full h-12 px-4 rounded-xl border border-gray-200 text-center text-lg font-bold tracking-widest"
+                        maxLength={10}
+                    />
+                </div>
+                {/* 车身颜色 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <label className="block text-sm font-bold mb-2">🎨 车身颜色</label>
+                    <div className="grid grid-cols-6 gap-2">
+                        {CAR_COLORS.map(c => (
+                            <button
+                                key={c.name}
+                                onClick={() => setCarColor(c.name)}
+                                className={`aspect-square rounded-xl flex items-center justify-center transition-all ${carColor === c.name
+                                    ? 'ring-2 ring-offset-2 ring-cyan-500 scale-110'
+                                    : ''
+                                    } ${c.border ? 'border border-gray-300' : ''}`}
+                                style={{ backgroundColor: c.color }}
+                                title={c.name}
+                            />
+                        ))}
+                    </div>
+                    {carColor && (
+                        <p className="text-xs text-cyan-600 mt-2">已选择：{carColor}</p>
+                    )}
+                </div>
+                {/* 分析按钮 */}
+                <button
+                    onClick={handleAnalyze}
+                    disabled={loading}
+                    className="w-full h-14 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-2xl font-bold text-lg shadow-lg disabled:opacity-50"
+                >
+                    {loading ? '正在分析中...' : '🔮 开始五行分析'}
+                </button>
+                {error && (
+                    <p className="text-center text-red-500">{error}</p>
+                )}
+                {/* 分析结果 */}
+                {result && (
+                    <div className="bg-white rounded-2xl p-4 shadow-sm">
+                        <h3 className="font-bold mb-3">📊 分析结果</h3>
+                        <div
+                            className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap"
+                            dangerouslySetInnerHTML={{ __html: result.replace(/\n/g, '<br/>') }}
+                        />
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+export default LicensePlateView;
+import React, { useState, useEffect } from 'react';
+import { getStableDeviceId } from '../lib/fingerprint';
+import { getApiUrl } from '../lib/api-config';
+interface LoginViewProps {
+    onLogin: (user: any) => void;
+    onBack: () => void;
+}
+const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
+    const [isRegister, setIsRegister] = useState(false);
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [referrerId, setReferrerId] = useState<string | null>(null);
+    const getDeviceId = async (): Promise<string> => {
+        try {
+            let deviceId = localStorage.getItem('device_id');
+            if (!deviceId || deviceId.startsWith('dev_')) {
+                deviceId = await getStableDeviceId();
+                localStorage.setItem('device_id', deviceId);
+            }
+            return deviceId || 'UNKNOWN';
+        } catch (e) {
+            console.error('Failed to get device ID:', e);
+            return 'ERROR_ID';
+        }
+    };
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const ref = params.get('ref');
+            if (ref) {
+                setReferrerId(ref);
+                localStorage.setItem('referrer_id', ref);
+            } else {
+                const savedRef = localStorage.getItem('referrer_id');
+                if (savedRef) {
+                    setReferrerId(savedRef);
+                }
+            }
+        } catch (e) {
+            console.error('Failed to parse referral:', e);
+        }
+    }, []);
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!username.trim() || !password.trim()) {
+            setError('请输入用户名和密码');
+            return;
+        }
+        setError('');
+        setLoading(true);
+        try {
+            const deviceId = await getDeviceId();
+            const ts = Date.now();
+            const response = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: isRegister ? 'register' : 'login',
+                    username: username.trim(),
+                    password,
+                    deviceId,
+                    referrerId
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || '操作失败，请稍后重试');
+            }
+            localStorage.setItem('user', JSON.stringify(data.user));
+            onLogin(data.user);
+        } catch (err: any) {
+            setError(err.message || '网络连接异常，请检查网络');
+        } finally {
+            setLoading(false);
+        }
+    };
+    return (
+        <div className="min-h-screen bg-transparent flex items-center justify-center p-6 pb-24">
+            <div className="w-full max-w-md animate-in fade-in duration-500">
+                <button
+                    onClick={onBack}
+                    className="text-2xl mb-4 p-2 active:bg-white/20 rounded-full transition-colors"
+                    aria-label="返回中心"
+                >
+                    ←
+                </button>
+                <div className="bg-white rounded-3xl p-8 shadow-2xl border border-pink-100">
+                    <h2 className="text-2xl font-bold text-center mb-6 bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+                        {isRegister ? '注册新账户' : '欢迎回来'}
+                    </h2>
+                    {error && (
+                        <div className="bg-red-50 text-red-500 p-4 rounded-2xl mb-6 text-sm flex items-center gap-2">
+                            <span>⚠️</span> {error}
+                        </div>
+                    )}
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        <div className="space-y-1">
+                            <label className="block text-xs font-bold text-gray-400 ml-1">用户名 / USERNAME</label>
+                            <input
+                                type="text"
+                                value={username}
+                                onChange={e => setUsername(e.target.value)}
+                                className="w-full h-12 px-4 rounded-2xl bg-gray-50 border border-transparent focus:border-pink-300 focus:bg-white focus:outline-none transition-all"
+                                placeholder="请输入用户名"
+                                required
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="block text-xs font-bold text-gray-400 ml-1">密码 / PASSWORD</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                className="w-full h-12 px-4 rounded-2xl bg-gray-50 border border-transparent focus:border-pink-300 focus:bg-white focus:outline-none transition-all"
+                                placeholder="请输入密码"
+                                required
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full h-14 xhs-gradient text-white rounded-2xl font-bold disabled:opacity-50 shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-4"
+                        >
+                            {loading ? (
+                                <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> 处理中...</>
+                            ) : (isRegister ? '立即注册' : '登录账户')}
+                        </button>
+                    </form>
+                    <div className="mt-8 text-center">
+                        <button
+                            onClick={() => setIsRegister(!isRegister)}
+                            className="text-pink-500 text-sm font-medium hover:underline"
+                        >
+                            {isRegister ? '已有账户？点击去登录' : '还没有账号？三秒注册'}
+                        </button>
+                    </div>
+                    {isRegister && (
+                        <div className="mt-6 p-4 bg-pink-50 rounded-2xl">
+                            <p className="text-[10px] text-pink-600 leading-relaxed text-center">
+                                🎁 <span className="font-bold">新用户福利</span>：首台设备注册赠送 <span className="font-bold text-lg">5</span> 次使用额度，快来体验吧！
+                            </p>
+                        </div>
+                    )}
+                </div>
+                <p className="mt-8 text-center text-gray-300 text-xs">
+                    © 2026 美力实验室 AI 版权所有
+                </p>
+            </div>
+        </div>
+    );
+};
+export default LoginView;
+import React, { useState } from 'react';
+import { generateMakeupImage } from '../services/gemini';
+interface MakeupViewProps {
+    onBack: () => void;
+    onCheckCredits?: () => Promise<boolean>;
+    onDeductCredit?: () => Promise<boolean>;
+}
+const MAKEUP_STYLES = [
+    { id: 'natural', name: '自然裸妆', desc: '淡雅自然，突出皮肤质感', icon: '🌸' },
+    { id: 'korean', name: '韩式水光妆', desc: '水润光泽，清透感十足', icon: '✨' },
+    { id: 'european', name: '欧美烟熏妆', desc: '深邃立体，气场全开', icon: '🔥' },
+    { id: 'sweet', name: '甜美少女妆', desc: '粉嫩可爱，减龄元气', icon: '🍬' },
+    { id: 'elegant', name: '优雅名媛妆', desc: '精致高级，气质出众', icon: '👑' },
+    { id: 'retro', name: '复古港风妆', desc: '浓眉红唇，经典复古', icon: '🌹' },
+];
+const MakeupView: React.FC<MakeupViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+    const [faceImage, setFaceImage] = useState<string | null>(null);
+    const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+    const [resultImage, setResultImage] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = () => setFaceImage(reader.result as string);
+            reader.readAsDataURL(file);
+        }
+    };
+    const handleGenerate = async () => {
+        if (!faceImage || !selectedStyle) return;
+        const hasCredits = await onCheckCredits?.();
+        if (!hasCredits) return;
+        setLoading(true);
+        try {
+            const style = MAKEUP_STYLES.find(s => s.id === selectedStyle);
+            const result = await generateMakeupImage(faceImage, style?.name || '', style?.desc || '');
+            if (result) {
+                setResultImage(result);
+                console.log('[MakeupView] 生成成功，开始扣除额度');
+                await onDeductCredit?.();
+            } else {
+                console.warn('[MakeupView] 生成失败，未返回结果，不扣除额度');
+                alert('生成失败，请稍后重试');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('生成失败，请稍后重试');
+        } finally {
+            setLoading(false);
+        }
+    };
+    return (
+        <div className="p-6 flex flex-col gap-6">
+            <div className="flex items-center gap-4">
+                <button onClick={onBack} className="text-2xl">←</button>
+                <h2 className="text-xl font-bold">美妆效果</h2>
+            </div>
+            {/* 上传人脸照片 */}
+            <div className="flex flex-col gap-2">
+                <p className="text-xs font-bold text-gray-500">1. 上传正面人脸照片</p>
+                <label className="aspect-[3/4] max-w-[200px] mx-auto rounded-2xl bg-white border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden cursor-pointer">
+                    {faceImage ? (
+                        <img src={faceImage} className="w-full h-full object-cover" />
+                    ) : (
+                        <>
+                            <span className="text-4xl">👩</span>
+                            <span className="text-xs text-gray-400 mt-2 px-2 text-center">请上传清晰的正面照片</span>
+                        </>
+                    )}
+                    <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                </label>
+            </div>
+            {/* 选择化妆风格 */}
+            <div className="flex flex-col gap-3">
+                <p className="text-xs font-bold text-gray-500">2. 选择化妆风格</p>
+                <div className="grid grid-cols-2 gap-3">
+                    {MAKEUP_STYLES.map((style) => (
+                        <button
+                            key={style.id}
+                            onClick={() => setSelectedStyle(style.id)}
+                            className={`p-3 rounded-xl border-2 transition-all text-left ${selectedStyle === style.id
+                                    ? 'border-pink-500 bg-pink-50'
+                                    : 'border-gray-200 bg-white hover:border-pink-300'
+                                }`}
+                        >
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-lg">{style.icon}</span>
+                                <span className="font-bold text-sm">{style.name}</span>
+                            </div>
+                            <p className="text-xs text-gray-500">{style.desc}</p>
+                        </button>
+                    ))}
+                </div>
+            </div>
+            {/* 生成按钮 */}
+            <button
+                onClick={handleGenerate}
+                disabled={!faceImage || !selectedStyle || loading}
+                className="w-full h-14 bg-pink-500 text-white rounded-2xl font-bold disabled:bg-gray-300 transition-all flex items-center justify-center gap-2"
+            >
+                {loading ? (
+                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> 美妆中...</>
+                ) : '开始魔法美妆 💄'}
+            </button>
+            {/* 结果展示 */}
+            {resultImage && (
+                <div className="mt-4 flex flex-col gap-4">
+                    <p className="text-center font-bold text-gray-700">✨ 这是你的美妆效果图：</p>
+                    <div className="rounded-3xl overflow-hidden shadow-xl">
+                        <img src={resultImage} className="w-full" />
+                    </div>
+                    <button
+                        onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = resultImage;
+                            link.download = 'makeup-result.png';
+                            link.click();
+                        }}
+                        className="text-pink-500 font-bold border-2 border-pink-500 rounded-xl p-3"
+                    >
+                        保存到相册
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
+export default MakeupView;
+import React, { useState, useEffect, useRef } from 'react';
+import { Solar } from 'lunar-javascript';
+import { analysisMarriage, generatePartnerImage } from '../services/gemini';
+interface MarriageViewProps {
+    onBack: () => void;
+    onCheckCredits: () => Promise<boolean>;
+    onDeductCredit: () => Promise<boolean>;
+}
+const MarriageView: React.FC<MarriageViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+    const date = new Date();
+    const [year, setYear] = useState(date.getFullYear() - 25);
+    const [month, setMonth] = useState(date.getMonth() + 1);
+    const [day, setDay] = useState(date.getDate());
+    const [hour, setHour] = useState(12);
+    const [lunarText, setLunarText] = useState('');
+    const [gender, setGender] = useState<'男' | '女'>('女');
+    const [usePhoto, setUsePhoto] = useState(false);
+    const [userPhoto, setUserPhoto] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<string | null>(null);
+    const [partnerImage, setPartnerImage] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        try {
+            const solar = Solar.fromYmdHms(year, month, day, hour, 0, 0);
+            const lunar = solar.getLunar();
+            const shiChen = lunar.getTimeZhi() + '时';
+            setLunarText(`农历：${lunar.getYearInGanZhi()}年 ${lunar.getMonthInChinese()}月 ${lunar.getDayInChinese()} ${shiChen}`);
+        } catch (e) {
+            setLunarText('日期无效');
+        }
+    }, [year, month, day, hour]);
+    const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setUserPhoto(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    const handleAnalyze = async () => {
+        const birthInfo = `${year}年${month}月${day}日 ${hour}:00`;
+        if (usePhoto && !userPhoto) {
+            alert('请上传一张您的正面照片，以便 AI 生成更契合的另一半哦～');
+            return;
+        }
+        const hasCredits = await onCheckCredits();
+        if (!hasCredits) return;
+        setLoading(true);
+        try {
+            await onDeductCredit();
+            const report = await analysisMarriage(birthInfo, gender);
+            setResult(report);
+            if (usePhoto) {
+                const hasExtraCredit = await onCheckCredits();
+                if (hasExtraCredit) {
+                    await onDeductCredit();
+                    const descMatch = report.match(/\[PARTNER_DESC:(.*?)\]/);
+                    const partnerDesc = descMatch ? descMatch[1] : '一位理想的中国异性';
+                    const image = await generatePartnerImage(partnerDesc, gender, userPhoto || undefined);
+                    setPartnerImage(image);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            alert('分析失败，请稍后重试');
+        } finally {
+            setLoading(false);
+        }
+    };
+    if (result) {
+        return (
+            <div className="p-6 flex flex-col gap-6">
+                <div className="flex items-center gap-4">
+                    <button onClick={onBack} className="text-2xl">←</button>
+                    <h2 className="text-xl font-bold">姻缘分析结果</h2>
+                </div>
+                {partnerImage && (
+                    <div className="bg-white rounded-3xl overflow-hidden shadow-lg border-4 border-pink-200">
+                        <img src={partnerImage} alt="理想另一半" className="w-full h-80 object-cover" />
+                        <div className="p-3 bg-pink-50 text-center text-pink-600 font-bold text-sm">
+                            ✨ AI 根据您的相貌与命理生成的“天定良缘” ✨
+                        </div>
+                    </div>
+                )}
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-pink-100 xhs-report">
+                    <div className="whitespace-pre-wrap text-gray-800 leading-relaxed text-sm">
+                        {result.replace(/\[PARTNER_DESC:.*?\]/, '').trim()}
+                    </div>
+                </div>
+                <button onClick={onBack} className="w-full h-14 bg-gradient-to-r from-pink-400 to-rose-500 text-white rounded-2xl font-bold shadow-lg">
+                    再次探索
+                </button>
+            </div>
+        );
+    }
+    const years = Array.from({ length: 100 }, (_, i) => 2024 - i);
+    const months = Array.from({ length: 12 }, (_, i) => i + 1);
+    const days = Array.from({ length: 31 }, (_, i) => i + 1);
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    return (
+        <div className="p-6 flex flex-col gap-6 pb-20">
+            <div className="flex items-center gap-4">
+                <button onClick={onBack} className="text-2xl">←</button>
+                <h2 className="text-xl font-bold">看姻缘</h2>
+            </div>
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-pink-100 flex flex-col gap-5">
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-3">出生信息 (新历)</label>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                        <select
+                            value={year}
+                            onChange={(e) => setYear(parseInt(e.target.value))}
+                            className="h-11 px-3 rounded-xl border border-pink-50 bg-pink-50/20 text-sm focus:outline-none"
+                        >
+                            {years.map(y => <option key={y} value={y}>{y}年</option>)}
+                        </select>
+                        <select
+                            value={month}
+                            onChange={(e) => setMonth(parseInt(e.target.value))}
+                            className="h-11 px-3 rounded-xl border border-pink-50 bg-pink-50/20 text-sm focus:outline-none"
+                        >
+                            {months.map(m => <option key={m} value={m}>{m}月</option>)}
+                        </select>
+                        <select
+                            value={day}
+                            onChange={(e) => setDay(parseInt(e.target.value))}
+                            className="h-11 px-3 rounded-xl border border-pink-50 bg-pink-50/20 text-sm focus:outline-none"
+                        >
+                            {days.map(d => <option key={d} value={d}>{d}日</option>)}
+                        </select>
+                        <select
+                            value={hour}
+                            onChange={(e) => setHour(parseInt(e.target.value))}
+                            className="h-11 px-3 rounded-xl border border-pink-50 bg-pink-50/20 text-sm focus:outline-none"
+                        >
+                            {hours.map(h => <option key={h} value={h}>{h}时</option>)}
+                        </select>
+                    </div>
+                    <p className="text-[10px] text-pink-400 font-medium px-1">{lunarText}</p>
+                </div>
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">您的性别</label>
+                    <div className="flex gap-4">
+                        {(['女', '男'] as const).map(g => (
+                            <button
+                                key={g}
+                                onClick={() => setGender(g)}
+                                className={`flex-1 h-12 rounded-xl font-bold transition-all ${gender === g ? 'bg-pink-500 text-white shadow-md' : 'bg-gray-100 text-gray-500'}`}
+                            >
+                                {g === '女' ? '🚺 ' : '🚹 '}{g}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-rose-50 rounded-xl border border-pink-100/50">
+                    <span className="text-sm font-bold text-rose-700">生成理想另一半画像</span>
+                    <button
+                        onClick={() => setUsePhoto(!usePhoto)}
+                        className={`w-12 h-6 rounded-full transition-all relative ${usePhoto ? 'bg-pink-500' : 'bg-gray-300'}`}
+                    >
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${usePhoto ? 'left-7' : 'left-1'}`} />
+                    </button>
+                </div>
+                {usePhoto && (
+                    <div className="bg-pink-50/50 p-4 rounded-2xl border border-dashed border-pink-200">
+                        <p className="text-xs text-pink-600 mb-3 text-center">上传您的正面照，匹配更精准</p>
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="w-24 h-24 mx-auto bg-white rounded-2xl border-2 border-pink-100 flex items-center justify-center cursor-pointer overflow-hidden shadow-inner"
+                        >
+                            {userPhoto ? (
+                                <img src={userPhoto} alt="本人" className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-3xl">📷</span>
+                            )}
+                        </div>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handlePhotoUpload}
+                            accept="image/*"
+                            className="hidden"
+                        />
+                        <p className="text-[9px] text-pink-400 text-center mt-3">提示：生成画像将额外消耗1次额度</p>
+                    </div>
+                )}
+                <button
+                    onClick={handleAnalyze}
+                    disabled={loading}
+                    className="w-full h-14 bg-gradient-to-r from-pink-400 to-rose-500 text-white rounded-2xl font-bold mt-2 shadow-lg hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+                >
+                    {loading ? '🔮 正在窥探天机...' : '开启姻缘之旅 ✨'}
+                </button>
+            </div>
+            <div className="mt-4 p-5 bg-gradient-to-br from-pink-50 to-rose-50 rounded-3xl border border-pink-100">
+                <h4 className="font-bold text-pink-700 mb-2 flex items-center gap-2">
+                    <span>📜</span> 原理说明
+                </h4>
+                <p className="text-xs text-pink-600 leading-relaxed">
+                    本功能结合中国传统八字命理精髓与现代 AI 大模型，精准换算农历并分析五行生克。我们将为您解析正缘出现的绝佳时机，并基于相术原理为您勾勒出命中注定的 Ta。
+                </p>
+            </div>
+        </div>
+    );
+};
+export default MarriageView;
+import React, { useState } from 'react';
+interface MBTITestViewProps {
+    onBack: () => void;
+    onCheckCredits?: () => Promise<boolean>;
+    onDeductCredit?: () => Promise<boolean>;
+}
+const MBTI_QUESTIONS = [
+    { q: '在社交聚会中，你通常感到精力充沛', dimension: 'EI', direction: 'E' },
+    { q: '你喜欢成为众人瞩目的焦点', dimension: 'EI', direction: 'E' },
+    { q: '你更喜欢独处或与少数亲密朋友在一起', dimension: 'EI', direction: 'I' },
+    { q: '你需要独处时间来恢复精力', dimension: 'EI', direction: 'I' },
+    { q: '你喜欢主动认识新朋友', dimension: 'EI', direction: 'E' },
+    { q: '你说话前会仔细思考', dimension: 'EI', direction: 'I' },
+    { q: '你喜欢热闹的环境', dimension: 'EI', direction: 'E' },
+    { q: '你更擅长倾听而非表达', dimension: 'EI', direction: 'I' },
+    { q: '你在团队中经常发言', dimension: 'EI', direction: 'E' },
+    { q: '你享受安静独处的时光', dimension: 'EI', direction: 'I' },
+    { q: '你容易与陌生人攀谈', dimension: 'EI', direction: 'E' },
+    { q: '你更喜欢书面沟通而非口头交流', dimension: 'EI', direction: 'I' },
+    { q: '你喜欢参加大型派对或活动', dimension: 'EI', direction: 'E' },
+    { q: '你在人群中待久了会感到疲惫', dimension: 'EI', direction: 'I' },
+    { q: '你善于活跃气氛', dimension: 'EI', direction: 'E' },
+    { q: '你更喜欢深入交流而非闲聊', dimension: 'EI', direction: 'I' },
+    { q: '你会主动组织社交活动', dimension: 'EI', direction: 'E' },
+    { q: '你觉得独自思考比讨论更有效', dimension: 'EI', direction: 'I' },
+    { q: '你喜欢边说边想', dimension: 'EI', direction: 'E' },
+    { q: '你倾向于先观察再行动', dimension: 'EI', direction: 'I' },
+    { q: '你更关注当下的实际情况', dimension: 'SN', direction: 'S' },
+    { q: '你喜欢想象未来的可能性', dimension: 'SN', direction: 'N' },
+    { q: '你注重细节和具体事实', dimension: 'SN', direction: 'S' },
+    { q: '你容易看到事物的整体模式', dimension: 'SN', direction: 'N' },
+    { q: '你更信任实际经验', dimension: 'SN', direction: 'S' },
+    { q: '你喜欢探索新想法和理论', dimension: 'SN', direction: 'N' },
+    { q: '你做事注重实用性', dimension: 'SN', direction: 'S' },
+    { q: '你经常有突发的灵感', dimension: 'SN', direction: 'N' },
+    { q: '你喜欢按既定方式做事', dimension: 'SN', direction: 'S' },
+    { q: '你对抽象概念感兴趣', dimension: 'SN', direction: 'N' },
+    { q: '你更相信看得见摸得着的东西', dimension: 'SN', direction: 'S' },
+    { q: '你喜欢探索事物背后的深层含义', dimension: 'SN', direction: 'N' },
+    { q: '你更擅长记住具体细节', dimension: 'SN', direction: 'S' },
+    { q: '你常常展望遥远的未来', dimension: 'SN', direction: 'N' },
+    { q: '你喜欢循序渐进地学习', dimension: 'SN', direction: 'S' },
+    { q: '你喜欢思考"如果...会怎样"', dimension: 'SN', direction: 'N' },
+    { q: '你注重事物的实际应用', dimension: 'SN', direction: 'S' },
+    { q: '你容易发现事物之间的联系', dimension: 'SN', direction: 'N' },
+    { q: '你更关心"是什么"而非"可能是什么"', dimension: 'SN', direction: 'S' },
+    { q: '你喜欢隐喻和象征性的表达', dimension: 'SN', direction: 'N' },
+    { q: '做决定时你更依赖逻辑分析', dimension: 'TF', direction: 'T' },
+    { q: '你很在意他人的感受', dimension: 'TF', direction: 'F' },
+    { q: '你认为公平比和谐更重要', dimension: 'TF', direction: 'T' },
+    { q: '你容易感受到他人的情绪', dimension: 'TF', direction: 'F' },
+    { q: '你喜欢分析问题的利弊', dimension: 'TF', direction: 'T' },
+    { q: '你更看重人际关系的和谐', dimension: 'TF', direction: 'F' },
+    { q: '你能够客观地批评他人', dimension: 'TF', direction: 'T' },
+    { q: '你经常赞美和鼓励他人', dimension: 'TF', direction: 'F' },
+    { q: '你认为理性比感性更可靠', dimension: 'TF', direction: 'T' },
+    { q: '你做决定时会考虑对他人的影响', dimension: 'TF', direction: 'F' },
+    { q: '你更擅长解决技术问题', dimension: 'TF', direction: 'T' },
+    { q: '你善于调解人际冲突', dimension: 'TF', direction: 'F' },
+    { q: '你认为规则比例外更重要', dimension: 'TF', direction: 'T' },
+    { q: '你在做决定时会考虑个人价值观', dimension: 'TF', direction: 'F' },
+    { q: '你喜欢找出争论中的逻辑漏洞', dimension: 'TF', direction: 'T' },
+    { q: '你容易对他人产生同情心', dimension: 'TF', direction: 'F' },
+    { q: '你认为事实比感受更重要', dimension: 'TF', direction: 'T' },
+    { q: '你更关心他人的需要', dimension: 'TF', direction: 'F' },
+    { q: '你在批评时直言不讳', dimension: 'TF', direction: 'T' },
+    { q: '你很难拒绝别人的请求', dimension: 'TF', direction: 'F' },
+    { q: '你喜欢按计划行事', dimension: 'JP', direction: 'J' },
+    { q: '你喜欢保持选择的开放性', dimension: 'JP', direction: 'P' },
+    { q: '你做事有条理有系统', dimension: 'JP', direction: 'J' },
+    { q: '你享受临时起意的活动', dimension: 'JP', direction: 'P' },
+    { q: '你喜欢事先做好规划', dimension: 'JP', direction: 'J' },
+    { q: '你能很好地适应变化', dimension: 'JP', direction: 'P' },
+    { q: '你喜欢尽早完成任务', dimension: 'JP', direction: 'J' },
+    { q: '你经常在截止日期前才完成工作', dimension: 'JP', direction: 'P' },
+    { q: '你的生活作息很规律', dimension: 'JP', direction: 'J' },
+    { q: '你喜欢随心所欲地生活', dimension: 'JP', direction: 'P' },
+    { q: '你会提前安排日程', dimension: 'JP', direction: 'J' },
+    { q: '你更喜欢灵活应变', dimension: 'JP', direction: 'P' },
+    { q: '完成任务给你带来满足感', dimension: 'JP', direction: 'J' },
+    { q: '你喜欢同时进行多项任务', dimension: 'JP', direction: 'P' },
+    { q: '你的物品摆放整齐有序', dimension: 'JP', direction: 'J' },
+    { q: '你觉得规则可以灵活变通', dimension: 'JP', direction: 'P' },
+    { q: '你喜欢有明确的目标', dimension: 'JP', direction: 'J' },
+    { q: '你享受探索过程中的不确定性', dimension: 'JP', direction: 'P' },
+    { q: '你常常列清单来管理任务', dimension: 'JP', direction: 'J' },
+    { q: '你更喜欢顺其自然', dimension: 'JP', direction: 'P' },
+];
+const MBTI_DESCRIPTIONS: Record<string, { title: string; traits: string; careers: string; industries: string; earning: string }> = {
+    'INTJ': { title: '建筑师', traits: '独立、战略性思维、高标准', careers: '科学家、战略顾问、系统架构师、投资分析师', industries: '科技、金融、咨询、研究', earning: '💰💰💰💰💰 极强的赚钱潜力，善于规划长期财富' },
+    'INTP': { title: '逻辑学家', traits: '分析能力强、创新、独立思考', careers: '程序员、数据科学家、研究员、哲学家', industries: '科技、学术、研发、游戏开发', earning: '💰💰💰💰 技术型人才收入可观' },
+    'ENTJ': { title: '指挥官', traits: '领导力强、果断、高效', careers: 'CEO、企业家、律师、项目经理', industries: '商业、管理、法律、金融', earning: '💰💰💰💰💰 天生的商业领袖，赚钱能力顶级' },
+    'ENTP': { title: '辩论家', traits: '创新、口才好、思维敏捷', careers: '创业者、营销专家、产品经理、律师', industries: '创业、广告、媒体、科技', earning: '💰💰💰💰 善于发现商机，但需坚持执行' },
+    'INFJ': { title: '提倡者', traits: '有远见、富有同情心、理想主义', careers: '心理咨询师、作家、教育家、人力资源', industries: '教育、心理健康、非营利组织、艺术', earning: '💰💰💰 重视意义大于金钱，但能在专业领域获得认可' },
+    'INFP': { title: '调停者', traits: '理想主义、创造力、同理心强', careers: '作家、艺术家、心理咨询师、设计师', industries: '创意产业、心理咨询、教育、社会服务', earning: '💰💰💰 追求热爱的事业，财富随之而来' },
+    'ENFJ': { title: '主人公', traits: '有魅力、善于激励他人、责任感强', careers: '培训师、教师、人力资源、政治家', industries: '教育、培训、公关、管理', earning: '💰💰💰💰 出色的领导力带来晋升机会' },
+    'ENFP': { title: '竞选者', traits: '热情、创造力、善于交际', careers: '创意总监、记者、公关专家、演员', industries: '媒体、娱乐、广告、创业', earning: '💰💰💰 创意和人脉是最大资产' },
+    'ISTJ': { title: '物流师', traits: '可靠、有条理、注重细节', careers: '会计师、审计员、项目经理、行政管理', industries: '金融、政府、制造业、物流', earning: '💰💰💰💰 稳扎稳打，财务规划能力强' },
+    'ISFJ': { title: '守卫者', traits: '忠诚、细心、乐于助人', careers: '护士、教师、行政助理、客服经理', industries: '医疗、教育、社会服务、零售', earning: '💰💰💰 稳定的职业发展路径' },
+    'ESTJ': { title: '总经理', traits: '组织力强、务实、领导力', careers: '经理、军官、法官、财务总监', industries: '管理、法律、金融、政府', earning: '💰💰💰💰 管理岗位薪资可观' },
+    'ESFJ': { title: '执政官', traits: '热心、善于社交、有责任心', careers: '销售经理、活动策划、人力资源、医生', industries: '销售、医疗、教育、酒店服务', earning: '💰💰💰 人际关系网络带来机遇' },
+    'ISTP': { title: '鉴赏家', traits: '灵活、善于解决问题、实践能力强', careers: '工程师、飞行员、机械师、法医', industries: '工程、航空、技术维修、调查', earning: '💰💰💰💰 技术专业人才稀缺' },
+    'ISFP': { title: '探险家', traits: '艺术感、温和、活在当下', careers: '艺术家、设计师、摄影师、造型师', industries: '艺术、设计、时尚、美容', earning: '💰💰💰 创意作品可创造独特价值' },
+    'ESTP': { title: '企业家', traits: '精力充沛、行动派、善于应变', careers: '销售、运动员、消防员、企业家', industries: '销售、体育、娱乐、创业', earning: '💰💰💰💰 敢于冒险可获高回报' },
+    'ESFP': { title: '表演者', traits: '热情、风趣、享受生活', careers: '演员、主持人、销售、活动策划', industries: '娱乐、销售、餐饮、旅游', earning: '💰💰💰 魅力是最大的资本' },
+};
+const MBTITestView: React.FC<MBTITestViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+    const [currentQuestion, setCurrentQuestion] = useState(0);
+    const [answers, setAnswers] = useState<Record<number, number>>({});
+    const [result, setResult] = useState<string | null>(null);
+    const [showResult, setShowResult] = useState(false);
+    const handleAnswer = (score: number) => {
+        setAnswers(prev => ({ ...prev, [currentQuestion]: score }));
+        if (currentQuestion < MBTI_QUESTIONS.length - 1) {
+            setCurrentQuestion(prev => prev + 1);
+        }
+    };
+    const calculateResult = async () => {
+        const hasCredits = await onCheckCredits?.();
+        if (!hasCredits) return;
+        const scores = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
+        MBTI_QUESTIONS.forEach((q, idx) => {
+            const answer = answers[idx] || 3;
+            const weight = answer - 3; // -2 到 +2
+            if (q.direction === 'E' || q.direction === 'S' || q.direction === 'T' || q.direction === 'J') {
+                scores[q.direction as keyof typeof scores] += weight;
+            } else {
+                scores[q.direction as keyof typeof scores] += weight;
+            }
+        });
+        const type =
+            (scores.E > scores.I ? 'E' : 'I') +
+            (scores.S > scores.N ? 'S' : 'N') +
+            (scores.T > scores.F ? 'T' : 'F') +
+            (scores.J > scores.P ? 'J' : 'P');
+        setResult(type);
+        setShowResult(true);
+        await onDeductCredit?.();
+    };
+    const progress = ((currentQuestion + 1) / MBTI_QUESTIONS.length) * 100;
+    const allAnswered = Object.keys(answers).length === MBTI_QUESTIONS.length;
+    if (showResult && result) {
+        const desc = MBTI_DESCRIPTIONS[result] || MBTI_DESCRIPTIONS['INTJ'];
+        return (
+            <div className="p-6 flex flex-col gap-6">
+                <div className="flex items-center gap-4">
+                    <button onClick={onBack} className="text-2xl">←</button>
+                    <h2 className="text-xl font-bold">天赋测试结果</h2>
+                </div>
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl p-6 text-white text-center">
+                    <p className="text-sm opacity-80 mb-2">你的MBTI类型是</p>
+                    <h1 className="text-5xl font-bold mb-2">{result}</h1>
+                    <p className="text-2xl">{desc.title}</p>
+                </div>
+                <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4">
+                    <div>
+                        <h3 className="font-bold text-gray-800 mb-2">🧠 性格特点</h3>
+                        <p className="text-gray-600 text-sm">{desc.traits}</p>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-800 mb-2">💼 适合职业</h3>
+                        <p className="text-gray-600 text-sm">{desc.careers}</p>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-800 mb-2">🏢 推荐行业</h3>
+                        <p className="text-gray-600 text-sm">{desc.industries}</p>
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-gray-800 mb-2">💰 赚钱能力</h3>
+                        <p className="text-gray-600 text-sm">{desc.earning}</p>
+                    </div>
+                </div>
+                <button onClick={onBack} className="w-full h-14 bg-purple-500 text-white rounded-2xl font-bold">
+                    返回首页
+                </button>
+            </div>
+        );
