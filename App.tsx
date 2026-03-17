@@ -20,6 +20,7 @@ import JadeAppraisalView from './views/JadeAppraisalView';
 import LoginView from './views/LoginView';
 import MemberView from './views/MemberView';
 import AdminView from './views/AdminView';
+import DownloadAppView from './views/DownloadAppView';
 import { getApiUrl } from './lib/api-config';
 import { App as CapApp } from '@capacitor/app';
 import { getStableDeviceId } from './lib/fingerprint';
@@ -209,6 +210,7 @@ const App: React.FC = () => {
                 {currentSection === AppSection.MARRIAGE_ANALYSIS && <MarriageView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.WEALTH_ANALYSIS && <WealthView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.JADE_APPRAISAL && <JadeAppraisalView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.APP_DOWNLOAD && <DownloadAppView onBack={() => setCurrentSection(AppSection.HOME)} />}
               </>
             )}
 

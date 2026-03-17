@@ -58,13 +58,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
 
   const confirmDownload = () => {
     setShowDownloadDialog(false);
-    // 触发下载
-    const link = document.createElement('a');
-    link.href = '/app.apk';
-    link.download = 'app.apk';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    onNavigate(AppSection.APP_DOWNLOAD);
   };
 
   const goToLogin = () => {
@@ -148,7 +142,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
                   onClick={confirmDownload}
                   className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-bold shadow-lg shadow-pink-200 active:scale-95 transition-transform"
                 >
-                  我已经注册，前往下载
+                  我已经了解，前往下载页
                 </button>
                 <button
                   onClick={goToLogin}
