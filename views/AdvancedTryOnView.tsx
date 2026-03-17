@@ -17,11 +17,11 @@ interface SavedLook {
 
 const PRESET_CLOTHES = [
   'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&h=400&fit=crop', // 黄色时尚上衣
-  'https://images.unsplash.com/photo-1550639525-c36d4b43118b?w=400&h=400&fit=crop', // 优雅白裙
+  'https://images.unsplash.com/photo-1539008835657-9e8e9680c956?w=400&h=400&fit=crop', // 优雅白裙 
   'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=400&h=400&fit=crop', // 红色礼服
-  'https://images.unsplash.com/photo-1591369822096-114cb1951152?w=400&h=400&fit=crop', // 休闲牛仔夹克
-  'https://images.unsplash.com/photo-1564584217132-2271fea7366c?w=400&h=400&fit=crop', // 图案上衣
-  'https://images.unsplash.com/photo-1585487000160-52e00f9d93b3?w=400&h=400&fit=crop'  // 碎花夏装
+  'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=400&fit=crop', // 休闲牛仔夹克
+  'https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=400&h=400&fit=crop', // 黑色职业装
+  'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=400&h=400&fit=crop'  // 女鞋搭配
 ];
 
 const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
