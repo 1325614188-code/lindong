@@ -85,13 +85,69 @@ export default async function handler(req: any, res: any) {
 
         switch (action) {
             case 'register': {
-                const { username: rawUsername, password: rawPassword, nickname, deviceId, referrerId: rawReferrerId } = data;
+                const { username: rawUsername, password: rawPassword, nickname, deviceId, referrerId: rawReferrerId, phone, smsCode } = data;
                 const referrerId = rawReferrerId && rawReferrerId.trim() !== '' ? rawReferrerId : null;
                 const username = rawUsername?.trim();
                 const password = rawPassword?.trim();
 
                 if (!username || !password) {
                     return res.status(400).json({ error: '用户名和密码不能为空' });
+                }
+
+                // 检查是否开启了短信注册
+                const { data: smsConfig } = await supabase
+                    .from('app_config')
+                    .select('value')
+                    .eq('key', 'sms_registration_enabled')
+                    .single();
+                
+                const isSmsEnabled = smsConfig?.value === 'true';
+
+                if (isSmsEnabled) {
+                    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+                        return res.status(400).json({ error: '请输入有效的手机号' });
+                    }
+                    if (!smsCode || smsCode.length !== 6) {
+                        return res.status(400).json({ error: '请输入6位短信验证码' });
+                    }
+
+                    // 验证验证码
+                    const { data: logData, error: logError } = await supabase
+                        .from('sms_logs')
+                        .select('id, expires_at, used_at')
+                        .eq('phone', phone)
+                        .eq('code', smsCode)
+                        .eq('type', 'register')
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (!logData) {
+                        return res.status(400).json({ error: '验证码不正确' });
+                    }
+                    if (logData.used_at) {
+                        return res.status(400).json({ error: '该验证码已被使用' });
+                    }
+                    if (new Date(logData.expires_at) < new Date()) {
+                        return res.status(400).json({ error: '验证码已过期，请重新获取' });
+                    }
+
+                    // 标记验证码已使用
+                    await supabase
+                        .from('sms_logs')
+                        .update({ used_at: new Date().toISOString() })
+                        .eq('id', logData.id);
+                        
+                    // 检查手机号是否已被注册
+                    const { data: existingPhone } = await supabase
+                        .from('users')
+                        .select('id')
+                        .eq('phone', phone)
+                        .maybeSingle();
+                        
+                    if (existingPhone) {
+                        return res.status(400).json({ error: '此手机号已被其他账号注册' });
+                    }
                 }
 
                 const userAgent = req.headers['user-agent'] || '';
@@ -178,7 +234,8 @@ export default async function handler(req: any, res: any) {
                         nickname: nickname || username,
                         credits: initialCredits,
                         device_id: deviceId,
-                        referrer_id: realReferrerId || null
+                        referrer_id: realReferrerId || null,
+                        phone: isSmsEnabled && phone ? phone : null
                     })
                     .select()
                     .single();
@@ -607,7 +664,7 @@ export default async function handler(req: any, res: any) {
                 const { data: configs } = await supabase
                     .from('app_config')
                     .select('key, value')
-                    .in('key', ['announcement', 'contact_wechat', 'recharge_enabled']);
+                    .in('key', ['announcement', 'contact_wechat', 'recharge_enabled', 'sms_registration_enabled']);
 
                 const configMap: Record<string, string> = {};
                 configs?.forEach(c => { configMap[c.key] = c.value; });

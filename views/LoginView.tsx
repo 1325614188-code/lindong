@@ -14,6 +14,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [referrerId, setReferrerId] = useState<string | null>(null);
+    const [phone, setPhone] = useState('');
+    const [smsCode, setSmsCode] = useState('');
+    const [countdown, setCountdown] = useState(0);
+    const [smsEnabled, setSmsEnabled] = useState(false);
+    const [sendingCode, setSendingCode] = useState(false);
 
     // 获取设备ID
     const getDeviceId = async (): Promise<string> => {
@@ -49,6 +54,59 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
         }
     }, []);
 
+    // 检查配置
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const ts = Date.now();
+                const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'getPublicConfig' })
+                });
+                const data = await res.json();
+                if (data.config && data.config.sms_registration_enabled === 'true') {
+                    setSmsEnabled(true);
+                }
+            } catch (e) {
+                console.error('Failed to fetch config', e);
+            }
+        };
+        fetchConfig();
+    }, []);
+
+    // 短信倒计时
+    useEffect(() => {
+        let timer: any;
+        if (countdown > 0) {
+            timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+        }
+        return () => clearTimeout(timer);
+    }, [countdown]);
+
+    const handleSendCode = async () => {
+        if (!/^1[3-9]\d{9}$/.test(phone)) {
+            setError('请输入正确的手机号');
+            return;
+        }
+        setError('');
+        setSendingCode(true);
+        try {
+            const res = await fetch(getApiUrl('/api/sms'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'sendCode', phone })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            setCountdown(60);
+        } catch (e: any) {
+            setError(e.message || '发送验证码失败');
+        } finally {
+            setSendingCode(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!username.trim() || !password.trim()) {
@@ -69,7 +127,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                     username: username.trim(),
                     password,
                     deviceId,
-                    referrerId
+                    referrerId,
+                    ...(isRegister && smsEnabled ? { phone, smsCode } : {})
                 })
             });
 
@@ -112,6 +171,44 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-5">
+                        {isRegister && smsEnabled && (
+                            <>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-gray-400 ml-1">手机号 / PHONE</label>
+                                    <input
+                                        type="tel"
+                                        value={phone}
+                                        onChange={e => setPhone(e.target.value)}
+                                        className="w-full h-12 px-4 rounded-2xl bg-gray-50 border border-transparent focus:border-pink-300 focus:bg-white focus:outline-none transition-all"
+                                        placeholder="请输入手机号码"
+                                        maxLength={11}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="block text-xs font-bold text-gray-400 ml-1">验证码 / CODE</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={smsCode}
+                                            onChange={e => setSmsCode(e.target.value)}
+                                            className="flex-1 h-12 px-4 rounded-2xl bg-gray-50 border border-transparent focus:border-pink-300 focus:bg-white focus:outline-none transition-all"
+                                            placeholder="6位验证码"
+                                            maxLength={6}
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleSendCode}
+                                            disabled={countdown > 0 || sendingCode || phone.length !== 11}
+                                            className="h-12 px-4 rounded-2xl bg-pink-100 text-pink-600 font-bold text-sm disabled:opacity-50 whitespace-nowrap active:bg-pink-200 transition-colors"
+                                        >
+                                            {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}s` : '获取验证码'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                         <div className="space-y-1">
                             <label className="block text-xs font-bold text-gray-400 ml-1">用户名 / USERNAME</label>
                             <input

@@ -482,6 +482,18 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                             </div>
                             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                                 <div>
+                                    <p className="font-bold text-sm">强制短信注册</p>
+                                    <p className="text-[10px] text-gray-500 text-nowrap">开启后新用户注册必须发短信验证</p>
+                                </div>
+                                <button
+                                    onClick={() => updateConfig('sms_registration_enabled', config.sms_registration_enabled === 'true' ? 'false' : 'true')}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${config.sms_registration_enabled === 'true' ? 'bg-pink-500' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.sms_registration_enabled === 'true' ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
                                     <p className="font-bold text-sm">推荐奖励积分</p>
                                     <p className="text-[10px] text-gray-500 text-nowrap">控制注册是否赠送积分</p>
                                 </div>
