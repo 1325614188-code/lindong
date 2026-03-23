@@ -28,7 +28,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             user: prefixes[Math.floor(Math.random() * prefixes.length)] + (Math.floor(Math.random() * 900) + 100),
             amount: type === 'commission' 
                 ? Math.floor(Math.random() * 500 + 100).toString() 
-                : Math.floor(Math.random() * 200 + 50).toString()
+                : ([20, 50, 40, 60, 80, 100, 150, 200, 250][Math.floor(Math.random() * 9)]).toString()
         }));
         if (type === 'commission') setCBoard(data);
         else setPBoard(data);
