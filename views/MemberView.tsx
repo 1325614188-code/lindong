@@ -8,6 +8,57 @@ interface MemberViewProps {
     onUserUpdate?: (user: any) => void;
 }
 
+const ScrollingLeaderboard: React.FC<{ title: string; dataString?: string; type: 'gold' | 'silver' }> = ({ title, dataString, type }) => {
+    const data = React.useMemo(() => {
+        try {
+            const parsed = JSON.parse(dataString || '[]');
+            return Array.isArray(parsed) ? parsed.filter((item: any) => item.user || item.amount) : [];
+        } catch (e) {
+            return [];
+        }
+    }, [dataString]);
+
+    if (data.length === 0) return null;
+
+    const bgClass = type === 'gold' ? 'bg-amber-50 border-amber-200 shadow-[inset_0_0_10px_rgba(251,191,36,0.1)]' : 'bg-gray-50 border-gray-200 shadow-[inset_0_0_10px_rgba(156,163,175,0.1)]';
+    const titleClass = type === 'gold' ? 'text-amber-800' : 'text-gray-600';
+    const accentClass = type === 'gold' ? 'bg-amber-500/10 text-amber-700' : 'bg-gray-500/10 text-gray-500';
+
+    return (
+        <div className={`flex-1 rounded-2xl border ${bgClass} p-3 overflow-hidden h-[180px] flex flex-col relative`}>
+            <h5 className={`text-[11px] font-bold mb-3 text-center ${titleClass} flex items-center justify-center gap-1`}>
+                {type === 'gold' ? '🏆' : '🥈'} {title}
+            </h5>
+            <div className="flex-1 overflow-hidden relative">
+                <style>{`
+                    @keyframes vertical-scroll {
+                        0% { transform: translateY(0); }
+                        100% { transform: translateY(-50%); }
+                    }
+                    .animate-vertical-scroll {
+                        animation: vertical-scroll 15s linear infinite;
+                    }
+                    .animate-vertical-scroll:hover {
+                        animation-play-state: paused;
+                    }
+                `}</style>
+                <div className="animate-vertical-scroll space-y-2">
+                    {/* 重复两遍实现无缝滚动 */}
+                    {[...data, ...data].map((item, i) => (
+                        <div key={i} className="flex items-center justify-between text-[10px] py-1.5 border-b border-black/5 last:border-0">
+                            <span className={`w-4 h-4 rounded-md flex items-center justify-center font-bold text-[8px] ${accentClass}`}>
+                                {(i % data.length) + 1}
+                            </span>
+                            <span className="flex-1 truncate px-2 text-gray-500 font-medium">@{item.user}</span>
+                            <span className="font-bold text-orange-500 shrink-0">¥{item.amount}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserUpdate }) => {
     const [redeemCode, setRedeemCode] = useState('');
     const [loading, setLoading] = useState(false);
@@ -362,6 +413,20 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     </div>
 
                     <p className="mt-4 text-[10px] text-gray-400 text-center">* 满额后可直接点击上方按钮或联系微信：{config.contact_wechat || 'sekesm'} 提现</p>
+                </div>
+
+                {/* 实时榜单 (中间区域) */}
+                <div className="flex gap-3 px-1">
+                    <ScrollingLeaderboard 
+                        title="推荐赚佣金榜" 
+                        dataString={config.commission_leaderboard_data} 
+                        type="gold" 
+                    />
+                    <ScrollingLeaderboard 
+                        title="积分兑换榜" 
+                        dataString={config.points_leaderboard_data} 
+                        type="silver" 
+                    />
                 </div>
 
                 {/* 积分兑换 */}

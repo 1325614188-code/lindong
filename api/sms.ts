@@ -1,8 +1,21 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import Dysmsapi20170525, * as $Dysmsapi20170525 from '@alicloud/dysmsapi20170525';
+import * as $OpenApi from '@alicloud/openapi-client';
+import * as $Util from '@alicloud/tea-util';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
+
+// 初始化阿里云短信客户端
+const createAliyunClient = () => {
+    const config = new $OpenApi.Config({
+        accessKeyId: process.env.ALIYUN_ACCESS_KEY_ID,
+        accessKeySecret: process.env.ALIYUN_ACCESS_KEY_SECRET,
+    });
+    config.endpoint = "dysmsapi.aliyuncs.com";
+    return new Dysmsapi20170525(config);
+};
 
 export default async function handler(req: any, res: any) {
     // CORS headers
@@ -63,13 +76,36 @@ export default async function handler(req: any, res: any) {
                 throw insertError;
             }
 
-            // 5. 调用云服务商发送短信 (Mock 模式)
-            // TODO: 这里替换为真实的阿里云 / 腾讯云 SDK 调用
-            console.log(`\n================================`);
-            console.log(`[Mock SMS MOCK] 发送短信至: ${phone}`);
-            console.log(`[Mock SMS MOCK] 验证码: \x1b[32m${code}\x1b[0m`);
-            console.log(`[Mock SMS MOCK] 5分钟内有效`);
-            console.log(`================================\n`);
+            // 5. 调用阿里云 SDK 发送短信
+            const signName = process.env.ALIYUN_SMS_SIGN_NAME;
+            const templateCode = process.env.ALIYUN_SMS_TEMPLATE_CODE;
+
+            if (!signName || !templateCode) {
+                console.warn('[短信发送拦截] 未配置签名或模板CODE。当前验证码为:', code);
+                return res.status(500).json({ error: '系统尚未配置完整的短信签名与模板CODE，无法发送短信' });
+            }
+
+            const client = createAliyunClient();
+            const sendSmsRequest = new $Dysmsapi20170525.SendSmsRequest({
+                phoneNumbers: phone,
+                signName: signName,
+                templateCode: templateCode,
+                templateParam: `{"code":"${code}"}`,
+            });
+            const runtime = new $Util.RuntimeOptions({});
+
+            try {
+                const resp = await client.sendSmsWithOptions(sendSmsRequest, runtime);
+                if (resp.body.code !== 'OK') {
+                    console.error('[Aliyun SMS API Error]', resp.body.message);
+                    return res.status(500).json({ error: `短信发送失败: ${resp.body.message}` });
+                }
+            } catch (smsError: any) {
+                console.error('[Aliyun SMS SDK Exception]', smsError);
+                return res.status(500).json({ error: '短信服务调用异常' });
+            }
+
+            console.log(`[SMS 发送成功] 手机号: ${phone}, 验证码: ${code}`);
 
             return res.status(200).json({ 
                 success: true, 

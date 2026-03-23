@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@alicloud/dysmsapi20170525": "^4.5.0",
+    "@alicloud/openapi-client": "^0.4.15",
+    "@alicloud/tea-util": "^1.4.11",
     "@capacitor/android": "^8.1.0",
     "@capacitor/app": "^8.0.1",
     "@capacitor/camera": "^8.0.2",
