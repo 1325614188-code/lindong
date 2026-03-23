@@ -36,7 +36,7 @@ const ScrollingLeaderboard: React.FC<{ title: string; dataString?: string; type:
                         100% { transform: translateY(-50%); }
                     }
                     .animate-vertical-scroll {
-                        animation: vertical-scroll 15s linear infinite;
+                        animation: vertical-scroll 40s linear infinite;
                     }
                     .animate-vertical-scroll:hover {
                         animation-play-state: paused;

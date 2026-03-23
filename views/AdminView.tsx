@@ -18,17 +18,35 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     const [withdrawals, setWithdrawals] = useState<any[]>([]);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'withdrawals' | 'config'>('users');
-    const [cBoard, setCBoard] = useState<any[]>(Array(5).fill({ user: '', amount: '' }));
-    const [pBoard, setPBoard] = useState<any[]>(Array(5).fill({ user: '', amount: '' }));
+    const [cBoard, setCBoard] = useState<any[]>(Array(20).fill({ user: '', amount: '' }));
+    const [pBoard, setPBoard] = useState<any[]>(Array(20).fill({ user: '', amount: '' }));
+
+    // 随机数据生成器
+    const generateRandomData = (type: 'commission' | 'points') => {
+        const nicknames = ['薇薇安', '林中孤影', '小猫钓鱼', '海边清风', '美力玩家', '梦中森林', '蓝色星空', '阳光灿烂', '奶茶控', '潮流前线', '爱笑的狐狸', '风之子', '甜心宝贝', '极简生活', '未来可期', '追风少年', '漫步云端', '指尖灵动', '快乐小分队', '独家记忆', '晨曦', '晚霞', '流浪的猫', '深海大鱼', '火热少年', '冷静头脑', '快乐达人', '生活之美', '极客世界', '艺术气息'];
+        const data = Array.from({ length: 20 }, (_, i) => ({
+            user: nicknames[Math.floor(Math.random() * nicknames.length)] + (Math.floor(Math.random() * 90) + 10),
+            amount: type === 'commission' 
+                ? (Math.random() * 400 + 50).toFixed(2) 
+                : (Math.random() * 180 + 20).toFixed(1)
+        }));
+        if (type === 'commission') setCBoard(data);
+        else setPBoard(data);
+        return data;
+    };
 
     // 排行榜数据解析辅助
     const parseLeaderboard = (data?: string) => {
         try {
-            if (!data) return Array(5).fill({ user: '', amount: '' });
+            if (!data) return Array(20).fill({ user: '', amount: '' });
             const parsed = JSON.parse(data);
-            return Array.isArray(parsed) ? parsed : Array(5).fill({ user: '', amount: '' });
+            if (!Array.isArray(parsed)) return Array(20).fill({ user: '', amount: '' });
+            // 补齐到 20 行
+            const full = [...parsed];
+            while (full.length < 20) full.push({ user: '', amount: '' });
+            return full.slice(0, 20);
         } catch (e) {
-            return Array(5).fill({ user: '', amount: '' });
+            return Array(20).fill({ user: '', amount: '' });
         }
     };
 
@@ -645,14 +663,28 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
 
                             {/* 排行榜配置 */}
                             <div className="mt-4 p-4 bg-amber-50 rounded-2xl border border-amber-200">
-                                <h4 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
-                                    <span>🏆</span> 排行榜虚拟数据配置 (各5行)
-                                </h4>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="font-bold text-amber-800 flex items-center gap-2">
+                                        <span>🏆</span> 排行榜虚拟数据配置 (各20行)
+                                    </h4>
+                                    <button 
+                                        onClick={() => {
+                                            const c = generateRandomData('commission');
+                                            const p = generateRandomData('points');
+                                            updateConfig('commission_leaderboard_data', JSON.stringify(c));
+                                            updateConfig('points_leaderboard_data', JSON.stringify(p));
+                                            alert('随机数据已填充并保存 ✨');
+                                        }}
+                                        className="text-[10px] bg-amber-200 text-amber-900 px-3 py-1 rounded-full font-bold hover:bg-amber-300 transition-colors"
+                                    >
+                                        🎲 填充并保存随机数据
+                                    </button>
+                                </div>
                                 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                                     {/* 佣金榜 */}
                                     <div className="space-y-3">
-                                        <p className="text-sm font-bold text-amber-900 border-b border-amber-200 pb-1">💰 佣金榜 (金色)</p>
+                                        <p className="text-sm font-bold text-amber-900 border-b border-amber-200 pb-1 sticky top-0 bg-amber-50 z-10">💰 佣金榜 (金色)</p>
                                         {cBoard.map((item, i) => (
                                             <div key={i} className="flex gap-2">
                                                 <span className="w-5 text-xs text-amber-600 flex items-center">{i + 1}.</span>
@@ -666,7 +698,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                                         setCBoard(newData);
                                                     }}
                                                     onBlur={() => updateConfig('commission_leaderboard_data', JSON.stringify(cBoard))}
-                                                    className="flex-1 h-8 px-2 rounded-lg border border-amber-200 text-xs"
+                                                    className="flex-1 h-8 px-2 rounded-lg border border-amber-200 text-xs shadow-sm"
                                                 />
                                                 <input 
                                                     type="text" 
@@ -678,7 +710,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                                         setCBoard(newData);
                                                     }}
                                                     onBlur={() => updateConfig('commission_leaderboard_data', JSON.stringify(cBoard))}
-                                                    className="w-16 h-8 px-2 rounded-lg border border-amber-200 text-xs text-center"
+                                                    className="w-16 h-8 px-2 rounded-lg border border-amber-200 text-xs text-center shadow-sm"
                                                 />
                                             </div>
                                         ))}
@@ -686,7 +718,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
 
                                     {/* 积分榜 */}
                                     <div className="space-y-3">
-                                        <p className="text-sm font-bold text-gray-700 border-b border-gray-200 pb-1">⭐ 积分兑换榜 (银色)</p>
+                                        <p className="text-sm font-bold text-gray-700 border-b border-gray-200 pb-1 sticky top-0 bg-amber-50 z-10">⭐ 积分兑换榜 (银色)</p>
                                         {pBoard.map((item, i) => (
                                             <div key={i} className="flex gap-2">
                                                 <span className="w-5 text-xs text-gray-400 flex items-center">{i + 1}.</span>
@@ -700,7 +732,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                                         setPBoard(newData);
                                                     }}
                                                     onBlur={() => updateConfig('points_leaderboard_data', JSON.stringify(pBoard))}
-                                                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-xs"
+                                                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-xs shadow-sm"
                                                 />
                                                 <input 
                                                     type="text" 
@@ -712,13 +744,13 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                                         setPBoard(newData);
                                                     }}
                                                     onBlur={() => updateConfig('points_leaderboard_data', JSON.stringify(pBoard))}
-                                                    className="w-16 h-8 px-2 rounded-lg border border-gray-200 text-xs text-center"
+                                                    className="w-16 h-8 px-2 rounded-lg border border-gray-200 text-xs text-center shadow-sm"
                                                 />
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                                <p className="text-[10px] text-amber-600 mt-4">* 修改后实时存入数据库，前端会员中心刷新后可见缓慢滚动效果。</p>
+                                <p className="text-[10px] text-amber-600 mt-4">* 已扩展至 20 行，由于条目较多，现已开启内部滚动查看。</p>
                             </div>
 
                             {/* 系统通知管理 (原有) */}
