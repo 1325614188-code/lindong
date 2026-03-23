@@ -23,9 +23,9 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
 
     // 随机数据生成器
     const generateRandomData = (type: 'commission' | 'points') => {
-        const nicknames = ['薇薇安', '林中孤影', '小猫钓鱼', '海边清风', '美力玩家', '梦中森林', '蓝色星空', '阳光灿烂', '奶茶控', '潮流前线', '爱笑的狐狸', '风之子', '甜心宝贝', '极简生活', '未来可期', '追风少年', '漫步云端', '指尖灵动', '快乐小分队', '独家记忆', '晨曦', '晚霞', '流浪的猫', '深海大鱼', '火热少年', '冷静头脑', '快乐达人', '生活之美', '极客世界', '艺术气息'];
+        const prefixes = ['user', 'vip', 'member', 'beauty', 'star', 'lucky', 'pro', 'meili', 'app', 'win', 'cool', 'fast', 'top', 'pure', 'gold', 'silver', 'spark', 'joy', 'flow', 'wave'];
         const data = Array.from({ length: 20 }, (_, i) => ({
-            user: nicknames[Math.floor(Math.random() * nicknames.length)] + (Math.floor(Math.random() * 90) + 10),
+            user: prefixes[Math.floor(Math.random() * prefixes.length)] + (Math.floor(Math.random() * 900) + 100),
             amount: type === 'commission' 
                 ? (Math.random() * 400 + 50).toFixed(2) 
                 : (Math.random() * 180 + 20).toFixed(1)
