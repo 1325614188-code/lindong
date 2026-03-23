@@ -18,6 +18,8 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     const [withdrawals, setWithdrawals] = useState<any[]>([]);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'withdrawals' | 'config'>('users');
+    const [cBoard, setCBoard] = useState<any[]>(Array(5).fill({ user: '', amount: '' }));
+    const [pBoard, setPBoard] = useState<any[]>(Array(5).fill({ user: '', amount: '' }));
 
     // 排行榜数据解析辅助
     const parseLeaderboard = (data?: string) => {
@@ -62,6 +64,14 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             });
             const configData = await configRes.json();
             setConfig(configData.config || {});
+
+            // 初始化本地榜单数据
+            if (configData.config?.commission_leaderboard_data) {
+                setCBoard(parseLeaderboard(configData.config.commission_leaderboard_data));
+            }
+            if (configData.config?.points_leaderboard_data) {
+                setPBoard(parseLeaderboard(configData.config.points_leaderboard_data));
+            }
 
             // 获取统计
             const statsRes = await fetch(getApiUrl('/api/admin'), {
@@ -643,71 +653,69 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     {/* 佣金榜 */}
                                     <div className="space-y-3">
                                         <p className="text-sm font-bold text-amber-900 border-b border-amber-200 pb-1">💰 佣金榜 (金色)</p>
-                                        {[0, 1, 2, 3, 4].map(i => {
-                                            const boardData = parseLeaderboard(config.commission_leaderboard_data);
-                                            return (
-                                                <div key={i} className="flex gap-2">
-                                                    <span className="w-5 text-xs text-amber-600 flex items-center">{i + 1}.</span>
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="用户名"
-                                                        value={boardData[i]?.user || ''}
-                                                        onChange={e => {
-                                                            const newData = [...boardData];
-                                                            newData[i] = { ...newData[i], user: e.target.value };
-                                                            updateConfig('commission_leaderboard_data', JSON.stringify(newData));
-                                                        }}
-                                                        className="flex-1 h-8 px-2 rounded-lg border border-amber-200 text-xs"
-                                                    />
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="金额"
-                                                        value={boardData[i]?.amount || ''}
-                                                        onChange={e => {
-                                                            const newData = [...boardData];
-                                                            newData[i] = { ...newData[i], amount: e.target.value };
-                                                            updateConfig('commission_leaderboard_data', JSON.stringify(newData));
-                                                        }}
-                                                        className="w-16 h-8 px-2 rounded-lg border border-amber-200 text-xs text-center"
-                                                    />
-                                                </div>
-                                            );
-                                        })}
+                                        {cBoard.map((item, i) => (
+                                            <div key={i} className="flex gap-2">
+                                                <span className="w-5 text-xs text-amber-600 flex items-center">{i + 1}.</span>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="用户名"
+                                                    value={item.user || ''}
+                                                    onChange={e => {
+                                                        const newData = [...cBoard];
+                                                        newData[i] = { ...newData[i], user: e.target.value };
+                                                        setCBoard(newData);
+                                                    }}
+                                                    onBlur={() => updateConfig('commission_leaderboard_data', JSON.stringify(cBoard))}
+                                                    className="flex-1 h-8 px-2 rounded-lg border border-amber-200 text-xs"
+                                                />
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="金额"
+                                                    value={item.amount || ''}
+                                                    onChange={e => {
+                                                        const newData = [...cBoard];
+                                                        newData[i] = { ...newData[i], amount: e.target.value };
+                                                        setCBoard(newData);
+                                                    }}
+                                                    onBlur={() => updateConfig('commission_leaderboard_data', JSON.stringify(cBoard))}
+                                                    className="w-16 h-8 px-2 rounded-lg border border-amber-200 text-xs text-center"
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
 
                                     {/* 积分榜 */}
                                     <div className="space-y-3">
                                         <p className="text-sm font-bold text-gray-700 border-b border-gray-200 pb-1">⭐ 积分兑换榜 (银色)</p>
-                                        {[0, 1, 2, 3, 4].map(i => {
-                                            const boardData = parseLeaderboard(config.points_leaderboard_data);
-                                            return (
-                                                <div key={i} className="flex gap-2">
-                                                    <span className="w-5 text-xs text-gray-400 flex items-center">{i + 1}.</span>
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="用户名"
-                                                        value={boardData[i]?.user || ''}
-                                                        onChange={e => {
-                                                            const newData = [...boardData];
-                                                            newData[i] = { ...newData[i], user: e.target.value };
-                                                            updateConfig('points_leaderboard_data', JSON.stringify(newData));
-                                                        }}
-                                                        className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-xs"
-                                                    />
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder="金额"
-                                                        value={boardData[i]?.amount || ''}
-                                                        onChange={e => {
-                                                            const newData = [...boardData];
-                                                            newData[i] = { ...newData[i], amount: e.target.value };
-                                                            updateConfig('points_leaderboard_data', JSON.stringify(newData));
-                                                        }}
-                                                        className="w-16 h-8 px-2 rounded-lg border border-gray-200 text-xs text-center"
-                                                    />
-                                                </div>
-                                            );
-                                        })}
+                                        {pBoard.map((item, i) => (
+                                            <div key={i} className="flex gap-2">
+                                                <span className="w-5 text-xs text-gray-400 flex items-center">{i + 1}.</span>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="用户名"
+                                                    value={item.user || ''}
+                                                    onChange={e => {
+                                                        const newData = [...pBoard];
+                                                        newData[i] = { ...newData[i], user: e.target.value };
+                                                        setPBoard(newData);
+                                                    }}
+                                                    onBlur={() => updateConfig('points_leaderboard_data', JSON.stringify(pBoard))}
+                                                    className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-xs"
+                                                />
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="金额"
+                                                    value={item.amount || ''}
+                                                    onChange={e => {
+                                                        const newData = [...pBoard];
+                                                        newData[i] = { ...newData[i], amount: e.target.value };
+                                                        setPBoard(newData);
+                                                    }}
+                                                    onBlur={() => updateConfig('points_leaderboard_data', JSON.stringify(pBoard))}
+                                                    className="w-16 h-8 px-2 rounded-lg border border-gray-200 text-xs text-center"
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                                 <p className="text-[10px] text-amber-600 mt-4">* 修改后实时存入数据库，前端会员中心刷新后可见缓慢滚动效果。</p>
