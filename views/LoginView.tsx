@@ -19,6 +19,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
     const [countdown, setCountdown] = useState(0);
     const [smsEnabled, setSmsEnabled] = useState(false);
     const [sendingCode, setSendingCode] = useState(false);
+    const [isWechat, setIsWechat] = useState(false);
 
     // 获取设备ID
     const getDeviceId = async (): Promise<string> => {
@@ -74,6 +75,74 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
         };
         fetchConfig();
     }, []);
+
+    // 检测微信环境
+    useEffect(() => {
+        const ua = navigator.userAgent.toLowerCase();
+        setIsWechat(ua.includes('micromessenger'));
+    }, []);
+
+    // 处理微信回调 code
+    useEffect(() => {
+        const handleWechatCallback = async () => {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            if (code) {
+                setLoading(true);
+                setError('');
+                try {
+                    const deviceId = await getDeviceId();
+                    const referrerId = localStorage.getItem('referrer_id');
+                    const res = await fetch(getApiUrl('/api/auth_v2'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'wechatLogin',
+                            code,
+                            deviceId,
+                            referrerId
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error);
+
+                    // 登录成功，清除 URL 中的 code 避免重复提交
+                    window.history.replaceState({}, document.title, window.location.pathname);
+
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    onLogin(data.user);
+                } catch (e: any) {
+                    setError(e.message || '微信登录失败');
+                } finally {
+                    setLoading(false);
+                }
+            }
+        };
+        handleWechatCallback();
+    }, []);
+
+    const handleWechatLogin = async () => {
+        try {
+            setLoading(true);
+            const res = await fetch(getApiUrl('/api/auth_v2'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'getWechatAuthUrl',
+                    redirectUri: window.location.href.split('?')[0] // 回调地址去掉参数
+                })
+            });
+            const data = await res.json();
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error(data.error || '获取授权链接失败');
+            }
+        } catch (e: any) {
+            setError(e.message);
+            setLoading(false);
+        }
+    };
 
     // 短信倒计时
     useEffect(() => {
@@ -252,6 +321,30 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                             {isRegister ? '已有账户？点击去登录' : '还没有账号？三秒注册'}
                         </button>
                     </div>
+
+                    {/* 微信登录按钮 - 仅在微信环境显示 */}
+                    {isWechat && !isRegister && (
+                        <div className="mt-8">
+                            <div className="relative mb-6">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-gray-100"></div>
+                                </div>
+                                <div className="relative flex justify-center text-xs">
+                                    <span className="px-3 bg-white text-gray-400 font-medium">其他登录方式 / OTHERS</span>
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleWechatLogin}
+                                disabled={loading}
+                                className="w-full h-12 flex items-center justify-center gap-3 rounded-2xl border border-gray-100 bg-white hover:bg-gray-50 active:scale-95 transition-all text-gray-600 font-medium shadow-sm"
+                            >
+                                <svg className="w-6 h-6 text-[#07C160]" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M8.5 12c.552 0 1-.448 1-1s-.448-1-1-1-1 .448-1 1 .448 1 1 1zm7 0c.552 0 1-.448 1-1s-.448-1-1-1-1 .448-1 1 .448 1 1 1zM24 11.5c0-4.694-4.851-8.5-10.833-8.5C7.184 3 2.333 6.806 2.333 11.5c0 2.528 1.411 4.786 3.653 6.307l-.92 3.39 3.864-1.933c.607.168 1.244.258 1.903.258.118 0 .235-.003.351-.01C11.127 21.056 12.518 22 14.167 22c.162 0 .321-.01.478-.029l2.898 1.448-.69-2.541c2.096-1.393 3.414-3.52 3.414-5.878 0-1.045-.262-2.03-.734-2.91 2.657 1.18 4.467 3.364 4.467 5.91 0 1.93-.974 3.674-2.52 4.904l.507 1.868-2.127-1.063c-.412.112-.843.172-1.288.172-.087 0-.173-.002-.259-.007.411.233.856.425 1.332.569l2 .5 1-.5c2.5-1 4.5-3.5 4.5-6.5z"/>
+                                </svg>
+                                微信一键登录
+                            </button>
+                        </div>
+                    )}
 
                     {isRegister && (
                         <div className="mt-6 p-4 bg-pink-50 rounded-2xl">

@@ -12,6 +12,9 @@ const hashPassword = (password: string): string => {
     return crypto.createHash('sha256').update(password + PASSWORD_SALT).digest('hex');
 };
 
+const WECHAT_APP_ID = process.env.WECHAT_APP_ID || '';
+const WECHAT_APP_SECRET = process.env.WECHAT_APP_SECRET || '';
+
 // 验证兑换码格式 - 使用北京时间 (UTC+8)
 const validateRedeemCode = (code: string): boolean => {
     if (code.length !== 9) return false;
@@ -51,8 +54,6 @@ const generateDeviceId = (): string => {
 // 检测环境：微信、QQ、普通浏览器
 const getEnvironment = (userAgent: string): 'wechat' | 'qq' | 'browser' | 'other' => {
     if (userAgent.includes('MicroMessenger')) return 'wechat';
-    // QQ 内部浏览器包含 "QQ/" 且通常不包含 "MQQBrowser"（QQ浏览器）
-    // 或者包含 "QQ/" 且是在移动端设备上
     if (userAgent.includes('QQ/') && !userAgent.includes('MQQBrowser')) return 'qq';
 
     const mobileKeywords = [
@@ -723,6 +724,92 @@ export default async function handler(req: any, res: any) {
                 if (updateStatusError) throw updateStatusError;
 
                 return res.status(200).json({ success: true });
+            }
+
+            case 'getWechatAuthUrl': {
+                const { redirectUri } = data;
+                if (!WECHAT_APP_ID) {
+                    return res.status(500).json({ error: 'WeChat AppID not configured' });
+                }
+                const url = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${WECHAT_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=snsapi_userinfo&state=meili#wechat_redirect`;
+                return res.status(200).json({ url });
+            }
+
+            case 'wechatLogin': {
+                const { code, deviceId, referrerId } = data;
+                if (!code) return res.status(400).json({ error: 'Missing code' });
+
+                // 1. 换取 access_token 和 openid
+                const tokenRes = await fetch(`https://api.weixin.qq.com/sns/oauth2/access_token?appid=${WECHAT_APP_ID}&secret=${WECHAT_APP_SECRET}&code=${code}&grant_type=authorization_code`);
+                const tokenData = await tokenRes.json();
+
+                if (tokenData.errcode) {
+                    console.error('[WeChat Token Error]', tokenData);
+                    return res.status(400).json({ error: `微信授权失败: ${tokenData.errmsg}` });
+                }
+
+                const { openid, access_token } = tokenData;
+
+                // 2. 获取用户信息
+                const userinfoRes = await fetch(`https://api.weixin.qq.com/sns/userinfo?access_token=${access_token}&openid=${openid}&lang=zh_CN`);
+                const userinfo = await userinfoRes.json();
+
+                // 3. 检查用户是否存在
+                let { data: user, error: userError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('wechat_openid', openid)
+                    .maybeSingle();
+
+                if (!user) {
+                    // 自动注册逻辑
+                    const username = `wx_${openid.substring(0, 8)}_${Math.random().toString(36).substring(2, 6)}`;
+                    const nickname = userinfo.nickname || '微信用户';
+                    const avatarUrl = userinfo.headimgurl || null;
+
+                    // 检查设备是否已有首个用户（赠送额度逻辑）
+                    const { data: device } = await supabase
+                        .from('devices')
+                        .select('first_user_id')
+                        .eq('device_id', deviceId)
+                        .maybeSingle();
+
+                    const isFirstOnDevice = !device;
+                    const initialCredits = isFirstOnDevice ? 5 : 0;
+
+                    const { data: newUser, error: registerError } = await supabase
+                        .from('users')
+                        .insert({
+                            username,
+                            password_hash: hashPassword(Math.random().toString(36)), // 随机密码
+                            nickname,
+                            avatar_url: avatarUrl,
+                            wechat_openid: openid,
+                            credits: initialCredits,
+                            device_id: deviceId,
+                            referrer_id: referrerId || null,
+                            register_env: 'wechat'
+                        })
+                        .select()
+                        .single();
+
+                    if (registerError) throw registerError;
+                    user = newUser;
+
+                    // 记录设备
+                    if (isFirstOnDevice) {
+                        await supabase.from('devices').insert({ device_id: deviceId, first_user_id: user.id });
+                    }
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    user: {
+                        ...user,
+                        points: user.points ?? 0,
+                        commission_balance: user.commission_balance ?? 0
+                    }
+                });
             }
 
             default:
