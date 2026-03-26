@@ -543,6 +543,18 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.referral_points_enabled === 'true' ? 'left-7' : 'left-1'}`} />
                                 </button>
                             </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
+                                    <p className="font-bold text-sm">微信登录开关</p>
+                                    <p className="text-[10px] text-gray-500 text-nowrap">开启后微信环境下显示“微信一键登录”</p>
+                                </div>
+                                <button
+                                    onClick={() => updateConfig('wechat_login_enabled', config.wechat_login_enabled === 'true' ? 'false' : 'true')}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${config.wechat_login_enabled === 'true' ? 'bg-green-500' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.wechat_login_enabled === 'true' ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
                             <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
                                 <label className="w-28 text-sm font-bold shrink-0">佣金比例 (%)</label>
                                 <div className="flex-1 flex items-center gap-2">

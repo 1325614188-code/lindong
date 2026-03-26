@@ -665,7 +665,7 @@ export default async function handler(req: any, res: any) {
                 const { data: configs } = await supabase
                     .from('app_config')
                     .select('key, value')
-                    .in('key', ['announcement', 'contact_wechat', 'recharge_enabled', 'sms_registration_enabled']);
+                    .in('key', ['announcement', 'contact_wechat', 'recharge_enabled', 'sms_registration_enabled', 'wechat_login_enabled']);
 
                 const configMap: Record<string, string> = {};
                 configs?.forEach(c => { configMap[c.key] = c.value; });

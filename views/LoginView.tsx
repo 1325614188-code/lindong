@@ -18,6 +18,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
     const [smsCode, setSmsCode] = useState('');
     const [countdown, setCountdown] = useState(0);
     const [smsEnabled, setSmsEnabled] = useState(false);
+    const [wechatEnabled, setWechatEnabled] = useState(true);
     const [sendingCode, setSendingCode] = useState(false);
     const [isWechat, setIsWechat] = useState(false);
 
@@ -68,6 +69,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                 const data = await res.json();
                 if (data.config && data.config.sms_registration_enabled === 'true') {
                     setSmsEnabled(true);
+                }
+                if (data.config && data.config.wechat_login_enabled === 'false') {
+                    setWechatEnabled(false);
                 }
             } catch (e) {
                 console.error('Failed to fetch config', e);
@@ -322,8 +326,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                         </button>
                     </div>
 
-                    {/* 微信登录按钮 - 仅在微信环境显示 */}
-                    {isWechat && !isRegister && (
+                    {/* 微信登录按钮 - 仅在微信环境且开启配置时显示 */}
+                    {isWechat && wechatEnabled && !isRegister && (
                         <div className="mt-8">
                             <div className="relative mb-6">
                                 <div className="absolute inset-0 flex items-center">
