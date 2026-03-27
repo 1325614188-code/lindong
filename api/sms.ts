@@ -46,17 +46,28 @@ export default async function handler(req: any, res: any) {
                 return res.status(403).json({ error: '系统当前未开启短信注册功能' });
             }
 
-            // 2. 检查 60 秒防刷限制
-            const sixtySecondsAgo = new Date(Date.now() - 60 * 1000).toISOString();
+            // 1.1 检查手机号是否已注册
+            const { data: existingUser } = await supabase
+                .from('users')
+                .select('id')
+                .eq('username', phone) // 用户名通常就是手机号
+                .maybeSingle();
+
+            if (existingUser) {
+                return res.status(400).json({ error: '该手机号已注册' });
+            }
+
+            // 2. 检查 180 秒防刷限制 (3分钟)
+            const threeMinutesAgo = new Date(Date.now() - 180 * 1000).toISOString();
             const { data: recentLog } = await supabase
                 .from('sms_logs')
                 .select('id')
                 .eq('phone', phone)
-                .gte('created_at', sixtySecondsAgo)
+                .gte('created_at', threeMinutesAgo)
                 .maybeSingle();
 
             if (recentLog) {
-                return res.status(429).json({ error: '发送过于频繁，请 60 秒后再试' });
+                return res.status(429).json({ error: '发送过于频繁，请 3 分钟后再试' });
             }
 
             // 3. 生成 6 位随机验证码
@@ -112,6 +123,18 @@ export default async function handler(req: any, res: any) {
                 success: true, 
                 message: '验证码发送成功' 
             });
+        }
+
+        if (action === 'checkPhone') {
+            if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+                return res.status(400).json({ isRegistered: false, error: '无效格式' });
+            }
+            const { data: user } = await supabase
+                .from('users')
+                .select('id')
+                .eq('username', phone)
+                .maybeSingle();
+            return res.status(200).json({ isRegistered: !!user });
         }
 
         return res.status(400).json({ error: '无效的操作' });

@@ -21,6 +21,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
     const [wechatEnabled, setWechatEnabled] = useState(true);
     const [sendingCode, setSendingCode] = useState(false);
     const [isWechat, setIsWechat] = useState(false);
+    const [isPhoneRegistered, setIsPhoneRegistered] = useState(false);
 
     // 获取设备ID
     const getDeviceId = async (): Promise<string> => {
@@ -148,7 +149,6 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
         }
     };
 
-    // 短信倒计时
     useEffect(() => {
         let timer: any;
         if (countdown > 0) {
@@ -156,6 +156,36 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
         }
         return () => clearTimeout(timer);
     }, [countdown]);
+
+    // 实时检查手机号是否已注册
+    useEffect(() => {
+        const checkPhone = async () => {
+            if (isRegister && smsEnabled && /^1[3-9]\d{9}$/.test(phone)) {
+                try {
+                    const res = await fetch(getApiUrl('/api/sms'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'checkPhone', phone })
+                    });
+                    const data = await res.json();
+                    if (data.isRegistered) {
+                        setIsPhoneRegistered(true);
+                        setError('该手机号已注册，请直接登录');
+                    } else {
+                        setIsPhoneRegistered(false);
+                        if (error === '该手机号已注册，请直接登录') setError('');
+                    }
+                } catch (e) {
+                    console.error('Check phone failed', e);
+                }
+            } else {
+                setIsPhoneRegistered(false);
+                if (error === '该手机号已注册，请直接登录') setError('');
+            }
+        };
+        const timer = setTimeout(checkPhone, 500);
+        return () => clearTimeout(timer);
+    }, [phone, isRegister, smsEnabled]);
 
     const handleSendCode = async () => {
         if (!/^1[3-9]\d{9}$/.test(phone)) {
@@ -172,7 +202,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
-            setCountdown(60);
+            setCountdown(180);
         } catch (e: any) {
             setError(e.message || '发送验证码失败');
         } finally {
@@ -273,13 +303,16 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                                         <button
                                             type="button"
                                             onClick={handleSendCode}
-                                            disabled={countdown > 0 || sendingCode || phone.length !== 11}
+                                            disabled={countdown > 0 || sendingCode || phone.length !== 11 || isPhoneRegistered}
                                             className="h-12 px-4 rounded-2xl bg-pink-100 text-pink-600 font-bold text-sm disabled:opacity-50 whitespace-nowrap active:bg-pink-200 transition-colors"
                                         >
                                             {sendingCode ? '发送中...' : countdown > 0 ? `${countdown}s` : '获取验证码'}
                                         </button>
                                     </div>
                                 </div>
+                                <p className="text-[10px] text-gray-400 ml-1">
+                                    💡 短信可能需要 1-3 分钟送达，请耐心等待。
+                                </p>
                             </>
                         )}
                         <div className="space-y-1">
