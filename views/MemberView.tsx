@@ -265,12 +265,12 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         } catch (err: any) { setPointsMessage('❌ ' + err.message); }
     };
 
-    const handleRecharge = async (amount: number, creditsToAdd: number) => {
+    const handleAlipay = async (amount: number, creditsToAdd: number) => {
         if (!config.alipay_app_id || !config.alipay_private_key) {
-            setRechargeMessage('⚠️ 支付功能配置中，请联系管理员');
+            setRechargeMessage('⚠️ 支付宝功能配置中，请联系管理员');
             return;
         }
-        setRechargeMessage(`正在创建订单...`);
+        setRechargeMessage(`正在创建支付宝订单...`);
         try {
             const res = await fetch(getApiUrl('/api/alipay'), {
                 method: 'POST',
@@ -284,6 +284,69 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
             setRechargeMessage('正在跳转支付宝...');
             window.location.href = data.payUrl;
         } catch (err: any) { setRechargeMessage('❌ ' + (err.message || '支付失败')); }
+    };
+
+    const handleWechatPay = async (amount: number, creditsToAdd: number) => {
+        if (config.wechat_pay_enabled !== 'true') {
+            setRechargeMessage('⚠️ 微信支付暂未开启');
+            return;
+        }
+        
+        const isWechat = /MicroMessenger/i.test(navigator.userAgent);
+        if (!isWechat) {
+            setRechargeMessage('⚠️ 请在微信内打开此页面进行微信支付');
+            return;
+        }
+
+        setRechargeMessage(`正在创建微信订单...`);
+        try {
+            const res = await fetch(getApiUrl('/api/wechat_pay'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'createOrder', userId: user.id, amount, credits: creditsToAdd, openid: user.wechat_openid })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            
+            setRechargeMessage('正在调起微信支付...');
+            
+            // @ts-ignore
+            if (typeof WeixinJSBridge !== "undefined") {
+                // @ts-ignore
+                WeixinJSBridge.invoke(
+                    'getBrandWCPayRequest', 
+                    data.payParams,
+                    (res: any) => {
+                        if (res.err_msg === "get_brand_wcpay_request:ok") {
+                            setRechargeMessage('✅ 支付成功，同步中...');
+                            localStorage.setItem('pending_order_id', data.orderId);
+                            setPendingOrderId(data.orderId);
+                        } else {
+                            setRechargeMessage('❌ 支付已取消或失败');
+                        }
+                    }
+                );
+            } else {
+                setRechargeMessage('❌ 微信支付环境异常');
+            }
+        } catch (err: any) { setRechargeMessage('❌ ' + (err.message || '支付失败')); }
+    };
+
+    const [showPaySelect, setShowPaySelect] = useState<{amount: number, credits: number} | null>(null);
+
+    const handleRechargeClick = (amount: number, credits: number) => {
+        const alipayEnabled = config.alipay_app_id && config.alipay_private_key;
+        const wechatEnabled = config.wechat_pay_enabled === 'true';
+
+        if (alipayEnabled && wechatEnabled) {
+            setShowPaySelect({ amount, credits });
+        } else if (wechatEnabled) {
+            handleWechatPay(amount, credits);
+        } else if (alipayEnabled) {
+            handleAlipay(amount, credits);
+        } else {
+            setRechargeMessage('⚠️ 暂未开启任何支付方式，请联系客服');
+        }
     };
 
     const [withdrawalMessage, setWithdrawalMessage] = useState('');
@@ -484,19 +547,50 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
                 {/* 充值 */}
                 {config.recharge_enabled === 'true' && (
-                    <div className="bg-white rounded-2xl p-4 shadow-sm">
-                        <h4 className="font-bold mb-3">💎 充值额度</h4>
+                    <div className="bg-white rounded-2xl p-4 shadow-sm relative">
+                        <h4 className="font-bold mb-3 italic">💎 充值额度 (限时特惠)</h4>
                         <div className="grid grid-cols-2 gap-3 text-center">
-                            <button onClick={() => handleRecharge(9.9, 12)} className="h-20 rounded-xl border-2 border-pink-100 active:bg-pink-50">
+                            <div 
+                                onClick={() => handleRechargeClick(9.9, 12)} 
+                                className="h-20 rounded-xl border-2 border-pink-100 active:bg-pink-50 flex flex-col items-center justify-center cursor-pointer hover:border-pink-300 transition-all"
+                            >
                                 <div className="text-xl font-bold text-pink-500">12次</div>
-                                <div className="text-sm text-gray-400">¥9.9</div>
-                            </button>
-                            <button onClick={() => handleRecharge(19.9, 30)} className="h-20 rounded-xl border-2 border-purple-100 active:bg-purple-50">
+                                <div className="text-sm text-gray-400 font-medium">¥9.9</div>
+                            </div>
+                            <div 
+                                onClick={() => handleRechargeClick(19.9, 30)} 
+                                className="h-20 rounded-xl border-2 border-purple-100 active:bg-purple-50 flex flex-col items-center justify-center cursor-pointer hover:border-purple-300 transition-all"
+                            >
                                 <div className="text-xl font-bold text-purple-500">30次</div>
-                                <div className="text-sm text-gray-400">¥19.9</div>
-                            </button>
+                                <div className="text-sm text-gray-400 font-medium">¥19.9</div>
+                            </div>
                         </div>
-                        {rechargeMessage && <p className="mt-3 text-sm text-center text-orange-500">{rechargeMessage}</p>}
+
+                        {/* 支付方式选择弹窗 */}
+                        {showPaySelect && (
+                            <div className="absolute inset-x-0 bottom-0 bg-white/95 backdrop-blur-sm rounded-2xl p-4 shadow-2xl z-20 border-t border-pink-50 animate-in slide-in-from-bottom-4 duration-300">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h5 className="font-bold text-sm">选择支付方式</h5>
+                                    <button onClick={() => setShowPaySelect(null)} className="text-gray-400 text-lg">×</button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button 
+                                        onClick={() => { handleAlipay(showPaySelect.amount, showPaySelect.credits); setShowPaySelect(null); }}
+                                        className="h-12 bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
+                                    >
+                                        <span className="text-base text-nowrap">支</span> 支付宝支付
+                                    </button>
+                                    <button 
+                                        onClick={() => { handleWechatPay(showPaySelect.amount, showPaySelect.credits); setShowPaySelect(null); }}
+                                        className="h-12 bg-green-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
+                                    >
+                                        <span className="text-base text-nowrap">微</span> 微信支付
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {rechargeMessage && <p className="mt-3 text-[10px] text-center text-orange-500 font-medium bg-orange-50 py-2 rounded-lg">{rechargeMessage}</p>}
                     </div>
                 )}
 

@@ -555,6 +555,18 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.wechat_login_enabled === 'true' ? 'left-7' : 'left-1'}`} />
                                 </button>
                             </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
+                                    <p className="font-bold text-sm">微信支付开关</p>
+                                    <p className="text-[10px] text-gray-500 text-nowrap">开启后充值时可选微信支付 (需配置商户参数)</p>
+                                </div>
+                                <button
+                                    onClick={() => updateConfig('wechat_pay_enabled', config.wechat_pay_enabled === 'true' ? 'false' : 'true')}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${config.wechat_pay_enabled === 'true' ? 'bg-green-600' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.wechat_pay_enabled === 'true' ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
                             <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
                                 <label className="w-28 text-sm font-bold shrink-0">佣金比例 (%)</label>
                                 <div className="flex-1 flex items-center gap-2">
@@ -672,14 +684,76 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     placeholder="https://yourdomain.com/api/alipay/notify"
                                 />
                             </div>
+                        </div>
+                    </div>
 
+                    {/* 微信支付配置 */}
+                    <div className="bg-white rounded-2xl p-4 shadow-sm">
+                        <h3 className="font-bold mb-4 text-green-600">🟢 微信支付配置 (V3 接口)</h3>
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-4">
+                                <label className="w-28 text-sm text-gray-500 shrink-0">商户号 (MCH_ID)</label>
+                                <input
+                                    type="text"
+                                    value={config.wechat_pay_mch_id || ''}
+                                    onChange={e => updateConfig('wechat_pay_mch_id', e.target.value)}
+                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
+                                    placeholder="微信支付商户号"
+                                />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <label className="w-28 text-sm text-gray-500 shrink-0">V3 密钥</label>
+                                <input
+                                    type="password"
+                                    value={config.wechat_pay_api_v3_key || ''}
+                                    onChange={e => updateConfig('wechat_pay_api_v3_key', e.target.value)}
+                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
+                                    placeholder="API V3 Key"
+                                />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <label className="w-28 text-sm text-gray-500 shrink-0">证书序列号</label>
+                                <input
+                                    type="text"
+                                    value={config.wechat_pay_serial_no || ''}
+                                    onChange={e => updateConfig('wechat_pay_serial_no', e.target.value)}
+                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
+                                    placeholder="Serial Number"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm text-gray-500">商户私钥 (APICLIENT_KEY.PEM 明文)</label>
+                                <textarea
+                                    value={config.wechat_pay_private_key || ''}
+                                    onChange={e => updateConfig('wechat_pay_private_key', e.target.value)}
+                                    className="w-full h-24 px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono"
+                                    placeholder="-----BEGIN PRIVATE KEY----- ..."
+                                />
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <label className="w-28 text-sm text-gray-500 shrink-0">回调地址</label>
+                                <input
+                                    type="text"
+                                    value={config.wechat_pay_notify_url || ''}
+                                    onChange={e => updateConfig('wechat_pay_notify_url', e.target.value)}
+                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-sm"
+                                    placeholder="https://yourdomain.com/api/wechat_pay"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 系统杂项与排行榜 */}
+                    <div className="bg-white rounded-2xl p-4 shadow-sm">
+                        <h3 className="font-bold mb-4">🏆 数据看板与通知</h3>
+                        <div className="space-y-4">
                             {/* 排行榜配置 */}
                             <div className="mt-4 p-4 bg-amber-50 rounded-2xl border border-amber-200">
                                 <div className="flex items-center justify-between mb-4">
                                     <h4 className="font-bold text-amber-800 flex items-center gap-2">
                                         <span>🏆</span> 排行榜虚拟数据配置 (各20行)
                                     </h4>
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             const c = generateRandomData('commission');
                                             const p = generateRandomData('points');
@@ -692,7 +766,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                         🎲 填充并保存随机数据
                                     </button>
                                 </div>
-                                
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                                     {/* 佣金榜 */}
                                     <div className="space-y-3">
@@ -700,8 +774,8 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                         {cBoard.map((item, i) => (
                                             <div key={i} className="flex gap-2">
                                                 <span className="w-5 text-xs text-amber-600 flex items-center">{i + 1}.</span>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     placeholder="用户名"
                                                     value={item.user || ''}
                                                     onChange={e => {
@@ -712,8 +786,8 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                                     onBlur={() => updateConfig('commission_leaderboard_data', JSON.stringify(cBoard))}
                                                     className="flex-1 h-8 px-2 rounded-lg border border-amber-200 text-xs shadow-sm"
                                                 />
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     placeholder="金额"
                                                     value={item.amount || ''}
                                                     onChange={e => {
@@ -734,8 +808,8 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                         {pBoard.map((item, i) => (
                                             <div key={i} className="flex gap-2">
                                                 <span className="w-5 text-xs text-gray-400 flex items-center">{i + 1}.</span>
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     placeholder="用户名"
                                                     value={item.user || ''}
                                                     onChange={e => {
@@ -746,8 +820,8 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                                     onBlur={() => updateConfig('points_leaderboard_data', JSON.stringify(pBoard))}
                                                     className="flex-1 h-8 px-2 rounded-lg border border-gray-200 text-xs shadow-sm"
                                                 />
-                                                <input 
-                                                    type="text" 
+                                                <input
+                                                    type="text"
                                                     placeholder="金额"
                                                     value={item.amount || ''}
                                                     onChange={e => {
