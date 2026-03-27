@@ -14,7 +14,8 @@ const createAliyunClient = () => {
         accessKeySecret: process.env.ALIYUN_ACCESS_KEY_SECRET,
     });
     config.endpoint = "dysmsapi.aliyuncs.com";
-    return new Dysmsapi20170525(config);
+    // NOTE: 在 ESM 环境下，SDK 类定义在 .default 属性中
+    return new (Dysmsapi20170525 as any).default(config);
 };
 
 export default async function handler(req: any, res: any) {
