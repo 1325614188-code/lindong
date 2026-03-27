@@ -51,6 +51,16 @@ const generateDeviceId = (): string => {
     return crypto.randomBytes(16).toString('hex');
 };
 
+// 生成唯一的邀请码 (6位大写字母数字组合)
+const generateInviteCode = (): string => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除容易混淆的字符 I, O, 0, 1
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+};
+
 // 检测环境：微信、QQ、普通浏览器
 const getEnvironment = (userAgent: string): 'wechat' | 'qq' | 'browser' | 'other' => {
     if (userAgent.includes('MicroMessenger')) return 'wechat';
@@ -175,56 +185,32 @@ export default async function handler(req: any, res: any) {
                     .maybeSingle();
 
                 const isFirstOnDevice = !device;
-                // 只有【手机浏览器】首次注册才赠送额度 (排除微信和QQ)
-                const initialCredits = (isFirstOnDevice && isBrowser) ? 5 : 0;
 
-                // 解析真实推荐人ID (处理 8 位短码)
-                let realReferrerId = referrerId;
-                if (referrerId && referrerId.length < 32) {
-                    const suffix = referrerId.substring(0, 6);
+                // 【重构】解析真实推荐人ID (通过邀请码判定)
+                let realReferrerId = null;
+                const { inviteCode: rawInviteCode } = data;
+                const inviteCodeInput = rawInviteCode?.trim().toUpperCase();
 
-                    const { data: potentialReferrers } = await supabase
+                if (inviteCodeInput) {
+                    const { data: inviter } = await supabase
                         .from('users')
-                        .select('id, device_id, is_admin')
-                        .ilike('device_id', `%${suffix}%`)
-                        .order('created_at', { ascending: true })
-                        .limit(50);
-
-                    if (potentialReferrers && potentialReferrers.length > 0) {
-                        let matchedUsers: any[] = [];
-
-                        for (const pr of potentialReferrers) {
-                            if (!pr.device_id) continue;
-                            let hash = 0;
-                            for (let i = 0; i < pr.device_id.length; i++) {
-                                hash = (hash << 5) - hash + pr.device_id.charCodeAt(i);
-                                hash |= 0;
-                            }
-                            const char1 = String.fromCharCode(65 + Math.abs(hash) % 26);
-                            const char2 = String.fromCharCode(65 + Math.abs(hash >> 5) % 26);
-                            const expectedShortCode = `${suffix.toUpperCase()}${char1}${char2}`;
-
-                            if (expectedShortCode === referrerId) {
-                                matchedUsers.push(pr);
-                            }
-                        }
-
-                        if (matchedUsers.length > 0) {
-                            // 优先级：1. 管理员 2. 也是最早注册的账号
-                            const adminUser = matchedUsers.find(u => u.is_admin);
-                            if (adminUser) {
-                                realReferrerId = adminUser.id;
-                            } else {
-                                realReferrerId = matchedUsers[0].id;
-                            }
-                        }
-                    }
-
-                    // 如果短码解析失败（没找到对应 UUID），为了防止数据库 UUID 类型报错，将其置空
-                    if (realReferrerId === referrerId) {
-                        realReferrerId = null;
+                        .select('id')
+                        .eq('invite_code', inviteCodeInput)
+                        .maybeSingle();
+                    
+                    if (inviter) {
+                        realReferrerId = inviter.id;
                     }
                 }
+
+                // 只有【设备首次注册】且【填写了有效邀请码】才赠送额度
+                const initialCredits = (isFirstOnDevice && realReferrerId) ? 5 : 0;
+
+                // 为新用户生成唯一邀请码
+                let newInviteCode = generateInviteCode();
+                // 简单兜底，防止碰撞 (实际生产建议用循环检查)
+                const { data: codeExists } = await supabase.from('users').select('id').eq('invite_code', newInviteCode).maybeSingle();
+                if (codeExists) newInviteCode = generateInviteCode();
 
                 // 创建用户
                 const { data: newUser, error: userError } = await supabase
@@ -236,7 +222,8 @@ export default async function handler(req: any, res: any) {
                         credits: initialCredits,
                         device_id: deviceId,
                         referrer_id: realReferrerId || null,
-                        phone: isSmsEnabled && phone ? phone : null
+                        phone: isSmsEnabled && phone ? phone : null,
+                        invite_code: newInviteCode
                     })
                     .select()
                     .single();
@@ -304,9 +291,10 @@ export default async function handler(req: any, res: any) {
                         id: newUser.id,
                         username: newUser.username,
                         nickname: newUser.nickname,
-                        credits: newUser.credits
+                        credits: newUser.credits,
+                        invite_code: newUser.invite_code
                     },
-                    message: isFirstOnDevice ? '注册成功，已赠送5次使用额度！' : '注册成功'
+                    message: (isFirstOnDevice && realReferrerId) ? '注册成功，已赠送5次使用额度！' : '注册成功'
                 });
             }
 
@@ -775,7 +763,28 @@ export default async function handler(req: any, res: any) {
                         .maybeSingle();
 
                     const isFirstOnDevice = !device;
-                    const initialCredits = isFirstOnDevice ? 5 : 0;
+                    // 解析真实推荐人ID (通过邀请码判定)
+                    let realReferrerId = null;
+                    const { inviteCode: rawInviteCode } = data;
+                    const inviteCodeInput = rawInviteCode?.trim().toUpperCase();
+
+                    if (inviteCodeInput) {
+                        const { data: inviter } = await supabase
+                            .from('users')
+                            .select('id')
+                            .eq('invite_code', inviteCodeInput)
+                            .maybeSingle();
+                        
+                        if (inviter) {
+                            realReferrerId = inviter.id;
+                        }
+                    }
+
+                    // 只有【设备首次注册】且【填写了有效邀请码】才赠送额度
+                    const initialCredits = (isFirstOnDevice && realReferrerId) ? 5 : 0;
+
+                    // 为新用户生成唯一邀请码
+                    let newInviteCode = generateInviteCode();
 
                     const { data: newUser, error: registerError } = await supabase
                         .from('users')
@@ -787,8 +796,9 @@ export default async function handler(req: any, res: any) {
                             wechat_openid: openid,
                             credits: initialCredits,
                             device_id: deviceId,
-                            referrer_id: referrerId || null,
-                            register_env: 'wechat'
+                            referrer_id: realReferrerId || null,
+                            register_env: 'wechat',
+                            invite_code: newInviteCode
                         })
                         .select()
                         .single();

@@ -13,7 +13,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [referrerId, setReferrerId] = useState<string | null>(null);
+    const [inviteCode, setInviteCode] = useState('');
     const [phone, setPhone] = useState('');
     const [smsCode, setSmsCode] = useState('');
     const [countdown, setCountdown] = useState(0);
@@ -38,22 +38,11 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
         }
     };
 
-    // 检查推荐人
+    // 检查邀请码 (从 localStorage 恢复，如果有的话)
     useEffect(() => {
-        try {
-            const params = new URLSearchParams(window.location.search);
-            const ref = params.get('ref');
-            if (ref) {
-                setReferrerId(ref);
-                localStorage.setItem('referrer_id', ref);
-            } else {
-                const savedRef = localStorage.getItem('referrer_id');
-                if (savedRef) {
-                    setReferrerId(savedRef);
-                }
-            }
-        } catch (e) {
-            console.error('Failed to parse referral:', e);
+        const savedInvite = localStorage.getItem('last_invite_code');
+        if (savedInvite) {
+            setInviteCode(savedInvite);
         }
     }, []);
 
@@ -97,7 +86,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                 setError('');
                 try {
                     const deviceId = await getDeviceId();
-                    const referrerId = localStorage.getItem('referrer_id');
+                    const currentInviteCode = inviteCode || localStorage.getItem('last_invite_code');
                     const res = await fetch(getApiUrl('/api/auth_v2'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -105,7 +94,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                             action: 'wechatLogin',
                             code,
                             deviceId,
-                            referrerId
+                            inviteCode: currentInviteCode
                         })
                     });
                     const data = await res.json();
@@ -230,10 +219,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                     username: username.trim(),
                     password,
                     deviceId,
-                    referrerId,
+                    inviteCode: inviteCode.trim().toUpperCase(),
                     ...(isRegister && smsEnabled ? { phone, smsCode } : {})
                 })
             });
+
+            if (isRegister && inviteCode.trim()) {
+                localStorage.setItem('last_invite_code', inviteCode.trim().toUpperCase());
+            }
 
             const data = await response.json();
 
@@ -339,6 +332,22 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                             />
                         </div>
 
+                        {isRegister && (
+                            <div className="space-y-1">
+                                <label className="block text-xs font-bold text-gray-400 ml-1">邀请码 / INVITE CODE</label>
+                                <input
+                                    type="text"
+                                    value={inviteCode}
+                                    onChange={e => setInviteCode(e.target.value.toUpperCase())}
+                                    className="w-full h-12 px-4 rounded-2xl bg-pink-50/50 border border-pink-100 focus:border-pink-300 focus:bg-white focus:outline-none transition-all placeholder:text-pink-200"
+                                    placeholder="输入邀请码立得 5 次奖励"
+                                />
+                                <p className="text-[10px] text-pink-400 ml-1">
+                                    💡 必须填写正确的邀请码才能获得注册礼包哦！
+                                </p>
+                            </div>
+                        )}
+
                         <button
                             type="submit"
                             disabled={loading}
@@ -384,9 +393,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                     )}
 
                     {isRegister && (
-                        <div className="mt-6 p-4 bg-pink-50 rounded-2xl">
+                        <div className="mt-6 p-4 bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border border-pink-100">
                             <p className="text-[10px] text-pink-600 leading-relaxed text-center">
-                                🎁 <span className="font-bold">新用户福利</span>：首台设备注册赠送 <span className="font-bold text-lg">5</span> 次使用额度，快来体验吧！
+                                🎁 <span className="font-bold text-sm">新用户专属福利</span><br/>
+                                注册时填写邀请码，首台设备赠送 <span className="font-bold text-lg">5</span> 次额度！
                             </p>
                         </div>
                     )}

@@ -79,22 +79,9 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         return deviceId.slice(-6).toUpperCase();
     };
 
-    // 生成分享链接：固定生产域名
-    const getShareLink = (): string => {
-        const baseUrl = 'https://marylab.xyz';
-        const deviceId = localStorage.getItem('device_id') || 'GUEST';
-
-        // 计算基于 deviceId 的2位字母校验码
-        let hash = 0;
-        for (let i = 0; i < deviceId.length; i++) {
-            hash = (hash << 5) - hash + deviceId.charCodeAt(i);
-            hash |= 0;
-        }
-        const char1 = String.fromCharCode(65 + Math.abs(hash) % 26);
-        const char2 = String.fromCharCode(65 + Math.abs(hash >> 5) % 26);
-
-        const shortCode = `${deviceId.slice(-6).toUpperCase()}${char1}${char2}`;
-        return `${baseUrl}?ref=${shortCode}`;
+    // 获取邀请码 (来自用户信息)
+    const getInviteCode = (): string => {
+        return user?.invite_code || '------';
     };
 
     // 加载配置和统计
@@ -244,17 +231,21 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
         } catch (err: any) { setMessage('❌ ' + err.message); } finally { setLoading(false); }
     };
 
-    const copyShareLink = () => {
-        const link = getShareLink();
+    const copyInviteCode = () => {
+        const code = getInviteCode();
+        if (code === '------') {
+            alert('请先登录以获取邀请码');
+            return;
+        }
         if (navigator.clipboard) {
-            navigator.clipboard.writeText(link).then(() => {
+            navigator.clipboard.writeText(code).then(() => {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
             }).catch(() => {
-                alert('复制失败，请手动长按输入框复制：' + link);
+                alert('复制失败，请手动记录邀请码：' + code);
             });
         } else {
-            alert('当前浏览器不支持自动复制，请手动复制：' + link);
+            alert('请手动记录邀请码：' + code);
         }
     };
 
@@ -366,24 +357,42 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     </div>
                 </div>
 
-                {/* 分享获客 */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                {/* 邀请获客 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-pink-100">
                     <div className="flex justify-between items-center mb-2">
-                        <h4 className="font-bold">📤 分享获得次数</h4>
-                        <span className="text-sm text-pink-500 font-bold">已获得 {referralCount} 次</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl">🎁</span>
+                            <h4 className="font-bold">我的专属邀请码</h4>
+                        </div>
+                        <span className="text-[10px] bg-pink-500 text-white px-2 py-0.5 rounded-full font-bold">已获奖励 {referralCount} 次</span>
                     </div>
-                    <p className="text-sm text-gray-500 mb-3">分享专属链接，好友完成注册后您将获得 1 次额度奖励！推广越多，奖励越多。</p>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={getShareLink()}
-                            readOnly
-                            className="flex-1 h-10 px-3 rounded-xl bg-gray-100 text-sm border-0 focus:ring-0"
-                            onClick={(e) => (e.target as HTMLInputElement).select()}
-                        />
-                        <button onClick={copyShareLink} className="px-4 h-10 bg-pink-500 text-white rounded-xl text-sm font-bold active:scale-95 transition-transform">
-                            {copied ? '已复制' : '复制'}
+                    <p className="text-xs text-gray-500 mb-4 font-medium">让好友在注册时填写您的邀请码，双方均可获得奖励！</p>
+                    
+                    <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                        <div className="flex-1">
+                            <div className="text-[10px] text-gray-400 font-bold ml-1 mb-1">PROMO CODE</div>
+                            <div className="text-2xl font-black tracking-widest text-pink-500 ml-1">
+                                {getInviteCode()}
+                            </div>
+                        </div>
+                        <button 
+                            onClick={copyInviteCode}
+                            className="px-6 h-12 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-sm font-bold active:scale-95 transition-all shadow-md flex items-center gap-2"
+                        >
+                            {copied ? '✅ 已复制' : '复制奖励码'}
                         </button>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-center gap-6 text-[10px] text-gray-400 font-medium">
+                        <div className="flex items-center gap-1">
+                            <span className="text-green-500">✔</span> 全平台通用
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-green-500">✔</span> 永久有效
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-green-500">✔</span> 上不封顶
+                        </div>
                     </div>
                 </div>
 
@@ -395,9 +404,9 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                     </div>
                     <p className="text-sm text-gray-500 mb-3">邀请好友体验，还能赚取现金佣金！</p>
                     <div className="space-y-3 bg-orange-50 rounded-xl p-3 text-xs text-orange-800">
-                        <p><span className="font-bold">1. 分享链接</span>：复制上方链接发送给好友。</p>
-                        <p><span className="font-bold">2. 好友注册</span>：好友通过链接完成账户注册。</p>
-                        <p><span className="font-bold">3. 获得佣金</span>：好友充值，你得 <span className="text-red-500 font-bold">{config.commission_rate || '40'}%</span> 分佣。</p>
+                        <p><span className="font-bold">1. 分享奖励码</span>：复制您的专属邀请码发送给好友。</p>
+                        <p><span className="font-bold">2. 好友注册</span>：好友在账户注册界面填入此码。</p>
+                        <p><span className="font-bold">3. 获得奖励</span>：对方注册立得 5 次额度，好友充值你再得 <span className="text-red-500 font-bold">{config.commission_rate || '40'}%</span> 分佣。</p>
                     </div>
 
                     <div className="mt-4">
@@ -439,7 +448,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         {/* 积分获取说明 */}
                         <div className="bg-purple-50 rounded-xl p-3 mb-3 text-xs text-purple-700 leading-relaxed">
                             <p className="font-bold mb-1">📣 如何获得积分？</p>
-                            <p>成功分享一个新用户（好友通过你的链接注册），即可获得 <span className="font-bold text-purple-600">1 个积分</span>。积分可兑换现金红包奖励！</p>
+                            <p>每成功邀请一位新用户（好友注册时填入你的邀请码），即可获得 <span className="font-bold text-purple-600">1 个积分</span>。积分可兑换现金红包奖励！</p>
                         </div>
                         <div className="bg-purple-50 rounded-xl p-3 mb-3 text-xs text-purple-600">
                             <p>🎁 {config.points_threshold_1 || '50'}积分 → {config.points_reward_1 || '20'}元红包 &nbsp;&nbsp; • {config.points_threshold_2 || '100'}积分 → {config.points_reward_2 || '50'}元红包</p>
@@ -518,13 +527,13 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         <h4 className="font-bold">推荐记录</h4>
                     </div>
                     {referralHistory.length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-4">暂无推荐记录</p>
+                        <p className="text-sm text-gray-400 text-center py-4">暂无被邀请记录</p>
                     ) : (
                         <div className="space-y-3">
                             <div className="flex text-xs text-gray-400 border-b pb-2">
-                                <div className="flex-1">用户</div>
+                                <div className="flex-1">受邀用户</div>
                                 <div className="w-20 text-center shrink-0">注册时间</div>
-                                <div className="w-20 text-center shrink-0">浏览器注册</div>
+                                <div className="w-20 text-center shrink-0">注册终端</div>
                                 <div className="w-16 text-right shrink-0">充值金额</div>
                             </div>
                             {referralHistory.map((record: any, index: number) => (
