@@ -724,7 +724,7 @@ export default async function handler(req: any, res: any) {
             }
 
             case 'wechatLogin': {
-                const { code, deviceId, referrerId } = data;
+                const { code, deviceId, userId } = data;
                 if (!code) return res.status(400).json({ error: 'Missing code' });
 
                 // 1. 换取 access_token 和 openid
@@ -738,19 +738,43 @@ export default async function handler(req: any, res: any) {
 
                 const { openid, access_token } = tokenData;
 
-                // 2. 获取用户信息
+                // 2. 获取用户信息 (头像、昵称)
                 const userinfoRes = await fetch(`https://api.weixin.qq.com/sns/userinfo?access_token=${access_token}&openid=${openid}&lang=zh_CN`);
                 const userinfo = await userinfoRes.json();
 
-                // 3. 检查用户是否存在
-                let { data: user, error: userError } = await supabase
+                // 3. 检查该微信是否已被占用
+                let { data: existingUserWithOpenid } = await supabase
                     .from('users')
                     .select('*')
                     .eq('wechat_openid', openid)
                     .maybeSingle();
 
-                if (!user) {
-                    // 自动注册逻辑
+                let user = null;
+
+                if (userId) {
+                    // 【绑定逻辑】用户已登录，尝试绑定 OpenID
+                    if (existingUserWithOpenid && existingUserWithOpenid.id !== userId) {
+                        return res.status(400).json({ error: '该微信已绑定了其他账号' });
+                    }
+
+                    const { data: updatedUser, error: updateError } = await supabase
+                        .from('users')
+                        .update({ 
+                            wechat_openid: openid,
+                            // 如果用户没头像/昵称，则更新为微信的
+                            avatar_url: userinfo.headimgurl || null,
+                        })
+                        .eq('id', userId)
+                        .select()
+                        .single();
+
+                    if (updateError) throw updateError;
+                    user = updatedUser;
+                } else if (existingUserWithOpenid) {
+                    // 【登录逻辑】微信已绑定用户，直接登录
+                    user = existingUserWithOpenid;
+                } else {
+                    // 【注册逻辑】全新微信用户，自动注册
                     const username = `wx_${openid.substring(0, 8)}_${Math.random().toString(36).substring(2, 6)}`;
                     const nickname = userinfo.nickname || '微信用户';
                     const avatarUrl = userinfo.headimgurl || null;
@@ -782,15 +806,13 @@ export default async function handler(req: any, res: any) {
 
                     // 只有【设备首次注册】且【填写了有效邀请码】才赠送额度
                     const initialCredits = (isFirstOnDevice && realReferrerId) ? 5 : 0;
-
-                    // 为新用户生成唯一邀请码
                     let newInviteCode = generateInviteCode();
 
                     const { data: newUser, error: registerError } = await supabase
                         .from('users')
                         .insert({
                             username,
-                            password_hash: hashPassword(Math.random().toString(36)), // 随机密码
+                            password_hash: hashPassword(Math.random().toString(36)),
                             nickname,
                             avatar_url: avatarUrl,
                             wechat_openid: openid,
@@ -806,7 +828,6 @@ export default async function handler(req: any, res: any) {
                     if (registerError) throw registerError;
                     user = newUser;
 
-                    // 记录设备
                     if (isFirstOnDevice) {
                         await supabase.from('devices').insert({ device_id: deviceId, first_user_id: user.id });
                     }

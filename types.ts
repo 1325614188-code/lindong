@@ -42,6 +42,12 @@ export interface User {
   referrer_id?: string | null;
   /** 注册环境：wechat / qq / browser / other */
   register_env?: string;
+  /** 微信 OpenID */
+  wechat_openid?: string;
+  /** 头像 URL */
+  avatar_url?: string;
+  /** 邀请码 */
+  invite_code?: string;
   /** 注册时间 */
   created_at?: string;
 }

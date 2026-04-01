@@ -94,27 +94,42 @@ const App: React.FC = () => {
     initId();
   }, []);
 
-  // 3. Android 物理返回键监听 (Effect #3)
+  // 3. 监听微信回调 code (Effect #3)
   useEffect(() => {
-    if (typeof CapApp === 'undefined' || !CapApp.addListener) return;
+    const handleWechatCallback = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      if (code) {
+        try {
+          const deviceId = localStorage.getItem('device_id') || await getStableDeviceId();
+          const res = await fetch(getApiUrl('/api/auth_v2'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'wechatLogin',
+              code,
+              deviceId,
+              userId: user?.id // 如果已登录，则传入 userId 执行绑定
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error);
 
-    let listener: any = null;
-    const setupListener = async () => {
-      listener = await CapApp.addListener('backButton', () => {
-        if (showLoginRef.current) setShowLogin(false);
-        else if (showAdminRef.current) setShowAdmin(false);
-        else if (showMemberRef.current) setShowMember(false);
-        else if (currentSectionRef.current !== AppSection.HOME) setCurrentSection(AppSection.HOME);
-        else CapApp.exitApp();
-      });
+          // 成功后清理 URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          handleUserUpdate(data.user);
+          console.log('[App] WeChat auth success:', data.user.wechat_openid ? 'Bound' : 'LoggedIn');
+        } catch (e: any) {
+          console.error('[App] WeChat callback failed:', e);
+          alert('微信授权失败: ' + e.message);
+        }
+      }
     };
+    handleWechatCallback();
+  }, [user?.id]); // 依赖 user.id 确保在用户登录状态变化时依然能正确绑定
 
-    setupListener();
-
-    return () => {
-      if (listener) listener.remove();
-    };
-  }, []);
+  // 4. Android 物理返回键监听 (Effect #4)
 
   const handleLogin = (u: User) => {
     setUser(u);

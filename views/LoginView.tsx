@@ -76,44 +76,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
         setIsWechat(ua.includes('micromessenger'));
     }, []);
 
-    // 处理微信回调 code
-    useEffect(() => {
-        const handleWechatCallback = async () => {
-            const params = new URLSearchParams(window.location.search);
-            const code = params.get('code');
-            if (code) {
-                setLoading(true);
-                setError('');
-                try {
-                    const deviceId = await getDeviceId();
-                    const currentInviteCode = inviteCode || localStorage.getItem('last_invite_code');
-                    const res = await fetch(getApiUrl('/api/auth_v2'), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'wechatLogin',
-                            code,
-                            deviceId,
-                            inviteCode: currentInviteCode
-                        })
-                    });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error);
-
-                    // 登录成功，清除 URL 中的 code 避免重复提交
-                    window.history.replaceState({}, document.title, window.location.pathname);
-
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    onLogin(data.user);
-                } catch (e: any) {
-                    setError(e.message || '微信登录失败');
-                } finally {
-                    setLoading(false);
-                }
-            }
-        };
-        handleWechatCallback();
-    }, []);
+    // 处理微信回调 code (已移至 App.tsx 全局处理)
+    // useEffect(() => { ... }, []);
 
     const handleWechatLogin = async () => {
         try {

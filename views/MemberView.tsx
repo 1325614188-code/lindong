@@ -300,6 +300,23 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
         setRechargeMessage(`正在创建微信订单...`);
         try {
+            // 如果用户没有 wechat_openid，说明是用户名登录且未绑定微信，需要先授权获取 openid
+            if (!user.wechat_openid) {
+                setRechargeMessage('⚠️ 请先点击“绑定微信”，完成后即可支付...');
+                const res = await fetch(getApiUrl('/api/auth_v2'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'getWechatAuthUrl', redirectUri: window.location.href.split('?')[0] })
+                });
+                const data = await res.json();
+                if (data.url) {
+                    setRechargeMessage('正在跳转微信授权绑定...');
+                    window.location.href = data.url;
+                    return;
+                }
+                throw new Error(data.error || '获取授权链接失败');
+            }
+
             const res = await fetch(getApiUrl('/api/wechat_pay'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
