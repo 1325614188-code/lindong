@@ -111,6 +111,12 @@ export default async function handler(req: any, res: any) {
         switch (action) {
             case 'createOrder': {
                 const { userId, amount, credits, openid } = data;
+                console.log(`[WechatPay] CreateOrder: user=${userId}, amount=${amount}, openid=${openid}`);
+
+                if (!openid) {
+                    return res.status(400).json({ error: '支付失败：缺少微信用户标识 (OpenID)。请尝试退出并重新通过微信登录。' });
+                }
+
                 const config = await getWechatConfig();
                 
                 if (config.wechat_pay_enabled !== 'true') return res.status(400).json({ error: '微信支付暂未开启' });

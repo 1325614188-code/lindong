@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { getApiUrl } from '../lib/api-config';
+import { User } from '../types';
 
 interface MemberViewProps {
-    user: any;
+    user: User;
     onLogout: () => void;
     onBack: () => void;
-    onUserUpdate?: (user: any) => void;
+    onUserUpdate?: (user: User) => void;
 }
 
 const ScrollingLeaderboard: React.FC<{ title: string; dataString?: string; type: 'gold' | 'silver' }> = ({ title, dataString, type }) => {
@@ -287,6 +288,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
     };
 
     const handleWechatPay = async (amount: number, creditsToAdd: number) => {
+        console.log('[handleWechatPay] user:', { id: user.id, username: user.username, openid: user.wechat_openid });
+        
         if (config.wechat_pay_enabled !== 'true') {
             setRechargeMessage('⚠️ 微信支付暂未开启');
             return;
@@ -300,9 +303,15 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
         setRechargeMessage(`正在创建微信订单...`);
         try {
-            // 如果用户没有 wechat_openid，说明是用户名登录且未绑定微信，需要先授权获取 openid
-            if (!user.wechat_openid) {
-                setRechargeMessage('⚠️ 请先点击“绑定微信”，完成后即可支付...');
+            // 严格检查 OpenID 是否有效（排除 null, undefined, "", "null", "undefined" 等）
+            const isValidOpenid = user.wechat_openid && 
+                                 typeof user.wechat_openid === 'string' && 
+                                 user.wechat_openid.length > 10 && 
+                                 user.wechat_openid !== 'null' && 
+                                 user.wechat_openid !== 'undefined';
+
+            if (!isValidOpenid) {
+                setRechargeMessage('⚠️ 正在获取微信授权，请稍候...');
                 const res = await fetch(getApiUrl('/api/auth_v2'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -310,7 +319,6 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 });
                 const data = await res.json();
                 if (data.url) {
-                    setRechargeMessage('正在跳转微信授权绑定...');
                     window.location.href = data.url;
                     return;
                 }
