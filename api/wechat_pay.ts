@@ -38,9 +38,14 @@ function generateSignature(method: string, url: string, timestamp: number, nonce
     const sign = crypto.createSign('RSA-SHA256');
     sign.update(message);
     
-    let pemKey = privateKey.replace(/\s/g, '');
+    let pemKey = privateKey;
     if (!pemKey.includes('-----BEGIN')) {
-        pemKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`;
+        // 如果用户只粘贴了 Base64 内容，则移除所有空白符并添加头部
+        const cleanContent = privateKey.replace(/\s/g, '');
+        pemKey = `-----BEGIN PRIVATE KEY-----\n${cleanContent}\n-----END PRIVATE KEY-----`;
+    } else {
+        // 如果用户粘贴了完整 PEM，只需确保换行符正确（不应移除空格）
+        pemKey = privateKey.trim();
     }
     
     return sign.sign(pemKey, 'base64');

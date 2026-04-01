@@ -692,6 +692,16 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                         <h3 className="font-bold mb-4 text-green-600">🟢 微信支付配置 (V3 接口)</h3>
                         <div className="space-y-3">
                             <div className="flex items-center gap-4">
+                                <label className="w-28 text-sm text-gray-500 shrink-0">微信 AppID</label>
+                                <input
+                                    type="text"
+                                    value={config.wechat_app_id || ''}
+                                    onChange={e => updateConfig('wechat_app_id', e.target.value)}
+                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
+                                    placeholder="公众号或小程序的 AppID"
+                                />
+                            </div>
+                            <div className="flex items-center gap-4">
                                 <label className="w-28 text-sm text-gray-500 shrink-0">商户号 (MCH_ID)</label>
                                 <input
                                     type="text"
