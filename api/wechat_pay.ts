@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
+const WECHAT_PROXY = process.env.WECHAT_PROXY; // 代理服务器地址
 
 // 获取微信支付配置
 async function getWechatConfig() {
@@ -150,7 +151,8 @@ export default async function handler(req: any, res: any) {
                 const signature = generateSignature('POST', '/v3/pay/transactions/jsapi', timestamp, nonce, JSON.stringify(payBody), config.wechat_pay_private_key);
                 const authHeader = `WECHATPAY2-SHA256-RSA2048 mchid="${config.wechat_pay_mch_id}",nonce_str="${nonce}",signature="${signature}",timestamp="${timestamp}",serial_no="${config.wechat_pay_serial_no}"`;
 
-                const wxRes = await fetch('https://api.mch.weixin.qq.com/v3/pay/transactions/jsapi', {
+                const mchBaseUrl = WECHAT_PROXY ? WECHAT_PROXY : 'https://api.mch.weixin.qq.com';
+                const wxRes = await fetch(`${mchBaseUrl}/v3/pay/transactions/jsapi`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

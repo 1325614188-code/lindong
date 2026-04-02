@@ -14,6 +14,7 @@ const hashPassword = (password: string): string => {
 
 const WECHAT_APP_ID = process.env.WECHAT_APP_ID || '';
 const WECHAT_APP_SECRET = process.env.WECHAT_APP_SECRET || '';
+const WECHAT_PROXY = process.env.WECHAT_PROXY; // 代理服务器地址，例如 http://175.178.56.196:3000
 
 // 验证兑换码格式 - 使用北京时间 (UTC+8)
 const validateRedeemCode = (code: string): boolean => {
@@ -728,7 +729,8 @@ export default async function handler(req: any, res: any) {
                 if (!code) return res.status(400).json({ error: 'Missing code' });
 
                 // 1. 换取 access_token 和 openid
-                const tokenRes = await fetch(`https://api.weixin.qq.com/sns/oauth2/access_token?appid=${WECHAT_APP_ID}&secret=${WECHAT_APP_SECRET}&code=${code}&grant_type=authorization_code`);
+                const baseUrl = WECHAT_PROXY ? WECHAT_PROXY : 'https://api.weixin.qq.com';
+                const tokenRes = await fetch(`${baseUrl}/sns/oauth2/access_token?appid=${WECHAT_APP_ID}&secret=${WECHAT_APP_SECRET}&code=${code}&grant_type=authorization_code`);
                 const tokenData = await tokenRes.json();
 
                 if (tokenData.errcode) {
@@ -739,7 +741,7 @@ export default async function handler(req: any, res: any) {
                 const { openid, access_token } = tokenData;
 
                 // 2. 获取用户信息 (头像、昵称)
-                const userinfoRes = await fetch(`https://api.weixin.qq.com/sns/userinfo?access_token=${access_token}&openid=${openid}&lang=zh_CN`);
+                const userinfoRes = await fetch(`${baseUrl}/sns/userinfo?access_token=${access_token}&openid=${openid}&lang=zh_CN`);
                 const userinfo = await userinfoRes.json();
 
                 // 3. 检查该微信是否已被占用
