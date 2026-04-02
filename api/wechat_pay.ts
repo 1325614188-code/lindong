@@ -57,24 +57,46 @@ function generateSignature(method: string, url: string, timestamp: number, nonce
 async function fulfillOrder(orderId: string) {
     console.log(`[WechatPay-Fulfill] Attempting to fulfill order: ${orderId}`);
 
-    // 使用 fulfill_order_v1 原子化执行订单状态更新和额度下发
-    const { data: result, error: rpcError } = await supabase.rpc('fulfill_order_v1', { 
-        order_trade_no: orderId 
+    // 1. 获取订单详情 (需确认订单是否存在且为 pending)
+    const { data: order, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('trade_no', orderId)
+        .single();
+
+    if (fetchError || !order) {
+        console.error('[WechatPay-Fulfill] Order not found:', orderId);
+        return { success: false, reason: 'order_not_found' };
+    }
+
+    if (order.status === 'paid') {
+        console.log('[WechatPay-Fulfill] Order already processed:', orderId);
+        return { success: true, alreadyPaid: true };
+    }
+
+    // 2. 核心补足逻辑：先增加额度 (确保用户体验)
+    const { error: creditError } = await supabase.rpc('add_credits', { 
+        user_id: order.user_id, 
+        amount: order.credits 
     });
 
-    if (rpcError) {
-        console.error('[WechatPay-Fulfill] RPC Error:', rpcError);
-        return { success: false, reason: 'database_rpc_error' };
+    if (creditError) {
+        console.error('[WechatPay-Fulfill] Credit RPC Error:', creditError);
+        return { success: false, reason: 'credit_rpc_error' };
     }
 
-    if (!result?.success) {
-        console.error('[WechatPay-Fulfill] Fulfillment failed:', result?.error);
-        return { success: false, reason: result?.error };
-    }
+    // 3. 额度下发成功后，更新订单状态
+    const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+            status: 'paid',
+            paid_at: new Date().toISOString()
+        })
+        .eq('trade_no', orderId);
 
-    if (result.already_paid) {
-        console.log('[WechatPay-Fulfill] Order already fully processed:', orderId);
-        return { success: true, alreadyPaid: true };
+    if (updateError) {
+        console.error('[WechatPay-Fulfill] Order status update failed (but credits were added):', updateError);
+        // 此种情况用户已经获得额度，虽然状态没更，但不会导致用户损失
     }
 
     // 成功后处理推荐佣金逻辑 (非原子任务，即便失败也不影响充值本身)
@@ -107,7 +129,7 @@ async function fulfillOrder(orderId: string) {
         console.error('[WechatPay-Fulfill] Optional commission logic error (ignored):', e);
     }
 
-    return { success: true, credits: result.credits };
+    return { success: true, credits: order.credits };
 }
 
 // 微信 V3 回调解密函数
