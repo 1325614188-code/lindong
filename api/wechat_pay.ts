@@ -52,50 +52,87 @@ function generateSignature(method: string, url: string, timestamp: number, nonce
     return sign.sign(pemKey, 'base64');
 }
 
-// 订单履行逻辑 (与 Alipay 共享逻辑，但独立实现以保持 API 简单)
+
+// 核心履行逻辑：原子化更新订单并下发额度 (改为使用数据库函数保证强一致性)
 async function fulfillOrder(orderId: string) {
-    const { data: order, error: fetchError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('trade_no', orderId)
-        .single();
+    console.log(`[WechatPay-Fulfill] Attempting to fulfill order: ${orderId}`);
 
-    if (fetchError || !order) return { success: false, reason: 'order_not_found' };
-    if (order.status === 'paid') return { success: true, alreadyPaid: true, credits: order.credits };
+    // 使用 fulfill_order_v1 原子化执行订单状态更新和额度下发
+    const { data: result, error: rpcError } = await supabase.rpc('fulfill_order_v1', { 
+        order_trade_no: orderId 
+    });
 
-    const { data: updateData, error: updateError } = await supabase
-        .from('orders')
-        .update({ status: 'paid', paid_at: new Date().toISOString() })
-        .eq('trade_no', orderId)
-        .eq('status', 'pending')
-        .select();
-
-    if (updateError || !updateData || updateData.length === 0) return { success: false, reason: 'lock_fail' };
-
-    await supabase.rpc('add_credits', { user_id: order.user_id, amount: order.credits });
-
-    const { data: user } = await supabase.from('users').select('referrer_id').eq('id', order.user_id).single();
-    if (user?.referrer_id) {
-        const config = await getWechatConfig();
-        const rate = parseInt(config.commission_rate || '40') / 100;
-        const commissionAmount = Number(order.amount) * rate;
-
-        const { error: commissionError } = await supabase.rpc('add_commission', {
-            user_id: user.referrer_id,
-            amount: commissionAmount
-        });
-
-        if (!commissionError) {
-            await supabase.from('commissions').insert({
-                user_id: user.referrer_id,
-                source_user_id: order.user_id,
-                order_id: order.id,
-                amount: commissionAmount,
-                status: 'completed'
-            });
-        }
+    if (rpcError) {
+        console.error('[WechatPay-Fulfill] RPC Error:', rpcError);
+        return { success: false, reason: 'database_rpc_error' };
     }
-    return { success: true, credits: order.credits };
+
+    if (!result?.success) {
+        console.error('[WechatPay-Fulfill] Fulfillment failed:', result?.error);
+        return { success: false, reason: result?.error };
+    }
+
+    if (result.already_paid) {
+        console.log('[WechatPay-Fulfill] Order already fully processed:', orderId);
+        return { success: true, alreadyPaid: true };
+    }
+
+    // 成功后处理推荐佣金逻辑 (非原子任务，即便失败也不影响充值本身)
+    try {
+        const { data: order } = await supabase.from('orders').select('user_id, amount, id').eq('trade_no', orderId).single();
+        if (order) {
+            const { data: user } = await supabase.from('users').select('referrer_id').eq('id', order.user_id).single();
+            if (user?.referrer_id) {
+                const config = await getWechatConfig();
+                const rate = parseInt(config.commission_rate || '40') / 100;
+                const commissionAmount = Number(order.amount) * rate;
+
+                const { error: commissionError } = await supabase.rpc('add_commission', {
+                    user_id: user.referrer_id,
+                    amount: commissionAmount
+                });
+
+                if (!commissionError) {
+                    await supabase.from('commissions').insert({
+                        user_id: user.referrer_id,
+                        source_user_id: order.user_id,
+                        order_id: order.id,
+                        amount: commissionAmount,
+                        status: 'completed'
+                    });
+                }
+            }
+        }
+    } catch (e) {
+        console.error('[WechatPay-Fulfill] Optional commission logic error (ignored):', e);
+    }
+
+    return { success: true, credits: result.credits };
+}
+
+// 微信 V3 回调解密函数
+function decryptWechatResource(resource: any, apiV3Key: string) {
+    try {
+        const { ciphertext, associated_data, nonce } = resource;
+        const key = Buffer.from(apiV3Key, 'utf8');
+        const iv = Buffer.from(nonce, 'utf8');
+        const authTagLen = 16;
+        const data = Buffer.from(ciphertext, 'base64');
+        
+        // 分离标签和密文
+        const tag = data.subarray(data.length - authTagLen);
+        const encrypted = data.subarray(0, data.length - authTagLen);
+        
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+        decipher.setAuthTag(tag);
+        decipher.setAAD(Buffer.from(associated_data, 'utf8'));
+        
+        const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+        return JSON.parse(decrypted.toString('utf8'));
+    } catch (e) {
+        console.error('[WechatPay-Decrypt] Failed:', e);
+        return null;
+    }
 }
 
 export default async function handler(req: any, res: any) {
@@ -107,7 +144,14 @@ export default async function handler(req: any, res: any) {
 
     try {
         const body = req.body || {};
-        const { action, ...data } = body;
+        
+        // 自动探测：如果含有 resource 字段但没有 action，判定为微信原生回调
+        let action = body.action;
+        if (!action && body.resource) {
+            action = 'notify';
+        }
+
+        const data = body;
 
         switch (action) {
             case 'createOrder': {
@@ -133,7 +177,7 @@ export default async function handler(req: any, res: any) {
                     payment_method: 'wechat'
                 });
 
-                // 调用微信支付 V3 下单接口 (以 JSAPI 为例，常用于公众号环境)
+                // 调用微信支付 V3 下单接口
                 const timestamp = Math.floor(Date.now() / 1000);
                 const nonce = crypto.randomBytes(16).toString('hex');
                 const notifyUrl = config.wechat_pay_notify_url || 'https://marylab.xyz/api/wechat_pay';
@@ -157,7 +201,8 @@ export default async function handler(req: any, res: any) {
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': authHeader,
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'User-Agent': 'MaryLab-Server/1.0'
                     },
                     body: JSON.stringify(payBody)
                 });
@@ -169,9 +214,8 @@ export default async function handler(req: any, res: any) {
                 const jsTimestamp = Math.floor(Date.now() / 1000);
                 const jsNonce = crypto.randomBytes(16).toString('hex');
                 const jsPackage = `prepay_id=${wxData.prepay_id}`;
-                const jsPaySign = generateSignature('GET', '', jsTimestamp, jsNonce, `${config.wechat_app_id}\n${jsTimestamp}\n${jsNonce}\n${jsPackage}\n`, config.wechat_pay_private_key); // 注意：JSAPI 签名 message 格式略有不同，这里简化逻辑需根据实际文档调整，但在极简实现中通常需要二次签名内容
-
-                // 修正：JSAPI 二次签名内容应该是 5 行
+                
+                // 二次签名
                 const messageToSign = `${config.wechat_app_id}\n${jsTimestamp}\n${jsNonce}\n${jsPackage}\n`;
                 const paySign = crypto.createSign('RSA-SHA256').update(messageToSign).sign(config.wechat_pay_private_key.includes('BEGIN') ? config.wechat_pay_private_key : `-----BEGIN PRIVATE KEY-----\n${config.wechat_pay_private_key}\n-----END PRIVATE KEY-----`, 'base64');
 
@@ -190,17 +234,65 @@ export default async function handler(req: any, res: any) {
             }
 
             case 'notify': {
-                // 微信回调处理 (V3 是加密的)
-                // 这里需要解密 resource 内容，目前先做基础履行逻辑，实际生产需验证签名并解密
-                // 由于涉及 AES-GCM 解密比较繁琐且需要 V3 Key，建议用户在后台手动同步或由我稍后完善解密
-                return res.status(200).json({ message: 'Callback received' });
+                // 收到微信支付通知报文
+                const body = req.body;
+                if (body && body.resource) {
+                    const config = await getWechatConfig();
+                    if (config.wechat_pay_api_v3_key) {
+                        const decrypted = decryptWechatResource(body.resource, config.wechat_pay_api_v3_key);
+                        console.log('[WechatPay-Notify] Data:', decrypted?.out_trade_no, decrypted?.trade_state);
+                        
+                        if (decrypted && decrypted.trade_state === 'SUCCESS') {
+                            await fulfillOrder(decrypted.out_trade_no);
+                        }
+                    }
+                }
+                return res.status(200).json({ code: 'SUCCESS', message: '成功' });
             }
 
             case 'checkOrder': {
                 const { orderId } = data;
                 const { data: order } = await supabase.from('orders').select('*').eq('trade_no', orderId).single();
-                if (!order) return res.status(200).json({ success: false });
-                return res.status(200).json({ success: true, status: order.status, credits: order.credits });
+                if (!order) return res.status(200).json({ success: false, status: 'unknown' });
+
+                if (order.status === 'paid') {
+                    return res.status(200).json({ success: true, status: 'paid', credits: order.credits });
+                }
+
+                // 主动向微信查询
+                try {
+                    const config = await getWechatConfig();
+                    if (config.wechat_pay_mch_id && config.wechat_pay_private_key) {
+                        const timestamp = Math.floor(Date.now() / 1000);
+                        const nonce = crypto.randomBytes(16).toString('hex');
+                        const queryUrl = `/v3/pay/transactions/out-trade-no/${orderId}?mchid=${config.wechat_pay_mch_id}`;
+                        
+                        const signature = generateSignature('GET', queryUrl, timestamp, nonce, '', config.wechat_pay_private_key);
+                        const authHeader = `WECHATPAY2-SHA256-RSA2048 mchid="${config.wechat_pay_mch_id}",nonce_str="${nonce}",signature="${signature}",timestamp="${timestamp}",serial_no="${config.wechat_pay_serial_no}"`;
+
+                        const mchBaseUrl = WECHAT_PROXY ? WECHAT_PROXY : 'https://api.mch.weixin.qq.com';
+                        const wxRes = await fetch(`${mchBaseUrl}${queryUrl}`, {
+                            headers: { 'Authorization': authHeader, 'Accept': 'application/json', 'User-Agent': 'MaryLab-Server/1.0' }
+                        });
+                        const wxData = await wxRes.json();
+                        
+                        if (wxRes.ok && wxData.trade_state === 'SUCCESS') {
+                            const result = await fulfillOrder(orderId);
+                            if (result.success || result.alreadyPaid) {
+                                return res.status(200).json({ success: true, status: 'paid', credits: result.credits });
+                            }
+                        }
+                    }
+                } catch (e) { console.error('[WechatPay Order Query Error]', e); }
+
+                return res.status(200).json({ success: true, status: order.status, credits: 0 });
+            }
+
+            case 'confirmOrder': {
+                const result = await fulfillOrder(data.orderId);
+                return result.success 
+                    ? res.status(200).json({ success: true, credits: result.credits })
+                    : res.status(400).json({ success: false, error: result.reason });
             }
 
             default:

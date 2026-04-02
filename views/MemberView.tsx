@@ -177,7 +177,8 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
 
             try {
                 const ts = Date.now();
-                const res = await fetch(getApiUrl(`/api/alipay?t=${ts}`), {
+                const apiUrl = pendingOrderId.startsWith('WX') ? '/api/wechat_pay' : '/api/alipay';
+                const res = await fetch(getApiUrl(`${apiUrl}?t=${ts}`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'checkOrder', orderId: pendingOrderId })

@@ -16,6 +16,36 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 原子化履约订单：加额度 + 改状态
+CREATE OR REPLACE FUNCTION fulfill_order_v1(order_trade_no TEXT)
+RETURNS JSON AS $$
+DECLARE
+  v_user_id UUID;
+  v_credits INT;
+  v_status TEXT;
+BEGIN
+  -- 1. 获取订单并锁定行
+  SELECT user_id, credits, status INTO v_user_id, v_credits, v_status 
+  FROM orders WHERE trade_no = order_trade_no FOR UPDATE;
+
+  IF v_status = 'paid' THEN
+    RETURN json_build_object('success', true, 'already_paid', true);
+  END IF;
+
+  IF v_user_id IS NULL THEN
+    RETURN json_build_object('success', false, 'error', 'order_not_found');
+  END IF;
+
+  -- 2. 增加用户额度
+  UPDATE users SET credits = credits + v_credits WHERE id = v_user_id;
+
+  -- 3. 更新订单状态
+  UPDATE orders SET status = 'paid', paid_at = NOW() WHERE trade_no = order_trade_no;
+
+  RETURN json_build_object('success', true, 'credits', v_credits);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ==========================================
 -- 2. 推荐奖励积分相关
 -- ==========================================
