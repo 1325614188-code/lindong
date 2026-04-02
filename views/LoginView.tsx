@@ -82,12 +82,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
     const handleWechatLogin = async () => {
         try {
             setLoading(true);
+            const redirectUri = window.location.origin;
             const res = await fetch(getApiUrl('/api/auth_v2'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     action: 'getWechatAuthUrl',
-                    redirectUri: window.location.href.split('?')[0] // 回调地址去掉参数
+                    redirectUri: redirectUri
                 })
             });
             const data = await res.json();
