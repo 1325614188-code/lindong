@@ -46,6 +46,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 临时迁移函数：补充 orders 表的 payment_method 字段
+CREATE OR REPLACE FUNCTION fix_orders_table()
+RETURNS void AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name='orders' AND column_name='payment_method'
+  ) THEN
+    ALTER TABLE orders ADD COLUMN payment_method TEXT;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ==========================================
 -- 2. 推荐奖励积分相关
 -- ==========================================

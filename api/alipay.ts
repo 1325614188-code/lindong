@@ -175,8 +175,7 @@ export default async function handler(req: any, res: any) {
                     amount,
                     credits,
                     status: 'pending',
-                    trade_no: orderId,
-                    payment_method: 'alipay'
+                    trade_no: orderId
                 });
 
                 if (insertError) {
