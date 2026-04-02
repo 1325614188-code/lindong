@@ -37,3 +37,6 @@ CREATE TABLE IF NOT EXISTS point_redemptions (
 -- GRANT ALL ON TABLE point_redemptions TO anon;
 -- GRANT ALL ON TABLE point_redemptions TO authenticated;
 -- GRANT ALL ON TABLE point_redemptions TO service_role;
+
+-- 5. 补充订单表缺失字段
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT;

@@ -168,7 +168,7 @@ export default async function handler(req: any, res: any) {
                 if (!config.wechat_pay_mch_id || !config.wechat_pay_private_key) return res.status(400).json({ error: '微信支付配置不全' });
 
                 const orderId = `WX${Date.now()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-                await supabase.from('orders').insert({
+                const { error: insertError } = await supabase.from('orders').insert({
                     user_id: userId,
                     amount,
                     credits,
@@ -176,6 +176,11 @@ export default async function handler(req: any, res: any) {
                     trade_no: orderId,
                     payment_method: 'wechat'
                 });
+
+                if (insertError) {
+                    console.error('[WechatPay] DB Insert Error:', insertError);
+                    return res.status(500).json({ error: '订单创建失败，请稍后重试' });
+                }
 
                 // 调用微信支付 V3 下单接口
                 const timestamp = Math.floor(Date.now() / 1000);

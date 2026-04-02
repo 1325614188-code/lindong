@@ -170,13 +170,19 @@ export default async function handler(req: any, res: any) {
                     return res.status(400).json({ error: '支付宝配置不完整' });
                 }
                 const orderId = `ML${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-                await supabase.from('orders').insert({
+                const { error: insertError } = await supabase.from('orders').insert({
                     user_id: userId,
                     amount,
                     credits,
                     status: 'pending',
-                    trade_no: orderId
+                    trade_no: orderId,
+                    payment_method: 'alipay'
                 });
+
+                if (insertError) {
+                    console.error('[Alipay] DB Insert Error:', insertError);
+                    return res.status(500).json({ error: '订单创建失败，请稍后重试' });
+                }
                 const returnUrl = 'https://marylab.xyz';
                 const params = buildAlipayParams(config, orderId, amount, credits, returnUrl);
                 const gateway = config.alipay_gateway || 'https://openapi.alipay.com/gateway.do';
