@@ -22,6 +22,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
     const [sendingCode, setSendingCode] = useState(false);
     const [isWechat, setIsWechat] = useState(false);
     const [isPhoneRegistered, setIsPhoneRegistered] = useState(false);
+    const [nonWechatRegistrationEnabled, setNonWechatRegistrationEnabled] = useState(true);
 
     // 获取设备ID
     const getDeviceId = async (): Promise<string> => {
@@ -62,6 +63,9 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                 }
                 if (data.config && data.config.wechat_login_enabled === 'false') {
                     setWechatEnabled(false);
+                }
+                if (data.config && data.config.non_wechat_registration_enabled === 'false') {
+                    setNonWechatRegistrationEnabled(false);
                 }
             } catch (e) {
                 console.error('Failed to fetch config', e);
@@ -305,33 +309,41 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                                     value={inviteCode}
                                     onChange={e => setInviteCode(e.target.value.toUpperCase())}
                                     className="w-full h-12 px-4 rounded-2xl bg-pink-50/50 border border-pink-100 focus:border-pink-300 focus:bg-white focus:outline-none transition-all placeholder:text-pink-200"
-                                    placeholder="输入邀请码立得 5 次奖励"
+                                    placeholder="输入邀请码立享专属福利"
                                 />
                                 <p className="text-[10px] text-pink-400 ml-1">
-                                    💡 必须填写正确的邀请码才能获得注册礼包哦！
+                                    💡 填写正确的邀请码可以帮助您的推荐人获得奖励哦！
                                 </p>
                             </div>
                         )}
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full h-14 xhs-gradient text-white rounded-2xl font-bold disabled:opacity-50 shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-4"
-                        >
-                            {loading ? (
-                                <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> 处理中...</>
-                            ) : (isRegister ? '立即注册' : '登录账户')}
-                        </button>
+                        {nonWechatRegistrationEnabled || (isWechat && wechatEnabled) ? (
+                            <button
+                                type="submit"
+                                disabled={loading || (!nonWechatRegistrationEnabled && !isWechat)}
+                                className="w-full h-14 xhs-gradient text-white rounded-2xl font-bold disabled:opacity-50 shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 mt-4"
+                            >
+                                {loading ? (
+                                    <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> 处理中...</>
+                                ) : (isRegister ? '立即注册' : '登录账户')}
+                            </button>
+                        ) : (
+                            <div className="p-4 bg-gray-50 rounded-2xl text-center text-xs text-gray-400 mt-4 leading-relaxed">
+                                🔒 当前环境下注册功能受限<br/>请返回并在微信中打开网页进行一键登录
+                            </div>
+                        )}
                     </form>
 
-                    <div className="mt-8 text-center">
-                        <button
-                            onClick={() => setIsRegister(!isRegister)}
-                            className="text-pink-500 text-sm font-medium hover:underline"
-                        >
-                            {isRegister ? '已有账户？点击去登录' : '还没有账号？三秒注册'}
-                        </button>
-                    </div>
+                    {nonWechatRegistrationEnabled && (
+                        <div className="mt-8 text-center">
+                            <button
+                                onClick={() => setIsRegister(!isRegister)}
+                                className="text-pink-500 text-sm font-medium hover:underline"
+                            >
+                                {isRegister ? '已有账户？点击去登录' : '还没有账号？三秒注册'}
+                            </button>
+                        </div>
+                    )}
 
                     {/* 微信登录按钮 - 仅在微信环境且开启配置时显示 */}
                     {isWechat && wechatEnabled && !isRegister && (
@@ -361,7 +373,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                         <div className="mt-6 p-4 bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border border-pink-100">
                             <p className="text-[10px] text-pink-600 leading-relaxed text-center">
                                 🎁 <span className="font-bold text-sm">新用户专属福利</span><br/>
-                                注册时填写邀请码，首台设备赠送 <span className="font-bold text-lg">5</span> 次额度！
+                                注册成功即赠送 <span className="font-bold text-lg">3</span> 次试用额度！
                             </p>
                         </div>
                     )}

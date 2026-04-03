@@ -567,6 +567,42 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.wechat_pay_enabled === 'true' ? 'left-7' : 'left-1'}`} />
                                 </button>
                             </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
+                                    <p className="font-bold text-sm">首页下载按钮</p>
+                                    <p className="text-[10px] text-gray-500 text-nowrap">开启后首页显示“下载 APP”按钮</p>
+                                </div>
+                                <button
+                                    onClick={() => updateConfig('home_download_app_enabled', config.home_download_app_enabled !== 'false' ? 'false' : 'true')}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${config.home_download_app_enabled !== 'false' ? 'bg-indigo-500' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.home_download_app_enabled !== 'false' ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
+                                    <p className="font-bold text-sm">添加到桌面显示</p>
+                                    <p className="text-[10px] text-gray-500 text-nowrap">开启后首页显示“把网站添加到桌面”</p>
+                                </div>
+                                <button
+                                    onClick={() => updateConfig('home_add_to_desktop_enabled', config.home_add_to_desktop_enabled !== 'false' ? 'false' : 'true')}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${config.home_add_to_desktop_enabled !== 'false' ? 'bg-rose-500' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.home_add_to_desktop_enabled !== 'false' ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                <div>
+                                    <p className="font-bold text-sm">非微信注册开关</p>
+                                    <p className="text-[10px] text-gray-500 text-nowrap">开启后允许在非微信环境进行注册登录</p>
+                                </div>
+                                <button
+                                    onClick={() => updateConfig('non_wechat_registration_enabled', config.non_wechat_registration_enabled !== 'false' ? 'false' : 'true')}
+                                    className={`w-12 h-6 rounded-full transition-all relative ${config.non_wechat_registration_enabled !== 'false' ? 'bg-orange-500' : 'bg-gray-300'}`}
+                                >
+                                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.non_wechat_registration_enabled !== 'false' ? 'left-7' : 'left-1'}`} />
+                                </button>
+                            </div>
                             <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
                                 <label className="w-28 text-sm font-bold shrink-0">佣金比例 (%)</label>
                                 <div className="flex-1 flex items-center gap-2">

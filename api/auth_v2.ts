@@ -204,8 +204,8 @@ export default async function handler(req: any, res: any) {
                     }
                 }
 
-                // 只有【设备首次注册】且【填写了有效邀请码】才赠送额度
-                const initialCredits = (isFirstOnDevice && realReferrerId) ? 5 : 0;
+                // 统一赠送 3 次免费额度
+                const initialCredits = 3;
 
                 // 为新用户生成唯一邀请码
                 let newInviteCode = generateInviteCode();
@@ -654,7 +654,7 @@ export default async function handler(req: any, res: any) {
                 const { data: configs } = await supabase
                     .from('app_config')
                     .select('key, value')
-                    .in('key', ['announcement', 'contact_wechat', 'recharge_enabled', 'sms_registration_enabled', 'wechat_login_enabled']);
+                    .in('key', ['announcement', 'contact_wechat', 'recharge_enabled', 'sms_registration_enabled', 'wechat_login_enabled', 'home_download_app_enabled', 'home_add_to_desktop_enabled', 'non_wechat_registration_enabled']);
 
                 const configMap: Record<string, string> = {};
                 configs?.forEach(c => { configMap[c.key] = c.value; });
@@ -806,8 +806,8 @@ export default async function handler(req: any, res: any) {
                         }
                     }
 
-                    // 只有【设备首次注册】且【填写了有效邀请码】才赠送额度
-                    const initialCredits = (isFirstOnDevice && realReferrerId) ? 5 : 0;
+                    // 统一赠送 3 次免费额度
+                    const initialCredits = 3;
                     let newInviteCode = generateInviteCode();
 
                     const { data: newUser, error: registerError } = await supabase

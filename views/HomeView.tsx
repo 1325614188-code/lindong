@@ -13,6 +13,8 @@ interface HomeViewProps {
 const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
   const [announcement, setAnnouncement] = React.useState('✨ 发现你的独属魅力 ✨');
   const [showDownloadDialog, setShowDownloadDialog] = React.useState(false);
+  const [downloadEnabled, setDownloadEnabled] = React.useState(true);
+  const [pwaEnabled, setPwaEnabled] = React.useState(true);
 
   React.useEffect(() => {
     fetch(getApiUrl('/api/auth_v2'), {
@@ -24,6 +26,12 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
       .then(data => {
         if (data.config?.announcement) {
           setAnnouncement(data.config.announcement);
+        }
+        if (data.config?.home_download_app_enabled === 'false') {
+          setDownloadEnabled(false);
+        }
+        if (data.config?.home_add_to_desktop_enabled === 'false') {
+          setPwaEnabled(false);
         }
       })
       .catch(err => console.error('[HomeView] Failed to fetch announcement', err));
@@ -79,7 +87,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
       </header>
 
       <div className="mb-8 flex gap-3 items-start justify-stretch">
-        {!isApp && (
+        {!isApp && downloadEnabled && (
           <button
             onClick={handleDownloadClick}
             className="flex-1 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-2xl flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-transform active:scale-95 text-[11px] font-bold no-underline"
@@ -88,9 +96,11 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
             下载 APP
           </button>
         )}
-        <div className="flex-1">
-          <InstallPWA />
-        </div>
+        {pwaEnabled && (
+          <div className="flex-1">
+            <InstallPWA />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
