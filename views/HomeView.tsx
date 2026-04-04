@@ -88,6 +88,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
         { id: AppSection.MBTI_TEST, title: '天赋测试', icon: '🧠', color: 'bg-violet-100/80', border: 'border-violet-200' },
         { id: AppSection.EQ_TEST, title: '情商测试', icon: '🎭', color: 'bg-pink-100/80', border: 'border-pink-200', isNew: true },
         { id: AppSection.IQ_TEST, title: '智力测评', icon: '🧬', color: 'bg-sky-100/80', border: 'border-sky-200', isNew: true },
+        { id: AppSection.BIG_FIVE, title: '大五人格', icon: '🌊', color: 'bg-violet-100/80', border: 'border-violet-200', isNew: true },
       ]
     }
   ];

@@ -22,6 +22,7 @@ export enum AppSection {
   AI_EYE_DIAGNOSIS = 'eye-diagnosis',
   EQ_TEST = 'eq-test',
   IQ_TEST = 'iq-test',
+  BIG_FIVE = 'big-five',
   APP_DOWNLOAD = 'app-download'
 }
 
