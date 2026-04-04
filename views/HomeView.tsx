@@ -55,6 +55,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
     { id: AppSection.DEPRESSION_TEST, title: '抑郁自测', icon: '💙', color: 'bg-sky-100', border: 'border-sky-300' },
     { id: AppSection.MARRIAGE_ANALYSIS, title: '看姻缘', icon: '💘', color: 'bg-rose-50', border: 'border-rose-200' },
     { id: AppSection.WEALTH_ANALYSIS, title: '看财富', icon: '💰', color: 'bg-amber-50', border: 'border-amber-200' },
+    { id: AppSection.AI_EYE_DIAGNOSIS, title: 'AI看眼', icon: '👁️', color: 'bg-indigo-50', border: 'border-indigo-200', isNew: true },
   ];
 
   // 检测是否在原生 App 环境（Capacitor）

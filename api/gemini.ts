@@ -482,6 +482,72 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                 return res.status(200).json({ result });
             }
 
+            case 'eyeDiagnosis': {
+                // AI 看眼 - 中医五轮学说
+                const systemInstruction = `你是一位精通中国传统中医“五轮学说”的望诊专家。
+你的任务是通过用户上传的五个角度的眼睛照片（正视、上视、下视、左视、右视），分析其脏腑健康状况。
+
+【中医五轮理论基础】：
+1. 肉轮（胞睑/眼睑）：属脾，主运化。观察是否有浮肿、下垂、颜色异常（如萎黄、红肿）。
+2. 血轮（两眦/内外眼角）：属心，主血脉。观察是否有血丝、红赤、溢血。
+3. 气轮（白睛/巩膜）：属肺，主气。观察是否有黄染、血丝、色斑（如蓝斑、黑点）。
+4. 风轮（黑睛/角膜）：属肝，主疏泄。观察是否混浊、有翳。
+5. 水轮（瞳神/瞳孔）：属肾，主精气。观察瞳孔大小、光反应速度。
+
+请以 JSON 格式返回分析结果，结构如下：
+{
+  "healthScore": 0-100的健康得分,
+  "mainFinding": "最核心的一个健康发现（如：脾胃虚弱、心火旺盛等）",
+  "visceraStatus": "五脏六腑总体状态描述",
+  "detailedAnalysis": {
+      "spleenStomach": "肉轮（眼睑）分析：脾胃运化状况",
+      "heart": "血轮（眼角）分析：心神与血液状况",
+      "lung": "气轮（白睛）分析：肺气与呼吸相关状况",
+      "liver": "风轮（黑睛）分析：肝胆疏泄状况",
+      "kidney": "水轮（瞳孔）分析：肾精充盈状况"
+  },
+  "suggestions": ["建议1", "建议2", "建议3"],
+  "reportMarkdown": "一份精美的、小红书风格的详细分析报告，包含中医术语解释、日常调理方案、饮食建议等。多用emoji，排版美观。"
+}`;
+
+                const result = await requestWithRetry(async (ai) => {
+                    const contents = {
+                        parts: [
+                            ...images.map((img: string) => ({
+                                inlineData: {
+                                    mimeType: 'image/jpeg',
+                                    data: img.split(',')[1] || img
+                                }
+                            })),
+                            { text: "这是我从五个角度拍摄的眼睛照片，请根据中医五轮学说进行深度健康分析。" }
+                        ]
+                    };
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-3-flash-preview',
+                        contents,
+                        config: {
+                            systemInstruction,
+                            temperature: 0.7
+                        }
+                    });
+
+                    let text = response.text;
+                    const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        text = jsonMatch[1] || jsonMatch[0];
+                    }
+
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error("[Eye Diagnosis API Parse Error]", text);
+                        return { error: "解析分析报告失败", raw: text };
+                    }
+                });
+
+                return res.status(200).json({ result });
+            }
+
             default:
                 return res.status(400).json({ error: 'Invalid action' });
         }
