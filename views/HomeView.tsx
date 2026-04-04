@@ -49,6 +49,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
         { id: AppSection.HAIRSTYLE, title: '发型参考', icon: '💇‍♀️', color: 'bg-rose-100/80', border: 'border-rose-200' },
         { id: AppSection.MAKEUP, title: '美妆效果', icon: '💄', color: 'bg-fuchsia-100/80', border: 'border-fuchsia-200' },
         { id: AppSection.BEAUTY_SCORE, title: '颜值打分', icon: '✨', color: 'bg-orange-100/80', border: 'border-orange-200' },
+        { id: AppSection.JADE_APPRAISAL, title: '翡翠鉴别', icon: '📿', color: 'bg-emerald-100/80', border: 'border-emerald-200' },
       ]
     },
     {
@@ -69,7 +70,6 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
       border: 'border-amber-200',
       accent: 'text-amber-700',
       items: [
-        { id: AppSection.JADE_APPRAISAL, title: '翡翠鉴别', icon: '📿', color: 'bg-emerald-100/80', border: 'border-emerald-200' },
         { id: AppSection.COUPLE_FACE, title: '夫妻相', icon: '👩‍❤️‍👨', color: 'bg-red-100/80', border: 'border-red-200' },
         { id: AppSection.FACE_READING, title: '相术面相', icon: '🧿', color: 'bg-indigo-100/80', border: 'border-indigo-200' },
         { id: AppSection.FENG_SHUI, title: '摆设风水', icon: '🪑', color: 'bg-yellow-100/80', border: 'border-yellow-300' },
