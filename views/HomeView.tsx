@@ -37,25 +37,57 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
       .catch(err => console.error('[HomeView] Failed to fetch announcement', err));
   }, []);
 
-  const sections = [
-    { id: AppSection.JADE_APPRAISAL, title: '翡翠鉴别', icon: '📿', color: 'bg-emerald-100', border: 'border-emerald-300' },
-    { id: AppSection.ADVANCED_TRY_ON, title: '沉浸换装', icon: '✨', color: 'bg-indigo-100', border: 'border-indigo-400', textColor: 'text-indigo-900', isNew: true },
-    { id: AppSection.TRY_ON_ACCESSORIES, title: '试佩饰', icon: '💎', color: 'bg-purple-100', border: 'border-purple-300' },
-    { id: AppSection.HAIRSTYLE, title: '发型参考', icon: '💇‍♀️', color: 'bg-rose-100', border: 'border-rose-300' },
-    { id: AppSection.MAKEUP, title: '美妆效果', icon: '💄', color: 'bg-fuchsia-100', border: 'border-fuchsia-300' },
-    { id: AppSection.BEAUTY_SCORE, title: '颜值打分', icon: '✨', color: 'bg-orange-100', border: 'border-orange-300' },
-    { id: AppSection.COUPLE_FACE, title: '夫妻相', icon: '👩‍❤️‍👨', color: 'bg-red-100', border: 'border-red-300' },
-    { id: AppSection.TONGUE_DIAGNOSIS, title: '趣味舌诊', icon: '👅', color: 'bg-green-100', border: 'border-green-300' },
-    { id: AppSection.FACE_COLOR, title: '面色调理', icon: '💆‍♀️', color: 'bg-blue-100', border: 'border-blue-300' },
-    { id: AppSection.FACE_READING, title: '相术面相', icon: '🧿', color: 'bg-indigo-100', border: 'border-indigo-300' },
-    { id: AppSection.FENG_SHUI, title: '摆设风水', icon: '🪑', color: 'bg-yellow-100', border: 'border-yellow-400' },
-    { id: AppSection.LICENSE_PLATE, title: '五行车牌', icon: '🚗', color: 'bg-cyan-100', border: 'border-cyan-300' },
-    { id: AppSection.CALENDAR, title: '出门黄历', icon: '📅', color: 'bg-[#C69C6D]', border: 'border-[#A67C4D]', textColor: 'text-white' },
-    { id: AppSection.MBTI_TEST, title: '天赋测试', icon: '🧠', color: 'bg-violet-100', border: 'border-violet-300' },
-    { id: AppSection.DEPRESSION_TEST, title: '抑郁自测', icon: '💙', color: 'bg-sky-100', border: 'border-sky-300' },
-    { id: AppSection.MARRIAGE_ANALYSIS, title: '看姻缘', icon: '💘', color: 'bg-rose-50', border: 'border-rose-200' },
-    { id: AppSection.WEALTH_ANALYSIS, title: '看财富', icon: '💰', color: 'bg-amber-50', border: 'border-amber-200' },
-    { id: AppSection.AI_EYE_DIAGNOSIS, title: 'AI看眼', icon: '👁️', color: 'bg-indigo-50', border: 'border-indigo-200', isNew: true },
+  const categories = [
+    {
+      title: '美学研究',
+      bg: 'bg-rose-50/40',
+      border: 'border-rose-200',
+      accent: 'text-rose-600',
+      items: [
+        { id: AppSection.ADVANCED_TRY_ON, title: '沉浸换装', icon: '✨', color: 'bg-indigo-100/80', border: 'border-indigo-300', textColor: 'text-indigo-900', isNew: true },
+        { id: AppSection.TRY_ON_ACCESSORIES, title: '试佩饰', icon: '💎', color: 'bg-purple-100/80', border: 'border-purple-200' },
+        { id: AppSection.HAIRSTYLE, title: '发型参考', icon: '💇‍♀️', color: 'bg-rose-100/80', border: 'border-rose-200' },
+        { id: AppSection.MAKEUP, title: '美妆效果', icon: '💄', color: 'bg-fuchsia-100/80', border: 'border-fuchsia-200' },
+        { id: AppSection.BEAUTY_SCORE, title: '颜值打分', icon: '✨', color: 'bg-orange-100/80', border: 'border-orange-200' },
+      ]
+    },
+    {
+      title: '健康望诊',
+      bg: 'bg-emerald-50/40',
+      border: 'border-emerald-200',
+      accent: 'text-emerald-600',
+      items: [
+        { id: AppSection.AI_EYE_DIAGNOSIS, title: 'AI看眼', icon: '👁️', color: 'bg-indigo-50/80', border: 'border-indigo-100', isNew: true },
+        { id: AppSection.TONGUE_DIAGNOSIS, title: '趣味舌诊', icon: '👅', color: 'bg-green-100/80', border: 'border-green-200' },
+        { id: AppSection.FACE_COLOR, title: '面色调理', icon: '💆‍♀️', color: 'bg-blue-100/80', border: 'border-blue-200' },
+        { id: AppSection.DEPRESSION_TEST, title: '抑郁自测', icon: '💙', color: 'bg-sky-100/80', border: 'border-sky-200' },
+      ]
+    },
+    {
+      title: '传统玄学',
+      bg: 'bg-amber-50/40',
+      border: 'border-amber-200',
+      accent: 'text-amber-700',
+      items: [
+        { id: AppSection.JADE_APPRAISAL, title: '翡翠鉴别', icon: '📿', color: 'bg-emerald-100/80', border: 'border-emerald-200' },
+        { id: AppSection.COUPLE_FACE, title: '夫妻相', icon: '👩‍❤️‍👨', color: 'bg-red-100/80', border: 'border-red-200' },
+        { id: AppSection.FACE_READING, title: '相术面相', icon: '🧿', color: 'bg-indigo-100/80', border: 'border-indigo-200' },
+        { id: AppSection.FENG_SHUI, title: '摆设风水', icon: '🪑', color: 'bg-yellow-100/80', border: 'border-yellow-300' },
+        { id: AppSection.LICENSE_PLATE, title: '五行车牌', icon: '🚗', color: 'bg-cyan-100/80', border: 'border-cyan-200' },
+        { id: AppSection.CALENDAR, title: '出门黄历', icon: '📅', color: 'bg-[#C69C6D]/80', border: 'border-[#A67C4D]', textColor: 'text-white' },
+        { id: AppSection.MARRIAGE_ANALYSIS, title: '看姻缘', icon: '💘', color: 'bg-rose-50/80', border: 'border-rose-100' },
+        { id: AppSection.WEALTH_ANALYSIS, title: '看财富', icon: '💰', color: 'bg-amber-50/80', border: 'border-amber-100' },
+      ]
+    },
+    {
+      title: '心理测评',
+      bg: 'bg-violet-50/40',
+      border: 'border-violet-200',
+      accent: 'text-violet-600',
+      items: [
+        { id: AppSection.MBTI_TEST, title: '天赋测试', icon: '🧠', color: 'bg-violet-100/80', border: 'border-violet-200' },
+      ]
+    }
   ];
 
   // 检测是否在原生 App 环境（Capacitor）
@@ -76,7 +108,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 pb-20">
       <header className="mb-8 text-center">
         <h1 className="text-4xl art-title mb-2">✨ 美力实验室 ✨</h1>
         <div className="bg-white/50 backdrop-blur-sm border border-pink-100 rounded-full py-1 px-4 overflow-hidden relative h-8 flex items-center">
@@ -104,21 +136,35 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        {sections.map((sec) => (
-          <button
-            key={sec.id}
-            onClick={() => onNavigate(sec.id)}
-            className={`${sec.color} ${sec.border} border ${sec.textColor || 'text-gray-800'} rounded-2xl p-4 flex flex-row items-center justify-start gap-3 shadow-[0_4px_15px_rgba(255,107,157,0.3)] hover:shadow-[0_6px_20px_rgba(255,107,157,0.4)] transition-all transform active:scale-95 h-16 relative overflow-hidden`}
+      <div className="space-y-10">
+        {categories.map((cat, catIdx) => (
+          <div 
+            key={catIdx} 
+            className={`${cat.bg} ${cat.border} border-2 border-dashed rounded-[32px] p-6 relative pt-8`}
           >
-            {sec.isNew && (
-              <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg z-10">NEW</div>
-            )}
-            <span className="text-2xl flex-shrink-0 relative z-10">{sec.icon}</span>
-            <span className="font-bold text-[14px] whitespace-nowrap overflow-hidden text-ellipsis relative z-10">
-              {sec.title}
-            </span>
-          </button>
+            {/* Category Title Badge */}
+            <div className={`absolute -top-4 left-6 px-4 py-1.5 rounded-full bg-white border ${cat.border} shadow-sm z-10`}>
+              <span className={`text-xs font-black tracking-widest ${cat.accent}`}>{cat.title}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {cat.items.map((sec) => (
+                <button
+                  key={sec.id}
+                  onClick={() => onNavigate(sec.id)}
+                  className={`${sec.color} ${sec.border} border-b-4 border-r-2 ${sec.textColor || 'text-gray-800'} rounded-2xl p-4 flex flex-row items-center justify-start gap-3 shadow-sm hover:shadow-md transition-all transform active:scale-95 h-16 relative overflow-hidden group`}
+                >
+                  {sec.isNew && (
+                    <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg z-10">NEW</div>
+                  )}
+                  <span className="text-2xl flex-shrink-0 relative z-10 group-hover:scale-110 transition-transform">{sec.icon}</span>
+                  <span className="font-black text-[13px] whitespace-nowrap overflow-hidden text-ellipsis relative z-10">
+                    {sec.title}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
