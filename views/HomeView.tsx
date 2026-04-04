@@ -86,6 +86,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
       accent: 'text-violet-600',
       items: [
         { id: AppSection.MBTI_TEST, title: '天赋测试', icon: '🧠', color: 'bg-violet-100/80', border: 'border-violet-200' },
+        { id: AppSection.EQ_TEST, title: '情商测试', icon: '🎭', color: 'bg-pink-100/80', border: 'border-pink-200', isNew: true },
       ]
     }
   ];

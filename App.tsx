@@ -13,6 +13,7 @@ import FengShuiView from './views/FengShuiView';
 import LicensePlateView from './views/LicensePlateView';
 import CalendarView from './views/CalendarView';
 import MBTITestView from './views/MBTITestView';
+import EQTestView from './views/EQTestView';
 import DepressionTestView from './views/DepressionTestView';
 import MarriageView from './views/MarriageView';
 import WealthView from './views/WealthView';
@@ -222,6 +223,7 @@ const App: React.FC = () => {
                 {currentSection === AppSection.LICENSE_PLATE && <LicensePlateView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.CALENDAR && <CalendarView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.MBTI_TEST && <MBTITestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.EQ_TEST && <EQTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.DEPRESSION_TEST && <DepressionTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.MARRIAGE_ANALYSIS && <MarriageView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.WEALTH_ANALYSIS && <WealthView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
