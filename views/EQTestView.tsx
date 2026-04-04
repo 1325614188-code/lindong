@@ -89,9 +89,6 @@ const EQTestView: React.FC<EQTestViewProps> = ({ onBack, onCheckCredits, onDeduc
     };
 
     const calculateResult = async () => {
-        const hasCredits = await onCheckCredits?.();
-        if (!hasCredits) return;
-
         // 计算总分
         let totalScore = 0;
         const dimensionScores: Record<string, number> = {
@@ -151,7 +148,6 @@ const EQTestView: React.FC<EQTestViewProps> = ({ onBack, onCheckCredits, onDeduc
             dimensionScores
         });
         setShowResult(true);
-        await onDeductCredit?.();
     };
 
     const progress = ((currentQuestion + 1) / EQ_QUESTIONS.length) * 100;

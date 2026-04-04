@@ -129,10 +129,6 @@ const MBTITestView: React.FC<MBTITestViewProps> = ({ onBack, onCheckCredits, onD
     };
 
     const calculateResult = async () => {
-        // 检查额度
-        const hasCredits = await onCheckCredits?.();
-        if (!hasCredits) return;
-
         // 计算各维度得分
         const scores = { E: 0, I: 0, S: 0, N: 0, T: 0, F: 0, J: 0, P: 0 };
 
@@ -155,7 +151,6 @@ const MBTITestView: React.FC<MBTITestViewProps> = ({ onBack, onCheckCredits, onD
 
         setResult(type);
         setShowResult(true);
-        await onDeductCredit?.();
     };
 
     const progress = ((currentQuestion + 1) / MBTI_QUESTIONS.length) * 100;

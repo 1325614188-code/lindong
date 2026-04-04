@@ -114,10 +114,6 @@ const DepressionTestView: React.FC<DepressionTestViewProps> = ({ onBack, onCheck
     };
 
     const calculateResult = async () => {
-        // 检查额度
-        const hasCredits = await onCheckCredits?.();
-        if (!hasCredits) return;
-
         // 计算总分
         let score = 0;
         Object.values(answers).forEach((a: number) => {
@@ -126,7 +122,6 @@ const DepressionTestView: React.FC<DepressionTestViewProps> = ({ onBack, onCheck
 
         setTotalScore(score);
         setShowResult(true);
-        await onDeductCredit?.();
     };
 
     const getResultLevel = (score: number): { level: string; color: string; emoji: string; desc: string; advice: string } => {
