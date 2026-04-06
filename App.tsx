@@ -147,6 +147,26 @@ const App: React.FC = () => {
     setUser(null);
     setShowMember(false);
     setShowAdmin(false);
+    setCurrentSection(AppSection.HOME); // 登出时返回首页
+  };
+
+  /**
+   * 统一导航处理（带逻辑拦截）
+   */
+  const handleNavigate = (section: AppSection) => {
+    // 豁免区域：首页和 App 下载
+    if (section === AppSection.HOME || section === AppSection.APP_DOWNLOAD) {
+      setCurrentSection(section);
+      return;
+    }
+
+    // 鉴权拦截：所有测试项目必须登录
+    if (!user) {
+      setShowLogin(true);
+      return;
+    }
+
+    setCurrentSection(section);
   };
 
   const handleUserUpdate = (up: User) => {
@@ -210,7 +230,7 @@ const App: React.FC = () => {
 
             {!showLogin && !showAdmin && !showMember && (
               <>
-                {currentSection === AppSection.HOME && <HomeView onNavigate={setCurrentSection} onShowLogin={() => setShowLogin(true)} />}
+                {currentSection === AppSection.HOME && <HomeView onNavigate={handleNavigate} onShowLogin={() => setShowLogin(true)} />}
                 {currentSection === AppSection.ADVANCED_TRY_ON && <AdvancedTryOnView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.TRY_ON_CLOTHES && <TryOnView type="clothes" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.TRY_ON_ACCESSORIES && <TryOnView type="accessories" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
