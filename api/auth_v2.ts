@@ -373,43 +373,49 @@ export default async function handler(req: any, res: any) {
             case 'redeem': {
                 const { userId, code, deviceId } = data;
                 const userAgent = req.headers['user-agent'] || '';
-                const isMobile = isMobileDevice(userAgent);
+                const env = getEnvironment(userAgent);
+                const isMobile = env !== 'other'; // 兼容 browser
 
-                // 检查是否为移动端
+                // 检查是否为移动端 (放宽限制以允许 H5 浏览器使用)
                 if (!isMobile) {
-                    return res.status(400).json({ error: '兑换码只能在手机端使用' });
+                    return res.status(400).json({ error: '兑换码建议在手机端使用哦' });
                 }
 
                 // 验证兑换码格式
                 if (!validateRedeemCode(code)) {
-                    return res.status(400).json({ error: '无效的兑换码' });
+                    return res.status(400).json({ error: '无效或过期的兑换码' });
                 }
 
-                // 检查兑换码是否已被使用
+                // 检查兑换码是否已被使用 (全局唯一性)
                 const { data: existingRedemption } = await supabase
                     .from('redemptions')
                     .select('id')
                     .eq('code', code)
-                    .single();
+                    .maybeSingle();
 
                 if (existingRedemption) {
-                    return res.status(400).json({ error: '该兑换码已被使用' });
+                    return res.status(400).json({ error: '该兑换码已被其他人抢先使用啦' });
                 }
 
-                // 检查本月是否已兑换过
-                const startOfMonth = new Date();
-                startOfMonth.setDate(1);
-                startOfMonth.setHours(0, 0, 0, 0);
+                // 检查本月是否已兑换过 (基于北京时间)
+                const now = new Date();
+                const beijingOffset = 8 * 60; 
+                const localOffset = now.getTimezoneOffset();
+                const beijingTime = new Date(now.getTime() + (beijingOffset + localOffset) * 60 * 1000);
+                
+                const startOfMonth = new Date(beijingTime.getFullYear(), beijingTime.getMonth(), 1, 0, 0, 0);
+                // 转换回 UTC 给 Supabase 查询
+                const startOfMonthUtc = new Date(startOfMonth.getTime() - (beijingOffset * 60 * 1000)).toISOString();
 
                 const { data: monthlyRedemption } = await supabase
                     .from('redemptions')
                     .select('id')
-                    .eq('device_id', deviceId)
-                    .gte('used_at', startOfMonth.toISOString())
-                    .single();
+                    .or(`device_id.eq.${deviceId},user_id.eq.${userId}`)
+                    .gte('used_at', startOfMonthUtc)
+                    .maybeSingle();
 
                 if (monthlyRedemption) {
-                    return res.status(400).json({ error: '本月已兑换过，请下月再试' });
+                    return res.status(400).json({ error: '本月您已兑换过福利，请下月再来哦（每月限领一次）' });
                 }
 
                 // 记录兑换
@@ -419,12 +425,12 @@ export default async function handler(req: any, res: any) {
                     user_id: userId
                 });
 
-                // 增加用户次数
-                await supabase.rpc('add_credits', { user_id: userId, amount: 5 });
+                // 增加用户次数 (10次)
+                await supabase.rpc('add_credits', { user_id: userId, amount: 10 });
 
                 return res.status(200).json({
                     success: true,
-                    message: '兑换成功，已增加5次使用额度！'
+                    message: '兑换成功，已为您增加了 10 次使用额度！'
                 });
             }
 

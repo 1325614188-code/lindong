@@ -621,8 +621,25 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 )}
 
                 {/* 兑换码 */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <h4 className="font-bold mb-2">🎁 兑换码</h4>
+                <div className="bg-white rounded-2xl p-4 shadow-sm relative overflow-hidden">
+                    <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-bold">🎁 兑换码</h4>
+                        <div className="flex items-center gap-1.5 py-1 px-2.5 bg-blue-50 rounded-lg border border-blue-100 active:bg-blue-100 transition-colors cursor-pointer" 
+                             onClick={() => {
+                                 const wx = config.contact_wechat || 'sekesm';
+                                 navigator.clipboard.writeText(wx).then(() => {
+                                     alert(`微信号 ${wx} 已复制，去微信添加客服领码吧！`);
+                                 });
+                             }}>
+                            <span className="text-[10px] text-blue-600 font-bold">联系客服领码</span>
+                            <span className="text-[10px] px-1 bg-blue-500 text-white rounded">复制</span>
+                        </div>
+                    </div>
+                    
+                    <p className="text-[10px] text-gray-400 mb-3 leading-relaxed">
+                        联系客服微信 <span className="text-blue-500 font-bold">{config.contact_wechat || 'sekesm'}</span> 可免费获得兑换码，每个码可兑换 <span className="text-pink-500 font-bold">10次</span> 额度（每人每月限领一次）。
+                    </p>
+
                     <div className="flex gap-2">
                         <input
                             type="text"
@@ -635,7 +652,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                             {loading ? '...' : '兑换'}
                         </button>
                     </div>
-                    {message && <p className={`mt-2 text-sm ${message.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>{message}</p>}
+                    {message && <p className={`mt-2 text-sm font-medium ${message.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>{message}</p>}
                 </div>
 
                 <button onClick={onLogout} className="w-full h-12 border border-blue-100 rounded-2xl text-blue-400 font-bold active:bg-blue-50 transition-colors">退出登录</button>

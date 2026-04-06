@@ -885,7 +885,83 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                 <p className="text-[10px] text-amber-600 mt-4">* 已扩展至 20 行，由于条目较多，现已开启内部滚动查看。</p>
                             </div>
 
-                            {/* 系统通知管理 (原有) */}
+                            {/* 兑换码生成器 */}
+                            <div className="mt-8 bg-white rounded-2xl p-6 shadow-sm border-2 border-purple-100">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <span className="text-xl">🛠️</span>
+                                    <h3 className="font-bold">兑换码生成助手 (算法同步)</h3>
+                                </div>
+                                
+                                <div className="bg-purple-50 rounded-xl p-3 mb-4 text-[10px] text-purple-700 leading-relaxed">
+                                    <p className="font-bold mb-1">💡 使用说明：</p>
+                                    <p>生成的兑换码遵循今日日期算法（DD AA XX BBB），即发即用。建议每次生成少量并及时分配。兑换码全局唯一，一旦某人成功兑换，该字符串即作废。</p>
+                                </div>
+
+                                <div className="flex gap-2 items-end mb-4">
+                                    <div className="flex-1">
+                                        <label className="block text-[10px] text-gray-400 font-bold mb-1 ml-1">生成数量</label>
+                                        <input 
+                                            type="number" 
+                                            min="1" 
+                                            max="50"
+                                            id="gen-count"
+                                            defaultValue="5"
+                                            className="w-full h-10 px-4 rounded-xl border border-gray-200 focus:border-purple-300 transition-all text-sm outline-none font-bold"
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            const count = parseInt((document.getElementById('gen-count') as HTMLInputElement).value) || 5;
+                                            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                                            
+                                            // 计算北京时间日期组件
+                                            const now = new Date();
+                                            const beijingOffset = 8 * 60; 
+                                            const localOffset = now.getTimezoneOffset();
+                                            const bjTime = new Date(now.getTime() + (beijingOffset + localOffset) * 60 * 1000);
+                                            
+                                            const dd = String(bjTime.getDate()).padStart(2, '0');
+                                            const future = new Date(bjTime);
+                                            future.setDate(bjTime.getDate() + 13);
+                                            const xx = String(future.getDate()).padStart(2, '0');
+                                            
+                                            const results = [];
+                                            for(let i=0; i<count; i++) {
+                                                const aa = chars[Math.floor(Math.random()*26)] + chars[Math.floor(Math.random()*26)];
+                                                const bbb = chars[Math.floor(Math.random()*26)] + chars[Math.floor(Math.random()*26)] + chars[Math.floor(Math.random()*26)];
+                                                results.push(`${dd}${aa}${xx}${bbb}`);
+                                            }
+                                            
+                                            const area = document.getElementById('gen-results') as HTMLTextAreaElement;
+                                            area.value = results.join('\n');
+                                        }}
+                                        className="h-10 px-6 bg-purple-500 hover:bg-purple-600 text-white rounded-xl text-sm font-bold active:scale-95 transition-all shadow-md"
+                                    >
+                                        生成今日兑换码
+                                    </button>
+                                </div>
+
+                                <div className="relative">
+                                    <textarea 
+                                        id="gen-results"
+                                        readOnly
+                                        placeholder="点击生成按钮后，兑换码将显示在这里..."
+                                        className="w-full h-40 p-4 bg-gray-50 border border-gray-100 rounded-2xl text-xs font-mono text-purple-600 leading-relaxed outline-none"
+                                    />
+                                    <button 
+                                        onClick={() => {
+                                            const area = document.getElementById('gen-results') as HTMLTextAreaElement;
+                                            if(!area.value) return;
+                                            navigator.clipboard.writeText(area.value).then(() => {
+                                                alert('兑换码列表已全部复制到剪贴板！');
+                                            });
+                                        }}
+                                        className="absolute right-3 bottom-3 py-1.5 px-3 bg-white border border-purple-100 text-purple-500 rounded-lg text-[10px] font-bold shadow-sm active:bg-purple-50"
+                                    >
+                                        一键复制全部
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
