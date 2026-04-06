@@ -3,8 +3,6 @@ import React, { useState } from 'react';
 
 interface MBTITestViewProps {
     onBack: () => void;
-    onCheckCredits?: () => Promise<boolean>;
-    onDeductCredit?: () => Promise<boolean>;
 }
 
 // MBTI 80道测试题目
@@ -115,7 +113,7 @@ const MBTI_DESCRIPTIONS: Record<string, { title: string; traits: string; careers
     'ESFP': { title: '表演者', traits: '热情、风趣、享受生活', careers: '演员、主持人、销售、活动策划', industries: '娱乐、销售、餐饮、旅游', earning: '💰💰💰 魅力是最大的资本' },
 };
 
-const MBTITestView: React.FC<MBTITestViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+const MBTITestView: React.FC<MBTITestViewProps> = ({ onBack }) => {
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [answers, setAnswers] = useState<Record<number, number>>({});
     const [result, setResult] = useState<string | null>(null);
@@ -162,7 +160,7 @@ const MBTITestView: React.FC<MBTITestViewProps> = ({ onBack, onCheckCredits, onD
             <div className="p-6 flex flex-col gap-6">
                 <div className="flex items-center gap-4">
                     <button onClick={onBack} className="text-2xl">←</button>
-                    <h2 className="text-xl font-bold">天赋测试结果</h2>
+                    <h2 className="text-xl font-bold">职业天赋测试结果</h2>
                 </div>
 
                 <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-3xl p-6 text-white text-center">
@@ -201,7 +199,7 @@ const MBTITestView: React.FC<MBTITestViewProps> = ({ onBack, onCheckCredits, onD
         <div className="p-6 flex flex-col gap-6">
             <div className="flex items-center gap-4">
                 <button onClick={onBack} className="text-2xl">←</button>
-                <h2 className="text-xl font-bold">天赋测试</h2>
+                <h2 className="text-xl font-bold">职业天赋测试</h2>
             </div>
 
             {/* 进度条 */}

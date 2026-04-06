@@ -85,7 +85,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
       border: 'border-violet-200',
       accent: 'text-violet-600',
       items: [
-        { id: AppSection.MBTI_TEST, title: '天赋测试', icon: '🧠', color: 'bg-violet-100/80', border: 'border-violet-200' },
+        { id: AppSection.MBTI_TEST, title: '职业天赋测试', subTitle: '（MBTI测试）', icon: '🧠', color: 'bg-violet-100/80', border: 'border-violet-200' },
         { id: AppSection.EQ_TEST, title: '情商测试', icon: '🎭', color: 'bg-pink-100/80', border: 'border-pink-200', isNew: true },
         { id: AppSection.IQ_TEST, title: '智力测评', icon: '🧬', color: 'bg-sky-100/80', border: 'border-sky-200', isNew: true },
         { id: AppSection.BIG_FIVE, title: '大五人格', icon: '🌊', color: 'bg-violet-100/80', border: 'border-violet-200', isNew: true },
@@ -161,9 +161,16 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
                     <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-bl-lg z-10">NEW</div>
                   )}
                   <span className="text-2xl flex-shrink-0 relative z-10 group-hover:scale-110 transition-transform">{sec.icon}</span>
-                  <span className="font-black text-[13px] whitespace-nowrap overflow-hidden text-ellipsis relative z-10">
-                    {sec.title}
-                  </span>
+                  <div className="flex flex-col items-start overflow-hidden relative z-10">
+                    <span className="font-black text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">
+                      {sec.title}
+                    </span>
+                    { (sec as any).subTitle && (
+                      <span className="text-[10px] opacity-60 font-bold -mt-0.5">
+                        {(sec as any).subTitle}
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>

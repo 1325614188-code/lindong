@@ -98,8 +98,12 @@ const BigFiveView: React.FC<BigFiveViewProps> = ({ onBack, onCheckCredits, onDed
         const scores = { O: 0, C: 0, E: 0, A: 0, N: 0 };
         const counts = { O: 0, C: 0, E: 0, A: 0, N: 0 };
 
+        // 遍历所有 50 道标准题
         BIG_FIVE_QUESTIONS.forEach((q, idx) => {
-            let val = answers[idx] || 3;
+            // 健壮性提取：确保从 Record<number, number> 中正确读取
+            const rawVal = answers[idx];
+            let val = (rawVal !== undefined && rawVal !== null) ? rawVal : 3;
+            
             if (q.reverse) {
                 val = 6 - val; // 反向计分: 1->5, 2->4, 5->1
             }
@@ -109,11 +113,11 @@ const BigFiveView: React.FC<BigFiveViewProps> = ({ onBack, onCheckCredits, onDed
 
         // 转换为百分比得分 (1-5分量表，单题满分5，最低1)
         const percentages = {
-            O: Math.round(((scores.O / counts.O) - 1) / 4 * 100),
-            C: Math.round(((scores.C / counts.C) - 1) / 4 * 100),
-            E: Math.round(((scores.E / counts.E) - 1) / 4 * 100),
-            A: Math.round(((scores.A / counts.A) - 1) / 4 * 100),
-            N: Math.round(((scores.N / counts.N) - 1) / 4 * 100),
+            O: Math.round(((scores.O / Math.max(counts.O, 1)) - 1) / 4 * 100),
+            C: Math.round(((scores.C / Math.max(counts.C, 1)) - 1) / 4 * 100),
+            E: Math.round(((scores.E / Math.max(counts.E, 1)) - 1) / 4 * 100),
+            A: Math.round(((scores.A / Math.max(counts.A, 1)) - 1) / 4 * 100),
+            N: Math.round(((scores.N / Math.max(counts.N, 1)) - 1) / 4 * 100),
         };
 
         const analysis = {
@@ -121,7 +125,7 @@ const BigFiveView: React.FC<BigFiveViewProps> = ({ onBack, onCheckCredits, onDed
             C: percentages.C > 70 ? '高尽责性：你极其自律，做事有条不紊，是极度可靠的成就者。' : percentages.C < 30 ? '低尽责性：你随性洒脱，不喜欢被规则束缚，有时可能显得效率不高。' : '中等尽责性：你既能处理好工作，也能给自己留出灵活的空间。',
             E: percentages.E > 70 ? '高外向性：你从社交中获取能量，热衷交际，活力四射。' : percentages.E < 30 ? '低外向性：你是一个内向者，通过独处恢复精力，享受深度安静。' : '中等外向性：你是混合型人格，在独处和社交之间切换自如。',
             A: percentages.A > 70 ? '高宜人性：你是一个利他主义者，善解人意，非常受周围人喜爱。' : percentages.A < 30 ? '低宜人性：你竞争意识强，说话直爽，有时会显得有些冷漠。' : '中等宜人性：你懂得关心他人，但也能在必要时守住自己的原则。',
-            N: percentages.N > 70 ? '高神经质：你情绪敏感，能够快速察觉环境变化，但也容易焦虑焦虑。' : percentages.N < 30 ? '低神经质（极稳）：你情绪极度稳定，抗压能力惊人，能够冷静面对各种挑战。' : '中等情绪波动：你的情绪状态处于大众普通水平。',
+            N: percentages.N > 70 ? '高神经质：你情绪敏感，能够快速察觉环境变化，但也容易产生焦虑情绪。' : percentages.N < 30 ? '低神经质（极稳）：你情绪极度稳定，抗压能力惊人，能够冷静面对各种挑战。' : '中等情绪波动：你的情绪状态处于大众普通水平。',
         };
 
         setResultData({ percentages, analysis });
