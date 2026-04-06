@@ -11,8 +11,8 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     const [config, setConfig] = useState<any>({});
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ totalUsers: 0, totalOrders: 0 });
-    const [editingCredits, setEditingCredits] = useState<{ id: string; amount: number } | null>(null);
-    const [editingPoints, setEditingPoints] = useState<{ id: string; amount: number } | null>(null);
+    const [editingCredits, setEditingCredits] = useState<{ id: string; amount: number; original: number } | null>(null);
+    const [editingPoints, setEditingPoints] = useState<{ id: string; amount: number; original: number } | null>(null);
     const [pointRedemptions, setPointRedemptions] = useState<any[]>([]);
     const [commissions, setCommissions] = useState<any[]>([]);
     const [withdrawals, setWithdrawals] = useState<any[]>([]);
@@ -345,41 +345,67 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                                 <div className="text-[10px] text-gray-400">@{u.username}</div>
                                             </td>
                                             <td className="py-3">
-                                                <div onClick={() => setEditingCredits({ id: u.id, amount: u.credits })} className="cursor-pointer">
+                                                <div className="cursor-pointer min-h-[1.75rem] flex items-center">
                                                     {editingCredits?.id === u.id ? (
                                                         <input
                                                             autoFocus
                                                             type="number"
                                                             value={editingCredits.amount}
+                                                            onClick={e => e.stopPropagation()}
                                                             onChange={e => setEditingCredits({ ...editingCredits, amount: parseInt(e.target.value) || 0 })}
-                                                            onBlur={() => updateCredits(u.id, editingCredits.amount - u.credits)}
-                                                            className="w-14 h-7 px-1 rounded border text-xs"
+                                                            onBlur={() => {
+                                                                const diff = editingCredits.amount - editingCredits.original;
+                                                                if (diff !== 0) updateCredits(u.id, diff);
+                                                                else setEditingCredits(null);
+                                                            }}
+                                                            className="w-16 h-7 px-1.5 rounded border-2 border-pink-300 text-xs font-bold outline-none"
                                                         />
                                                     ) : (
-                                                        <span className="text-pink-500 font-bold">{u.credits}</span>
+                                                        <span 
+                                                            onClick={() => setEditingCredits({ id: u.id, amount: u.credits, original: u.credits })}
+                                                            className="text-pink-500 font-bold hover:bg-pink-50 px-2 py-0.5 rounded transition-colors"
+                                                        >
+                                                            {u.credits}
+                                                        </span>
                                                     )}
                                                 </div>
                                             </td>
                                             <td className="py-3">
-                                                <div onClick={() => setEditingPoints({ id: u.id, amount: u.points || 0 })} className="cursor-pointer">
+                                                <div className="cursor-pointer min-h-[1.75rem] flex items-center">
                                                     {editingPoints?.id === u.id ? (
                                                         <input
                                                             autoFocus
                                                             type="number"
                                                             value={editingPoints.amount}
+                                                            onClick={e => e.stopPropagation()}
                                                             onChange={e => setEditingPoints({ ...editingPoints, amount: parseInt(e.target.value) || 0 })}
-                                                            onBlur={() => updatePoints(u.id, editingPoints.amount - u.points)}
-                                                            className="w-14 h-7 px-1 rounded border text-xs"
+                                                            onBlur={() => {
+                                                                const diff = editingPoints.amount - editingPoints.original;
+                                                                if (diff !== 0) updatePoints(u.id, diff);
+                                                                else setEditingPoints(null);
+                                                            }}
+                                                            className="w-16 h-7 px-1.5 rounded border-2 border-purple-300 text-xs font-bold outline-none"
                                                         />
                                                     ) : (
-                                                        <span className="text-purple-500 font-bold">{u.points || 0}</span>
+                                                        <span 
+                                                            onClick={() => setEditingPoints({ id: u.id, amount: u.points || 0, original: u.points || 0 })}
+                                                            className="text-purple-500 font-bold hover:bg-purple-50 px-2 py-0.5 rounded transition-colors"
+                                                        >
+                                                            {u.points || 0}
+                                                        </span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="py-3 text-orange-500 font-bold">¥{u.commission_balance || '0.00'}</td>
+                                            <td className="py-3 text-orange-500 font-bold text-sm">¥{u.commission_balance || '0.00'}</td>
                                             <td className="py-3">
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => setEditingCredits({ id: u.id, amount: u.credits })} className="text-xs text-blue-500">点此调额</button>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setEditingCredits({ id: u.id, amount: u.credits, original: u.credits })} 
+                                                        className="text-xs text-blue-500 font-medium hover:underline"
+                                                    >
+                                                        调额
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
