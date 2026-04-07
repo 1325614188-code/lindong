@@ -755,149 +755,179 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                             <h3 className="font-bold text-green-600 flex items-center gap-2">
                                 <span>🟢</span> 微信支付多商户管理
                             </h3>
-                            <div className="flex bg-gray-100 p-1 rounded-xl">
-                                <button
-                                    onClick={() => updateConfig('wechat_pay_active_mch', '1')}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${config.wechat_pay_active_mch !== '2' ? 'bg-green-500 text-white shadow-sm' : 'text-gray-500'}`}
-                                >
-                                    商户 1 {config.wechat_pay_active_mch !== '2' && '●'}
-                                </button>
-                                <button
-                                    onClick={() => updateConfig('wechat_pay_active_mch', '2')}
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${config.wechat_pay_active_mch === '2' ? 'bg-green-500 text-white shadow-sm' : 'text-gray-500'}`}
-                                >
-                                    商户 2 {config.wechat_pay_active_mch === '2' && '●'}
-                                </button>
-                            </div>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                当前激活：商户 {config.wechat_pay_active_mch === '2' ? '2' : '1'}
+                            </span>
                         </div>
 
-                        <div className="space-y-6">
+                        <div className="space-y-8">
                             {/* 商户 1 配置 */}
-                            <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${config.wechat_pay_active_mch !== '2' ? 'border-green-200 bg-green-50/20' : 'border-gray-100 opacity-60'}`}>
-                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center justify-between">
-                                    <span>账户 #1 (PRIMARY)</span>
-                                    {config.wechat_pay_active_mch !== '2' && <span className="bg-green-500 text-white px-2 py-0.5 rounded-full scale-75">ACTIVE</span>}
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
+                            <div className={`space-y-4 p-5 rounded-2xl border-2 transition-all ${config.wechat_pay_active_mch !== '2' ? 'border-green-400 bg-green-50/30' : 'border-gray-100 bg-gray-50/30'}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                        <span className="bg-gray-200 text-gray-600 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">1</span>
+                                        <span>账户 #1 (PRIMARY)</span>
+                                    </h4>
+                                    {config.wechat_pay_active_mch !== '2' ? (
+                                        <span className="bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-sm">正在使用中 ●</span>
+                                    ) : (
+                                        <button
+                                            onClick={() => updateConfig('wechat_pay_active_mch', '1')}
+                                            className="bg-white border border-green-200 text-green-600 px-4 py-1.5 rounded-xl text-[10px] font-bold hover:bg-green-500 hover:text-white transition-all shadow-sm active:scale-95"
+                                        >
+                                            点击并启用商户 1
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">微信 AppID #1</label>
                                         <input
                                             type="text"
+                                            autoComplete="off"
                                             value={config.wechat_app_id || ''}
                                             onChange={e => updateConfig('wechat_app_id', e.target.value)}
-                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="AppID 1"
+                                            className="h-10 px-3 rounded-xl border border-gray-200 text-sm focus:border-green-300 transition-all outline-none bg-white"
+                                            placeholder="wx..."
                                         />
                                     </div>
-                                    <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">商户号 #1 (MCH_ID)</label>
                                         <input
                                             type="text"
+                                            autoComplete="off"
                                             value={config.wechat_pay_mch_id || ''}
                                             onChange={e => updateConfig('wechat_pay_mch_id', e.target.value)}
-                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="商户号 1"
+                                            className="h-10 px-3 rounded-xl border border-gray-200 text-sm focus:border-green-300 transition-all outline-none bg-white"
+                                            placeholder="156..."
                                         />
                                     </div>
-                                    <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">V3 密钥 #1</label>
                                         <input
                                             type="password"
+                                            autoComplete="off"
                                             value={config.wechat_pay_api_v3_key || ''}
                                             onChange={e => updateConfig('wechat_pay_api_v3_key', e.target.value)}
-                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="API V3 Key 1"
+                                            className="h-10 px-3 rounded-xl border border-gray-200 text-sm focus:border-green-300 transition-all outline-none bg-white"
+                                            placeholder="API V3 Key"
                                         />
                                     </div>
-                                    <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">证书序列号 #1</label>
                                         <input
                                             type="text"
+                                            autoComplete="off"
                                             value={config.wechat_pay_serial_no || ''}
                                             onChange={e => updateConfig('wechat_pay_serial_no', e.target.value)}
-                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="Serial No 1"
+                                            className="h-10 px-3 rounded-xl border border-gray-200 text-sm focus:border-green-300 transition-all outline-none bg-white"
+                                            placeholder="Serial No"
                                         />
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] text-gray-400 font-bold ml-1">商户私钥 #1 (PEM)</label>
                                     <textarea
+                                        autoComplete="off"
                                         value={config.wechat_pay_private_key || ''}
                                         onChange={e => updateConfig('wechat_pay_private_key', e.target.value)}
-                                        className="w-full h-20 px-3 py-2 rounded-xl border border-gray-200 text-[10px] font-mono leading-tight"
+                                        className="w-full h-24 px-3 py-2 rounded-xl border border-gray-200 text-[10px] font-mono leading-tight focus:border-green-300 transition-all outline-none bg-white"
                                         placeholder="-----BEGIN PRIVATE KEY-----"
                                     />
                                 </div>
                             </div>
 
+                            {/* 分割线 */}
+                            <div className="border-t border-dashed border-gray-200 my-2" />
+
                             {/* 商户 2 配置 */}
-                            <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${config.wechat_pay_active_mch === '2' ? 'border-green-200 bg-green-50/20' : 'border-gray-100 opacity-60'}`}>
-                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center justify-between">
-                                    <span>账户 #2 (SECONDARY)</span>
-                                    {config.wechat_pay_active_mch === '2' && <span className="bg-green-500 text-white px-2 py-0.5 rounded-full scale-75">ACTIVE</span>}
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
+                            <div className={`space-y-4 p-5 rounded-2xl border-2 transition-all ${config.wechat_pay_active_mch === '2' ? 'border-green-400 bg-green-50/30' : 'border-gray-100 bg-gray-50/30'}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                        <span className="bg-gray-200 text-gray-600 w-5 h-5 rounded-full flex items-center justify-center text-[10px]">2</span>
+                                        <span>账户 #2 (SECONDARY)</span>
+                                    </h4>
+                                    {config.wechat_pay_active_mch === '2' ? (
+                                        <span className="bg-green-500 text-white px-3 py-1 rounded-full text-[10px] font-bold shadow-sm">正在使用中 ●</span>
+                                    ) : (
+                                        <button
+                                            onClick={() => updateConfig('wechat_pay_active_mch', '2')}
+                                            className="bg-white border border-green-200 text-green-600 px-4 py-1.5 rounded-xl text-[10px] font-bold hover:bg-green-500 hover:text-white transition-all shadow-sm active:scale-95"
+                                        >
+                                            点击并启用商户 2
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">微信 AppID #2</label>
                                         <input
                                             type="text"
+                                            autoComplete="off"
                                             value={config.wechat_app_id_2 || ''}
                                             onChange={e => updateConfig('wechat_app_id_2', e.target.value)}
-                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="AppID 2"
+                                            className="h-10 px-3 rounded-xl border border-gray-200 text-sm focus:border-green-300 transition-all outline-none bg-white"
+                                            placeholder="wx..."
                                         />
                                     </div>
-                                    <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">商户号 #2</label>
                                         <input
                                             type="text"
+                                            autoComplete="off"
                                             value={config.wechat_pay_mch_id_2 || ''}
                                             onChange={e => updateConfig('wechat_pay_mch_id_2', e.target.value)}
-                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            className="h-10 px-3 rounded-xl border border-gray-200 text-sm focus:border-green-300 transition-all outline-none bg-white"
                                             placeholder="商户号 2"
                                         />
                                     </div>
-                                    <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">V3 密钥 #2</label>
                                         <input
                                             type="password"
+                                            autoComplete="off"
                                             value={config.wechat_pay_api_v3_key_2 || ''}
                                             onChange={e => updateConfig('wechat_pay_api_v3_key_2', e.target.value)}
-                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            className="h-10 px-3 rounded-xl border border-gray-200 text-sm focus:border-green-300 transition-all outline-none bg-white"
                                             placeholder="API V3 Key 2"
                                         />
                                     </div>
-                                    <div className="flex flex-col gap-1">
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">证书序列号 #2</label>
                                         <input
                                             type="text"
+                                            autoComplete="off"
                                             value={config.wechat_pay_serial_no_2 || ''}
                                             onChange={e => updateConfig('wechat_pay_serial_no_2', e.target.value)}
-                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            className="h-10 px-3 rounded-xl border border-gray-200 text-sm focus:border-green-300 transition-all outline-none bg-white"
                                             placeholder="Serial No 2"
                                         />
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] text-gray-400 font-bold ml-1">商户私钥 #2 (PEM)</label>
                                     <textarea
+                                        autoComplete="off"
                                         value={config.wechat_pay_private_key_2 || ''}
                                         onChange={e => updateConfig('wechat_pay_private_key_2', e.target.value)}
-                                        className="w-full h-20 px-3 py-2 rounded-xl border border-gray-200 text-[10px] font-mono leading-tight"
+                                        className="w-full h-24 px-3 py-2 rounded-xl border border-gray-200 text-[10px] font-mono leading-tight focus:border-green-300 transition-all outline-none bg-white"
                                         placeholder="-----BEGIN PRIVATE KEY-----"
                                     />
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                                <label className="text-[10px] font-bold text-blue-700 shrink-0">通用回调地址</label>
+                            <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                                <div className="flex flex-col gap-1 shrink-0">
+                                    <label className="text-[10px] font-bold text-blue-700">通用回调地址</label>
+                                    <p className="text-[8px] text-blue-400">Merchant Notify URL</p>
+                                </div>
                                 <input
                                     type="text"
+                                    autoComplete="off"
                                     value={config.wechat_pay_notify_url || ''}
                                     onChange={e => updateConfig('wechat_pay_notify_url', e.target.value)}
-                                    className="flex-1 h-8 px-3 rounded-lg border border-blue-200 text-xs text-blue-600 bg-white"
-                                    placeholder="https://yourdomain.com/api/wechat_pay"
+                                    className="flex-1 h-10 px-3 rounded-xl border border-blue-200 text-xs text-blue-600 bg-white focus:border-blue-400 outline-none transition-all"
+                                    placeholder="https://..."
                                 />
                             </div>
                         </div>
