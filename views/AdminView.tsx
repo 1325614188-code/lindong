@@ -750,70 +750,159 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                     </div>
 
                     {/* 微信支付配置 */}
-                    <div className="bg-white rounded-2xl p-4 shadow-sm">
-                        <h3 className="font-bold mb-4 text-green-600">🟢 微信支付配置 (V3 接口)</h3>
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-4">
-                                <label className="w-28 text-sm text-gray-500 shrink-0">微信 AppID</label>
-                                <input
-                                    type="text"
-                                    value={config.wechat_app_id || ''}
-                                    onChange={e => updateConfig('wechat_app_id', e.target.value)}
-                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
-                                    placeholder="公众号或小程序的 AppID"
-                                />
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-green-50">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="font-bold text-green-600 flex items-center gap-2">
+                                <span>🟢</span> 微信支付多商户管理
+                            </h3>
+                            <div className="flex bg-gray-100 p-1 rounded-xl">
+                                <button
+                                    onClick={() => updateConfig('wechat_pay_active_mch', '1')}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${config.wechat_pay_active_mch !== '2' ? 'bg-green-500 text-white shadow-sm' : 'text-gray-500'}`}
+                                >
+                                    商户 1 {config.wechat_pay_active_mch !== '2' && '●'}
+                                </button>
+                                <button
+                                    onClick={() => updateConfig('wechat_pay_active_mch', '2')}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${config.wechat_pay_active_mch === '2' ? 'bg-green-500 text-white shadow-sm' : 'text-gray-500'}`}
+                                >
+                                    商户 2 {config.wechat_pay_active_mch === '2' && '●'}
+                                </button>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <label className="w-28 text-sm text-gray-500 shrink-0">商户号 (MCH_ID)</label>
-                                <input
-                                    type="text"
-                                    value={config.wechat_pay_mch_id || ''}
-                                    onChange={e => updateConfig('wechat_pay_mch_id', e.target.value)}
-                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
-                                    placeholder="微信支付商户号"
-                                />
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* 商户 1 配置 */}
+                            <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${config.wechat_pay_active_mch !== '2' ? 'border-green-200 bg-green-50/20' : 'border-gray-100 opacity-60'}`}>
+                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                                    <span>账户 #1 (PRIMARY)</span>
+                                    {config.wechat_pay_active_mch !== '2' && <span className="bg-green-500 text-white px-2 py-0.5 rounded-full scale-75">ACTIVE</span>}
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">微信 AppID</label>
+                                        <input
+                                            type="text"
+                                            value={config.wechat_app_id || ''}
+                                            onChange={e => updateConfig('wechat_app_id', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            placeholder="AppID"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">商户号 (MCH_ID)</label>
+                                        <input
+                                            type="text"
+                                            value={config.wechat_pay_mch_id || ''}
+                                            onChange={e => updateConfig('wechat_pay_mch_id', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            placeholder="商户号"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">V3 密钥</label>
+                                        <input
+                                            type="password"
+                                            value={config.wechat_pay_api_v3_key || ''}
+                                            onChange={e => updateConfig('wechat_pay_api_v3_key', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            placeholder="API V3 Key"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">证书序列号</label>
+                                        <input
+                                            type="text"
+                                            value={config.wechat_pay_serial_no || ''}
+                                            onChange={e => updateConfig('wechat_pay_serial_no', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            placeholder="Serial No"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] text-gray-400 font-bold ml-1">商户私钥 (PEM)</label>
+                                    <textarea
+                                        value={config.wechat_pay_private_key || ''}
+                                        onChange={e => updateConfig('wechat_pay_private_key', e.target.value)}
+                                        className="w-full h-20 px-3 py-2 rounded-xl border border-gray-200 text-[10px] font-mono leading-tight"
+                                        placeholder="-----BEGIN PRIVATE KEY-----"
+                                    />
+                                </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <label className="w-28 text-sm text-gray-500 shrink-0">V3 密钥</label>
-                                <input
-                                    type="password"
-                                    value={config.wechat_pay_api_v3_key || ''}
-                                    onChange={e => updateConfig('wechat_pay_api_v3_key', e.target.value)}
-                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
-                                    placeholder="API V3 Key"
-                                />
+
+                            {/* 商户 2 配置 */}
+                            <div className={`space-y-3 p-4 rounded-2xl border-2 transition-all ${config.wechat_pay_active_mch === '2' ? 'border-green-200 bg-green-50/20' : 'border-gray-100 opacity-60'}`}>
+                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                                    <span>账户 #2 (SECONDARY)</span>
+                                    {config.wechat_pay_active_mch === '2' && <span className="bg-green-500 text-white px-2 py-0.5 rounded-full scale-75">ACTIVE</span>}
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">微信 AppID #2</label>
+                                        <input
+                                            type="text"
+                                            value={config.wechat_app_id_2 || ''}
+                                            onChange={e => updateConfig('wechat_app_id_2', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            placeholder="AppID (若一致可不填)"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">商户号 #2</label>
+                                        <input
+                                            type="text"
+                                            value={config.wechat_pay_mch_id_2 || ''}
+                                            onChange={e => updateConfig('wechat_pay_mch_id_2', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            placeholder="商户号 2"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">V3 密钥 #2</label>
+                                        <input
+                                            type="password"
+                                            value={config.wechat_pay_api_v3_key_2 || ''}
+                                            onChange={e => updateConfig('wechat_pay_api_v3_key_2', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            placeholder="API V3 Key 2"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">证书序列号 #2</label>
+                                        <input
+                                            type="text"
+                                            value={config.wechat_pay_serial_no_2 || ''}
+                                            onChange={e => updateConfig('wechat_pay_serial_no_2', e.target.value)}
+                                            className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
+                                            placeholder="Serial No 2"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] text-gray-400 font-bold ml-1">商户私钥 #2 (PEM)</label>
+                                    <textarea
+                                        value={config.wechat_pay_private_key_2 || ''}
+                                        onChange={e => updateConfig('wechat_pay_private_key_2', e.target.value)}
+                                        className="w-full h-20 px-3 py-2 rounded-xl border border-gray-200 text-[10px] font-mono leading-tight"
+                                        placeholder="-----BEGIN PRIVATE KEY-----"
+                                    />
+                                </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <label className="w-28 text-sm text-gray-500 shrink-0">证书序列号</label>
-                                <input
-                                    type="text"
-                                    value={config.wechat_pay_serial_no || ''}
-                                    onChange={e => updateConfig('wechat_pay_serial_no', e.target.value)}
-                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200"
-                                    placeholder="Serial Number"
-                                />
-                            </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-sm text-gray-500">商户私钥 (APICLIENT_KEY.PEM 明文)</label>
-                                <textarea
-                                    value={config.wechat_pay_private_key || ''}
-                                    onChange={e => updateConfig('wechat_pay_private_key', e.target.value)}
-                                    className="w-full h-24 px-3 py-2 rounded-xl border border-gray-200 text-xs font-mono"
-                                    placeholder="-----BEGIN PRIVATE KEY----- ..."
-                                />
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <label className="w-28 text-sm text-gray-500 shrink-0">回调地址</label>
+
+                            <div className="flex items-center gap-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                                <label className="text-[10px] font-bold text-blue-700 shrink-0">通用回调地址</label>
                                 <input
                                     type="text"
                                     value={config.wechat_pay_notify_url || ''}
                                     onChange={e => updateConfig('wechat_pay_notify_url', e.target.value)}
-                                    className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-sm"
+                                    className="flex-1 h-8 px-3 rounded-lg border border-blue-200 text-xs text-blue-600 bg-white"
                                     placeholder="https://yourdomain.com/api/wechat_pay"
                                 />
                             </div>
                         </div>
                     </div>
+
 
                     {/* 系统杂项与排行榜 */}
                     <div className="bg-white rounded-2xl p-4 shadow-sm">

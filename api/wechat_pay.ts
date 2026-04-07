@@ -13,17 +13,33 @@ async function getWechatConfig() {
         .select('key, value')
         .in('key', [
             'wechat_pay_enabled', 
+            'wechat_pay_active_mch', // 激活的商户标识 (1 或 2)
             'wechat_pay_mch_id', 
             'wechat_pay_api_v3_key', 
             'wechat_pay_serial_no', 
             'wechat_pay_private_key',
+            'wechat_pay_mch_id_2', 
+            'wechat_pay_api_v3_key_2', 
+            'wechat_pay_serial_no_2', 
+            'wechat_pay_private_key_2',
             'wechat_pay_notify_url',
             'commission_rate',
-            'wechat_app_id' // 借用 auth_v2 里的 APP_ID
+            'wechat_app_id',
+            'wechat_app_id_2'
         ]);
 
     const configMap: Record<string, string> = {};
     configs?.forEach(c => { configMap[c.key] = c.value; });
+    
+    // 动态选择当前激活的商户参数
+    const activeMch = configMap.wechat_pay_active_mch || '1';
+    if (activeMch === '2') {
+        if (configMap.wechat_pay_mch_id_2) configMap.wechat_pay_mch_id = configMap.wechat_pay_mch_id_2;
+        if (configMap.wechat_pay_api_v3_key_2) configMap.wechat_pay_api_v3_key = configMap.wechat_pay_api_v3_key_2;
+        if (configMap.wechat_pay_serial_no_2) configMap.wechat_pay_serial_no = configMap.wechat_pay_serial_no_2;
+        if (configMap.wechat_pay_private_key_2) configMap.wechat_pay_private_key = configMap.wechat_pay_private_key_2;
+        if (configMap.wechat_app_id_2) configMap.wechat_app_id = configMap.wechat_app_id_2;
+    }
     
     // 如果没有独立配置，则尝试从环境变量读取基础 APP_ID
     if (!configMap.wechat_app_id) {
@@ -32,6 +48,7 @@ async function getWechatConfig() {
     
     return configMap;
 }
+
 
 // 微信支付 V3 签名逻辑
 function generateSignature(method: string, url: string, timestamp: number, nonce: string, body: string, privateKey: string): string {
