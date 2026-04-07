@@ -805,7 +805,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">V3 密钥 #1</label>
                                         <input
-                                            type="password"
+                                            type="text"
                                             autoComplete="off"
                                             value={config.wechat_pay_api_v3_key || ''}
                                             onChange={e => updateConfig('wechat_pay_api_v3_key', e.target.value)}
@@ -884,7 +884,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-[10px] text-gray-400 font-bold ml-1">V3 密钥 #2</label>
                                         <input
-                                            type="password"
+                                            type="text"
                                             autoComplete="off"
                                             value={config.wechat_pay_api_v3_key_2 || ''}
                                             onChange={e => updateConfig('wechat_pay_api_v3_key_2', e.target.value)}

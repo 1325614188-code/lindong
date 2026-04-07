@@ -50,23 +50,37 @@ async function getWechatConfig() {
 }
 
 
+// 规范化微信支付私钥格式
+function formatPrivateKey(key: string): string {
+    if (!key) return '';
+    
+    // 移除空白字符
+    let cleanKey = key.trim();
+    
+    // 提取 Base64 部分（无论是否有头尾）
+    const body = cleanKey
+        .replace(/-----BEGIN[A-Z\s]+-----/g, '')
+        .replace(/-----END[A-Z\s]+-----/g, '')
+        .replace(/\s+/g, '');
+        
+    // 重新组合为标准 PEM 格式 (PKCS#8)
+    const lines = body.match(/.{1,64}/g);
+    return `-----BEGIN PRIVATE KEY-----\n${lines ? lines.join('\n') : ''}\n-----END PRIVATE KEY-----`;
+}
+
 // 微信支付 V3 签名逻辑
 function generateSignature(method: string, url: string, timestamp: number, nonce: string, body: string, privateKey: string): string {
-    const message = `${method}\n${url}\n${timestamp}\n${nonce}\n${body}\n`;
-    const sign = crypto.createSign('RSA-SHA256');
-    sign.update(message);
-    
-    let pemKey = privateKey;
-    if (!pemKey.includes('-----BEGIN')) {
-        // 如果用户只粘贴了 Base64 内容，则移除所有空白符并添加头部
-        const cleanContent = privateKey.replace(/\s/g, '');
-        pemKey = `-----BEGIN PRIVATE KEY-----\n${cleanContent}\n-----END PRIVATE KEY-----`;
-    } else {
-        // 如果用户粘贴了完整 PEM，只需确保换行符正确（不应移除空格）
-        pemKey = privateKey.trim();
+    try {
+        const message = `${method}\n${url}\n${timestamp}\n${nonce}\n${body}\n`;
+        const sign = crypto.createSign('RSA-SHA256');
+        sign.update(message);
+        
+        const pemKey = formatPrivateKey(privateKey);
+        return sign.sign(pemKey, 'base64');
+    } catch (e: any) {
+        console.error('[generateSignature] Error:', e.message);
+        throw new Error(`签名计算失败: ${e.message}`);
     }
-    
-    return sign.sign(pemKey, 'base64');
 }
 
 
@@ -343,6 +357,11 @@ export default async function handler(req: any, res: any) {
         }
     } catch (e: any) {
         console.error('[WechatPay Error]', e);
-        return res.status(500).json({ error: e.message });
+        // 如果是证书或密钥问题，返回更友好的提示
+        const msg = e.message || '';
+        if (msg.includes('key') || msg.includes('pem') || msg.includes('routines')) {
+            return res.status(500).json({ error: `证书私钥格式有误或不匹配: ${msg}` });
+        }
+        return res.status(500).json({ error: msg || '系统繁忙，请稍后重试' });
     }
 }
