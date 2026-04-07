@@ -780,48 +780,48 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] text-gray-400 font-bold ml-1">微信 AppID</label>
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">微信 AppID #1</label>
                                         <input
                                             type="text"
                                             value={config.wechat_app_id || ''}
                                             onChange={e => updateConfig('wechat_app_id', e.target.value)}
                                             className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="AppID"
+                                            placeholder="AppID 1"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] text-gray-400 font-bold ml-1">商户号 (MCH_ID)</label>
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">商户号 #1 (MCH_ID)</label>
                                         <input
                                             type="text"
                                             value={config.wechat_pay_mch_id || ''}
                                             onChange={e => updateConfig('wechat_pay_mch_id', e.target.value)}
                                             className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="商户号"
+                                            placeholder="商户号 1"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] text-gray-400 font-bold ml-1">V3 密钥</label>
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">V3 密钥 #1</label>
                                         <input
                                             type="password"
                                             value={config.wechat_pay_api_v3_key || ''}
                                             onChange={e => updateConfig('wechat_pay_api_v3_key', e.target.value)}
                                             className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="API V3 Key"
+                                            placeholder="API V3 Key 1"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-[10px] text-gray-400 font-bold ml-1">证书序列号</label>
+                                        <label className="text-[10px] text-gray-400 font-bold ml-1">证书序列号 #1</label>
                                         <input
                                             type="text"
                                             value={config.wechat_pay_serial_no || ''}
                                             onChange={e => updateConfig('wechat_pay_serial_no', e.target.value)}
                                             className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="Serial No"
+                                            placeholder="Serial No 1"
                                         />
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] text-gray-400 font-bold ml-1">商户私钥 (PEM)</label>
+                                    <label className="text-[10px] text-gray-400 font-bold ml-1">商户私钥 #1 (PEM)</label>
                                     <textarea
                                         value={config.wechat_pay_private_key || ''}
                                         onChange={e => updateConfig('wechat_pay_private_key', e.target.value)}
@@ -845,7 +845,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                             value={config.wechat_app_id_2 || ''}
                                             onChange={e => updateConfig('wechat_app_id_2', e.target.value)}
                                             className="h-9 px-3 rounded-xl border border-gray-200 text-sm"
-                                            placeholder="AppID (若一致可不填)"
+                                            placeholder="AppID 2"
                                         />
                                     </div>
                                     <div className="flex flex-col gap-1">
@@ -902,6 +902,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                             </div>
                         </div>
                     </div>
+
 
 
                     {/* 系统杂项与排行榜 */}
