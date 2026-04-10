@@ -22,7 +22,9 @@ const getModelName = (model: string): string => {
 const getVertexModel = (modelName: string): VertexGenerativeModel | null => {
     const keyStr = process.env.GCP_SERVICE_ACCOUNT_KEY;
     const project = process.env.GCP_PROJECT_ID;
-    const location = process.env.GCP_LOCATION || "us-central1";
+    const location = process.env.GCP_LOCATION || "us-east4";
+
+    console.log(`[Vertex AI Init] Initializing with Project: ${project}, Location: ${location}`);
 
     if (!keyStr || !project) {
         console.error("[Vertex AI Config Missing] GCP_SERVICE_ACCOUNT_KEY 或 GCP_PROJECT_ID 未配置");
