@@ -7,10 +7,10 @@ import { VertexAI, GenerativeModel as VertexGenerativeModel } from "@google-clou
 const getModelName = (model: string): string => {
     // Vertex AI 模型名称映射关系
     const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-1.5-flash-002',
-        'gemini-2.5-flash-image': 'gemini-1.5-flash-002',
-        'gemini-1.5-flash': 'gemini-1.5-flash-002',
-        'gemini-1.5-pro': 'gemini-1.5-pro-002'
+        'gemini-3-flash-preview': 'gemini-1.5-flash',
+        'gemini-2.5-flash-image': 'gemini-1.5-flash',
+        'gemini-1.5-flash': 'gemini-1.5-flash',
+        'gemini-1.5-pro': 'gemini-1.5-pro'
     };
     
     return mapping[model] || model;
@@ -237,7 +237,7 @@ export default async function handler(req: any, res: any) {
                         ],
                         // Vertex AI 风格的 config
                         generationConfig: {
-                            ...(itemType === 'clothes' ? { aspectRatio: '9:16' } : {})
+                            temperature: 0.4
                         }
                     });
 
