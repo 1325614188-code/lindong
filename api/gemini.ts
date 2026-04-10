@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { VertexAI, GenerativeModel as VertexGenerativeModel } from "@google-cloud/vertexai";
 import { GoogleAuth } from "google-auth-library";
 
 // 从环境变量加载多个 API Key (支持 GEMINI_API_KEY, GEMINI_API_KEY1, GEMINI_API_KEY2...)
@@ -48,35 +49,45 @@ const getModelName = (model: string): string => {
     return mapping[model] || model;
 };
 
-const getClient = (): GoogleGenAI => {
-    // 1. 优先尝试 Vertex AI (使用 GCP 赠送金)
-    const gcpServiceAccount = process.env.GCP_SERVICE_ACCOUNT_KEY;
-    const gcpProjectId = process.env.GCP_PROJECT_ID;
-    const gcpLocation = process.env.GCP_LOCATION || "us-central1";
+/**
+ * 获取 Vertex AI 模型实例
+ */
+const getVertexModel = (modelName: string): VertexGenerativeModel | null => {
+    const keyStr = process.env.GCP_SERVICE_ACCOUNT_KEY;
+    const project = process.env.GCP_PROJECT_ID;
+    const location = process.env.GCP_LOCATION || "us-central1";
 
-    if (gcpServiceAccount && gcpProjectId) {
-        try {
-            const credentials = JSON.parse(gcpServiceAccount);
-            const auth = new GoogleAuth({
-                credentials,
-                scopes: "https://www.googleapis.com/auth/cloud-platform",
-            });
+    if (!keyStr || !project) return null;
 
-            return new GoogleGenAI({
-                vertexAI: {
-                    project: gcpProjectId,
-                    location: gcpLocation,
-                },
-                authClient: auth,
-            });
-        } catch (e) {
-            console.error("[Vertex AI Auth Error] 解析 GCP_SERVICE_ACCOUNT_KEY 失败，将退回到 API Key 模式:", e);
+    try {
+        // 健壮性处理：去除可能包裹在外的多余引号
+        let sanitizedKey = keyStr.trim();
+        if (sanitizedKey.startsWith('"') && sanitizedKey.endsWith('"')) {
+            sanitizedKey = sanitizedKey.substring(1, sanitizedKey.length - 1).replace(/\\"/g, '"');
         }
-    }
+        
+        const credentials = JSON.parse(sanitizedKey);
+        const vertexAI = new VertexAI({
+            project,
+            location,
+            googleAuthOptions: { credentials }
+        });
 
-    // 2. 退回到原来的 API Key 模式
+        return vertexAI.getGenerativeModel({
+            model: modelName,
+        });
+    } catch (e) {
+        console.error("[Vertex AI Init Error] 初始化 Vertex AI 失败:", e);
+        return null;
+    }
+};
+
+/**
+ * 获取 Google AI (Gemini API) 客户端
+ */
+const getGeminiClient = (): GoogleGenAI => {
     const keys = getApiKeys();
-    if (keys.length === 0) throw new Error("未配置 GCP 凭据且未发现 GEMINI_API_KEY");
+    if (keys.length === 0) throw new Error("未配置 GEMINI_API_KEY");
     const key = keys[currentKeyIndex % keys.length];
     
     const baseUrl = process.env.GEMINI_BASE_URL;
@@ -99,26 +110,47 @@ const switchKey = (): void => {
 /**
  * 带有超时和自动轮换 Key 的请求包装器
  */
+/**
+ * 带有超时和自动轮换的请求包装器 (支持 Vertex AI 和 Gemini API)
+ */
 async function requestWithRetry<T>(
-    operation: (ai: GoogleGenAI) => Promise<T>,
-    maxRetries = 10,
+    modelName: string,
+    operation: (model: any, isVertex: boolean) => Promise<T>,
+    maxRetries = 5,
     initialDelay = 500
 ): Promise<T> {
     let lastError: any;
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
+            // 1. 优先尝试 Vertex AI
+            const vertexModelName = getModelName(modelName);
+            const vertexModel = getVertexModel(vertexModelName);
+            
+            if (vertexModel) {
+                try {
+                    console.log(`[Vertex AI Request] Attempt ${i + 1}/${maxRetries + 1} using model: ${vertexModelName}`);
+                    return await operation(vertexModel, true);
+                } catch (vError: any) {
+                    console.error(`[Vertex AI Error] ${vError.message || vError}`);
+                    // 如果是配额或超载问题，继续重试；如果是认证失败（且不是第一个重试），可能得考虑切换
+                    lastError = vError;
+                }
+            }
+
+            // 2. 如果 Vertex AI 不可用或强制要求 API Key (或者 Vertex 失败了)，回退到 Gemini API
             const keys = getApiKeys();
-            const keyIndex = currentKeyIndex % keys.length;
-            const ai = getClient();
-            
-            console.log(`[API Request] Attempt ${i + 1}/${maxRetries + 1} using Key Index ${keyIndex}`);
-            
-            // 增加超时时间到 45 秒。多模态任务（尤其是图片生成和深度分析）通常需要 15-30 秒不等。
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("API 请求超时")), 45000)
-            );
-            return await Promise.race([operation(ai), timeoutPromise]) as T;
+            if (keys.length > 0) {
+                const ai = getGeminiClient();
+                const geminiModel = ai.getGenerativeModel({ model: modelName });
+                console.log(`[Gemini API Request] Attempt ${i + 1}/${maxRetries + 1} using Key Index ${currentKeyIndex % keys.length}`);
+                
+                return await operation(geminiModel, false);
+            }
+
+            if (lastError) throw lastError;
+            throw new Error("No available AI service (Vertex AI and Gemini API both unavailable)");
+
         } catch (error: any) {
             lastError = error;
             const status = error?.status || error?.code || error?.response?.status;
@@ -127,13 +159,9 @@ async function requestWithRetry<T>(
 
             console.error(`[API Error] 尝试 ${i + 1}/${maxRetries + 1}, 错误: ${error?.message || error}`);
 
-            if (i < maxRetries && (isOverloaded || isRateLimit || error?.message === "API 请求超时")) {
-                if (getApiKeys().length > 1) {
-                    switchKey();
-                }
-                // 适当的重试延迟，避免过于频繁撞上同一个节点的超负荷
+            if (i < maxRetries && (isOverloaded || isRateLimit || error?.message?.includes("timeout"))) {
+                if (getApiKeys().length > 1) switchKey();
                 const delay = initialDelay * Math.pow(1.5, i); 
-                console.log(`[Retry] 重试请求，等待 ${Math.round(delay)}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
@@ -164,25 +192,29 @@ export default async function handler(req: any, res: any) {
         switch (action) {
             case 'detectPhotoContent': {
                 // 用于检测用户上传的照片是否符合要求（脸部+上半身）
-                const result = await requestWithRetry(async (ai) => {
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const systemInstruction = "你是一个图像合规性审计专家。判断用户上传的图片是否同时包含【清晰的人脸】以及【至少覆盖肩膀和胸部的上半身部位】。如果是，回复 TRUE，否则回复 FALSE。只需要回复一个单词，不要说明原因。";
-                    const contents = {
-                        parts: [
-                            {
-                                inlineData: {
-                                    mimeType: 'image/jpeg',
-                                    data: image.split(',')[1] || image
-                                }
-                            },
-                            { text: "这张图是否符合：包含人脸且包含足以试穿衣服的上半身？" }
-                        ]
-                    };
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-3-flash-preview'),
+                    const contents = [
+                        {
+                            role: 'user',
+                            parts: [
+                                {
+                                    inlineData: {
+                                        mimeType: 'image/jpeg',
+                                        data: image.split(',')[1] || image
+                                    }
+                                },
+                                { text: "这张图是否符合：包含人脸且包含足以试穿衣服的上半身？" }
+                            ]
+                        }
+                    ];
+                    const response = await model.generateContent({
                         contents,
-                        config: { systemInstruction, temperature: 0.1 }
+                        generationConfig: { temperature: 0.1 },
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
                     });
-                    return response.text.trim().toUpperCase() === 'TRUE';
+                    const resultText = response.response.candidates[0].content.parts[0].text || "";
+                    return resultText.trim().toUpperCase().includes('TRUE');
                 });
 
                 return res.status(200).json({ valid: result });
@@ -207,30 +239,33 @@ export default async function handler(req: any, res: any) {
           1. 标题要吸引人，使用【】括起来。
           ${isBeautyScore ? '2. 【重要】报告的第一行必须是分数，格式为：[SCORE:XX分]，其中 XX 是 0-100 之间的具体分数。' : ''}
           ${isBeautyScore ? '3.' : '2.'} ${analysisStyle}
-          ${isBeautyScore ? '4.' : '3.'} 给出针对性的${isFengShui ? '改进建议或化解方案' : '变美建议、穿搭建议或健康调理方案'}。
+          ${isBeautyScore ? '4.' : '3.'} 给出针对性的${isFengShui ? '改进建议或化解方案' : '变美建议、穿搭建议 or 健康调理方案'}。
           ${isBeautyScore ? '5.' : '4.'} 结尾要有互动感。
           ${isBeautyScore ? '6.' : '5.'} 报告内容详尽且专业，文字要贴心。
         `;
                 const prompt = `分析类型：${type}。${gender ? `性别：${gender}` : ''}`;
 
-                const result = await requestWithRetry(async (ai) => {
-                    const contents = {
-                        parts: [
-                            ...images.map((img: string) => ({
-                                inlineData: {
-                                    mimeType: 'image/jpeg',
-                                    data: img.split(',')[1] || img
-                                }
-                            })),
-                            { text: prompt }
-                        ]
-                    };
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-3-flash-preview'),
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                    const contents = [
+                        {
+                            role: 'user',
+                            parts: [
+                                ...images.map((img: string) => ({
+                                    inlineData: {
+                                        mimeType: 'image/jpeg',
+                                        data: img.split(',')[1] || img
+                                    }
+                                })),
+                                { text: prompt }
+                            ]
+                        }
+                    ];
+                    const response = await model.generateContent({
                         contents,
-                        config: { systemInstruction, temperature: 0.7 }
+                        generationConfig: { temperature: 0.7 },
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
                     });
-                    return response.text;
+                    return response.response.candidates[0].content.parts[0].text;
                 });
 
                 return res.status(200).json({ result });
@@ -238,25 +273,29 @@ export default async function handler(req: any, res: any) {
 
             case 'tryOn': {
                 // AI 试穿/试戴
-                const result = await requestWithRetry(async (ai) => {
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const prompt = itemType === 'clothes'
                         ? '将图中人物的衣服换成另一张图中的款式，保持人物面容和环境不变，生成高品质穿搭效果图。输出图片比例必须为9:16竖版。'
                         : '在图中人物的耳朵上戴上另一张图中的耳坠。如果是正面，请在左右两侧耳朵都展示出来。效果要自然，光影和谐。';
 
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-2.5-flash-image'),
-                        contents: {
-                            parts: [
-                                { inlineData: { mimeType: 'image/jpeg', data: baseImage.split(',')[1] } },
-                                { inlineData: { mimeType: 'image/jpeg', data: itemImage.split(',')[1] } },
-                                { text: prompt }
-                            ]
-                        },
-                        // 仅对试穿衣服使用 9:16 竖版比例
-                        ...(itemType === 'clothes' ? { config: { outputOptions: { aspectRatio: '9:16' } } } : {})
-                    } as any);
+                    const response = await model.generateContent({
+                        contents: [
+                            {
+                                role: 'user',
+                                parts: [
+                                    { inlineData: { mimeType: 'image/jpeg', data: baseImage.split(',')[1] } },
+                                    { inlineData: { mimeType: 'image/jpeg', data: itemImage.split(',')[1] } },
+                                    { text: prompt }
+                                ]
+                            }
+                        ],
+                        // Vertex AI 风格的 config
+                        generationConfig: {
+                            ...(itemType === 'clothes' ? { aspectRatio: '9:16' } : {})
+                        }
+                    });
 
-                    for (const part of response.candidates?.[0]?.content?.parts || []) {
+                    for (const part of response.response.candidates?.[0]?.content?.parts || []) {
                         if (part.inlineData) {
                             return `data:image/png;base64,${part.inlineData.data}`;
                         }
@@ -271,7 +310,7 @@ export default async function handler(req: any, res: any) {
                 // 发型生成 (单个)
                 const { hairstyleName, hairstyleDesc } = req.body;
 
-                const result = await requestWithRetry(async (ai) => {
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const prompt = `为图中这位${gender}性生成一种具体的时尚发型：${hairstyleName}。
           ${hairstyleDesc ? `发型具体特征描述：${hairstyleDesc}` : ''}
           要求：
@@ -280,17 +319,17 @@ export default async function handler(req: any, res: any) {
           3. 生成高品质、真实感强的效果图。
           4. 仅仅改变发型，保持人脸特征不变。`;
 
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-2.5-flash-image'),
-                        contents: {
+                    const response = await model.generateContent({
+                        contents: [{
+                            role: 'user',
                             parts: [
                                 { inlineData: { mimeType: 'image/jpeg', data: faceImage.split(',')[1] } },
                                 { text: prompt }
                             ]
-                        }
+                        }]
                     });
 
-                    for (const part of response.candidates?.[0]?.content?.parts || []) {
+                    for (const part of response.response.candidates?.[0]?.content?.parts || []) {
                         if (part.inlineData) {
                             return `data:image/png;base64,${part.inlineData.data}`;
                         }
@@ -309,7 +348,7 @@ export default async function handler(req: any, res: any) {
                     return res.status(400).json({ error: '缺少人脸图片或化妆风格' });
                 }
 
-                const result = await requestWithRetry(async (ai) => {
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const prompt = `请为图中人物化上"${styleName}"风格的妆容。
 ${styleDesc ? `风格特点：${styleDesc}` : ''}
 
@@ -320,17 +359,17 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
 4. 生成高品质、真实感强的美妆效果图
 5. 确保妆容风格特征明显，符合"${styleName}"的典型特点`;
 
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-2.5-flash-image'),
-                        contents: {
+                    const response = await model.generateContent({
+                        contents: [{
+                            role: 'user',
                             parts: [
                                 { inlineData: { mimeType: 'image/jpeg', data: faceImage.split(',')[1] } },
                                 { text: prompt }
                             ]
-                        }
-                    } as any);
+                        }]
+                    });
 
-                    for (const part of response.candidates?.[0]?.content?.parts || []) {
+                    for (const part of response.response.candidates?.[0]?.content?.parts || []) {
                         if (part.inlineData) {
                             return `data:image/png;base64,${part.inlineData.data}`;
                         }
@@ -357,13 +396,13 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
         `;
                 const prompt = `用户出生信息：${birthInfo}，性别：${gender}。`;
 
-                const result = await requestWithRetry(async (ai) => {
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-3-flash-preview'),
-                        contents: { parts: [{ text: prompt }] },
-                        config: { systemInstruction, temperature: 0.7 }
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                    const response = await model.generateContent({
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.7 },
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
                     });
-                    return response.text;
+                    return response.response.candidates[0].content.parts[0].text;
                 });
 
                 return res.status(200).json({ result });
@@ -374,7 +413,7 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                 const { description, gender, userImage } = req.body;
                 const targetGender = gender === '男' ? '女' : '男';
 
-                const result = await requestWithRetry(async (ai) => {
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const prompt = `你是一位顶级的形象设计师和命理专家。
 请为图中这位${gender}性生成一位【命中注定、高度匹配】的中华${targetGender}性。
 
@@ -387,12 +426,10 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
 
 【如果不提供原图，请直接生成符合描述的中国${targetGender}性写真】。`;
 
-                    const contents: any = {
-                        parts: []
-                    };
+                    const parts: any[] = [];
 
                     if (userImage) {
-                        contents.parts.push({
+                        parts.push({
                             inlineData: {
                                 mimeType: 'image/jpeg',
                                 data: userImage.split(',')[1]
@@ -400,14 +437,16 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                         });
                     }
 
-                    contents.parts.push({ text: prompt });
+                    parts.push({ text: prompt });
 
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-2.5-flash-image'),
-                        contents
-                    } as any);
+                    const response = await model.generateContent({
+                        contents: [{
+                            role: 'user',
+                            parts
+                        }]
+                    });
 
-                    for (const part of response.candidates?.[0]?.content?.parts || []) {
+                    for (const part of response.response.candidates?.[0]?.content?.parts || []) {
                         if (part.inlineData) {
                             return `data:image/png;base64,${part.inlineData.data}`;
                         }
@@ -433,13 +472,13 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
         `;
                 const prompt = `用户出生信息：${birthInfo}，性别：${gender}。`;
 
-                const result = await requestWithRetry(async (ai) => {
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-3-flash-preview'),
-                        contents: { parts: [{ text: prompt }] },
-                        config: { systemInstruction, temperature: 0.7 }
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                    const response = await model.generateContent({
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.7 },
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
                     });
-                    return response.text;
+                    return response.response.candidates[0].content.parts[0].text;
                 });
 
                 return res.status(200).json({ result });
@@ -453,13 +492,12 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                     return res.status(400).json({ error: '缺少分析内容' });
                 }
 
-                const result = await requestWithRetry(async (ai) => {
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-3-flash-preview'),
-                        contents: { parts: [{ text: prompt }] },
-                        config: { temperature: 0.7 }
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                    const response = await model.generateContent({
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.7 }
                     });
-                    return response.text;
+                    return response.response.candidates[0].content.parts[0].text;
                 });
 
                 return res.status(200).json({ result });
@@ -494,8 +532,9 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
   "detailedAnalysis": "详细的Markdown格式分析报告，包含专业术语解析"
 }`;
 
-                const result = await requestWithRetry(async (ai) => {
-                    const contents = {
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                    const contents = [{
+                        role: 'user',
                         parts: [
                             ...images.map((img: string) => ({
                                 inlineData: {
@@ -505,17 +544,14 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                             })),
                             { text: "请对这些翡翠照片进行深度鉴定。请务必严谨，如果照片清晰度不足以支撑结论，请在报告中说明。" }
                         ]
-                    };
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-3-flash-preview'),
+                    }];
+                    const response = await model.generateContent({
                         contents,
-                        config: {
-                            systemInstruction,
-                            temperature: 0.7
-                        }
+                        generationConfig: { temperature: 0.7 },
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
                     });
 
-                    let text = response.text;
+                    let text = response.response.candidates[0].content.parts[0].text || "";
                     const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*\}/);
                     if (jsonMatch) {
                         text = jsonMatch[1] || jsonMatch[0];
@@ -560,8 +596,9 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
   "reportMarkdown": "一份精美的、小红书风格的详细分析报告，包含中医术语解释、日常调理方案、饮食建议等。多用emoji，排版美观。"
 }`;
 
-                const result = await requestWithRetry(async (ai) => {
-                    const contents = {
+                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                    const contents = [{
+                        role: 'user',
                         parts: [
                             ...images.map((img: string) => ({
                                 inlineData: {
@@ -571,17 +608,14 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                             })),
                             { text: "这是我从五个角度拍摄的眼睛照片，请根据中医五轮学说进行深度健康分析。" }
                         ]
-                    };
-                    const response = await ai.models.generateContent({
-                        model: getModelName('gemini-3-flash-preview'),
+                    }];
+                    const response = await model.generateContent({
                         contents,
-                        config: {
-                            systemInstruction,
-                            temperature: 0.7
-                        }
+                        generationConfig: { temperature: 0.7 },
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
                     });
 
-                    let text = response.text;
+                    let text = response.response.candidates[0].content.parts[0].text || "";
                     const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*\}/);
                     if (jsonMatch) {
                         text = jsonMatch[1] || jsonMatch[0];
