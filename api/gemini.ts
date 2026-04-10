@@ -32,17 +32,49 @@ async function getAccessToken() {
 }
 
 /**
+ * 诊断逻辑：列出该区域所有可用的模型 ID
+ */
+async function listAvailableModels() {
+    try {
+        const project = process.env.GCP_PROJECT_ID;
+        const location = process.env.GCP_LOCATION || "us-central1";
+        const token = await getAccessToken();
+        
+        // 尝试列出公共模型
+        const url = `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/publishers/google/models`;
+        
+        console.log(`[Diagnostic] 正在尝试从 ${url} 获取可用模型列表...`);
+        
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            const modelNames = data.models?.map((m: any) => m.name.split('/').pop()) || [];
+            console.log("[Diagnostic Success] 当前项目可用的模型 ID 列表:", JSON.stringify(modelNames));
+            return modelNames;
+        } else {
+            const errorText = await response.text();
+            console.error(`[Diagnostic Failed] 状态码: ${response.status}`, errorText);
+        }
+    } catch (e: any) {
+        console.error("[Diagnostic Exception]", e.message);
+    }
+    return [];
+}
+
+/**
  * 适配 Vertex AI 模型名称
  */
 const getModelName = (model: string): string => {
     const mapping: Record<string, string> = {
         'gemini-3-flash-preview': 'gemini-3-flash',
         'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
-        'gemini-1.5-flash': 'gemini-2.0-flash',
-        'gemini-1.5-pro': 'gemini-2.0-pro'
+        'gemini-1.5-flash': 'gemini-2.5-flash', // 2026年优先尝试 2.5 系列
+        'gemini-1.5-pro': 'gemini-2.5-pro'
     };
     const mapped = mapping[model] || model;
-    // 强制使用完整路径模式
     return `publishers/google/models/${mapped}`;
 };
 
@@ -70,7 +102,11 @@ async function callVertexAI(modelName: string, payload: any) {
 
     if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[Vertex AI API Error] Status: ${response.status}`, errorText);
+        // 如果遇到 404，触发诊断逻辑
+        if (response.status === 404) {
+            console.error(`[Vertex AI API 404] 模型 ${modelName} 未找到，启动模型列表诊断...`);
+            await listAvailableModels();
+        }
         throw new Error(`Vertex API Error (${response.status}): ${errorText}`);
     }
 
@@ -90,16 +126,13 @@ async function requestWithRetry<T>(
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
-            // 模拟 SDK 接口
             const mockModel = {
                 generateContent: async (payload: any) => {
                     const result = await callVertexAI(modelName, payload);
                     return { response: result };
                 }
             };
-
             return await operation(mockModel);
-
         } catch (error: any) {
             lastError = error;
             const message = error?.message || "";
@@ -252,8 +285,8 @@ export default async function handler(req: any, res: any) {
                 const isMarriage = action === 'marriageAnalysis';
                 const { birthInfo, gender } = req.body;
                 const systemInstruction = isMarriage 
-                    ? `你是一位姻缘大师，分析用户出生信息。给出一份小红书风格的报告。末尾包含 [PARTNER_DESC:xxxxx]`
-                    : `你是一位财运解析大师，分析用户出生信息。给出一份小红书风格的报告。`;
+                    ? `你是一位姻缘大师，分析用户出生信息。给出一份小红书风格的报告数据。末尾一定要包含 [PARTNER_DESC:xxxxx] 格式。`
+                    : `你是一位财运解析大师，分析用户出生信息。给出一份小红书风格的报告数据。`;
                 
                 const prompt = `用户信息：${birthInfo}，性别：${gender}。`;
 
@@ -308,7 +341,7 @@ export default async function handler(req: any, res: any) {
             case 'jadeAppraisal':
             case 'eyeDiagnosis': {
                 const isJade = action === 'jadeAppraisal';
-                const systemInstruction = isJade ? "你是一位翡翠鉴定专家，请以JSON格式返回分析。" : "你是一位中医望诊专家，分析眼睛照片，请以JSON格式返回分析。";
+                const systemInstruction = isJade ? "你是一位翡翠鉴定专家，请以JSON格式返回分析报告。" : "你是一位中医望诊专家，分析眼睛照片状况，请以JSON格式返回分析报告。";
 
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const response = await model.generateContent({
@@ -318,7 +351,7 @@ export default async function handler(req: any, res: any) {
                                 ...images.map((img: string) => ({
                                     inlineData: { mimeType: 'image/jpeg', data: img.split(',')[1] || img }
                                 })),
-                                { text: "请开始深度分析。" }
+                                { text: "请开始深度分析并返回JSON。" }
                             ]
                         }],
                         generationConfig: { temperature: 0.7 },
