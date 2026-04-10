@@ -1,47 +1,14 @@
-import { GoogleGenAI } from "@google/genai";
 import { VertexAI, GenerativeModel as VertexGenerativeModel } from "@google-cloud/vertexai";
-import { GoogleAuth } from "google-auth-library";
 
-// 从环境变量加载多个 API Key (支持 GEMINI_API_KEY, GEMINI_API_KEY1, GEMINI_API_KEY2...)
-const getApiKeys = (): string[] => {
-    const keys: string[] = [];
-
-    // 检查原始变量
-    if (process.env.GEMINI_API_KEY) {
-        keys.push(...process.env.GEMINI_API_KEY.split(",").map(k => k.trim()).filter(k => k.length > 0));
-    }
-
-    // 动态检查 GEMINI_API_KEY1 到 GEMINI_API_KEY100
-    for (let i = 1; i <= 100; i++) {
-        const key = process.env[`GEMINI_API_KEY${i}`];
-        if (key) {
-            keys.push(key.trim());
-        }
-    }
-
-    return keys;
-};
-
-let currentKeyIndex = 0;
-
-/**
- * 判断当前是否启用了 Vertex AI 模式
- */
-const isVertexEnabled = (): boolean => {
-    return !!(process.env.GCP_SERVICE_ACCOUNT_KEY && process.env.GCP_PROJECT_ID);
-};
 
 /**
  * 适配 Vertex AI 模型名称
  */
 const getModelName = (model: string): string => {
-    if (!isVertexEnabled()) return model;
-    
     // Vertex AI 模型名称映射关系
-    // 注意：Vertex AI 稳定版通常不带 -preview 后缀
     const mapping: Record<string, string> = {
         'gemini-3-flash-preview': 'gemini-1.5-flash',
-        'gemini-2.5-flash-image': 'gemini-1.5-flash', // Vertex AI 1.5 Flash 同样支持多模态
+        'gemini-2.5-flash-image': 'gemini-1.5-flash',
         'gemini-1.5-flash': 'gemini-1.5-flash',
         'gemini-1.5-pro': 'gemini-1.5-pro'
     };
@@ -57,10 +24,12 @@ const getVertexModel = (modelName: string): VertexGenerativeModel | null => {
     const project = process.env.GCP_PROJECT_ID;
     const location = process.env.GCP_LOCATION || "us-central1";
 
-    if (!keyStr || !project) return null;
+    if (!keyStr || !project) {
+        console.error("[Vertex AI Config Missing] GCP_SERVICE_ACCOUNT_KEY 或 GCP_PROJECT_ID 未配置");
+        return null;
+    }
 
     try {
-        // 健壮性处理：去除可能包裹在外的多余引号
         let sanitizedKey = keyStr.trim();
         if (sanitizedKey.startsWith('"') && sanitizedKey.endsWith('"')) {
             sanitizedKey = sanitizedKey.substring(1, sanitizedKey.length - 1).replace(/\\"/g, '"');
@@ -83,85 +52,48 @@ const getVertexModel = (modelName: string): VertexGenerativeModel | null => {
 };
 
 /**
- * 获取 Google AI (Gemini API) 客户端
- */
-const getGeminiClient = (): GoogleGenAI => {
-    const keys = getApiKeys();
-    if (keys.length === 0) throw new Error("未配置 GEMINI_API_KEY");
-    const key = keys[currentKeyIndex % keys.length];
-    
-    const baseUrl = process.env.GEMINI_BASE_URL;
-    
-    return new GoogleGenAI({ 
-        apiKey: key,
-        apiVersion: 'v1beta',
-        ...(baseUrl ? { baseUrl } : {})
-    });
-};
-
-const switchKey = (): void => {
-    const keys = getApiKeys();
-    if (keys.length > 1) {
-        currentKeyIndex = (currentKeyIndex + 1) % keys.length;
-        console.log(`[API Rotation] 切换到 Key 索引: ${currentKeyIndex}`);
-    }
-};
-
-/**
- * 带有超时和自动轮换 Key 的请求包装器
- */
-/**
- * 带有超时和自动轮换的请求包装器 (支持 Vertex AI 和 Gemini API)
+ * 带有超时和自动重试的 Vertex AI 请求包装器
  */
 async function requestWithRetry<T>(
     modelName: string,
-    operation: (model: any, isVertex: boolean) => Promise<T>,
-    maxRetries = 5,
-    initialDelay = 500
+    operation: (model: VertexGenerativeModel) => Promise<T>,
+    maxRetries = 3,
+    initialDelay = 1000
 ): Promise<T> {
     let lastError: any;
+    const vertexModelName = getModelName(modelName);
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
-            // 1. 优先尝试 Vertex AI
-            const vertexModelName = getModelName(modelName);
             const vertexModel = getVertexModel(vertexModelName);
-            
-            if (vertexModel) {
-                try {
-                    console.log(`[Vertex AI Request] Attempt ${i + 1}/${maxRetries + 1} using model: ${vertexModelName}`);
-                    return await operation(vertexModel, true);
-                } catch (vError: any) {
-                    console.error(`[Vertex AI Error] ${vError.message || vError}`);
-                    // 如果是配额或超载问题，继续重试；如果是认证失败（且不是第一个重试），可能得考虑切换
-                    lastError = vError;
-                }
+            if (!vertexModel) {
+                throw new Error("Vertex AI 模型初始化失败，请检查 GCP 环境变量配置");
             }
 
-            // 2. 如果 Vertex AI 不可用或强制要求 API Key (或者 Vertex 失败了)，回退到 Gemini API
-            const keys = getApiKeys();
-            if (keys.length > 0) {
-                const ai = getGeminiClient();
-                const geminiModel = ai.getGenerativeModel({ model: modelName });
-                console.log(`[Gemini API Request] Attempt ${i + 1}/${maxRetries + 1} using Key Index ${currentKeyIndex % keys.length}`);
-                
-                return await operation(geminiModel, false);
-            }
-
-            if (lastError) throw lastError;
-            throw new Error("No available AI service (Vertex AI and Gemini API both unavailable)");
+            console.log(`[Vertex AI Request] 尝试 ${i + 1}/${maxRetries + 1} 使用模型: ${vertexModelName}`);
+            return await operation(vertexModel);
 
         } catch (error: any) {
             lastError = error;
             const status = error?.status || error?.code || error?.response?.status;
-            const isOverloaded = status === 503 || status === 'UNAVAILABLE' || error?.message?.includes("overloaded") || error?.message?.includes("demand");
-            const isRateLimit = status === 429 || error?.message?.includes("Rate limit");
+            const message = error?.message || "";
+            
+            // 常见的可重试错误：503/429/超时
+            const isOverloaded = status === 503 || status === 'UNAVAILABLE' || message.includes("overloaded") || message.includes("demand") || message.includes("Too Many Requests");
+            const isRateLimit = status === 429 || message.includes("Rate limit") || message.includes("Quota");
+            const isTimeout = message.includes("timeout") || message.includes("deadline");
 
-            console.error(`[API Error] 尝试 ${i + 1}/${maxRetries + 1}, 错误: ${error?.message || error}`);
+            console.error(`[Vertex AI Error] 尝试 ${i + 1}/${maxRetries + 1} 失败: ${message}`);
 
-            if (i < maxRetries && (isOverloaded || isRateLimit || error?.message?.includes("timeout"))) {
-                if (getApiKeys().length > 1) switchKey();
-                const delay = initialDelay * Math.pow(1.5, i); 
+            // 如果是认证错误或模型未找到 (404)，重试通常无意义
+            if (status === 404 || status === 401 || status === 403) {
+                console.error("[Vertex AI Fatal Error] 致命错误，停止重试");
+                throw error;
+            }
+
+            if (i < maxRetries && (isOverloaded || isRateLimit || isTimeout)) {
+                const delay = initialDelay * Math.pow(2, i); 
+                console.log(`[Retry] 将在 ${delay}ms 后重试...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
