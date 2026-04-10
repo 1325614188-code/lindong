@@ -22,12 +22,16 @@ const getModelName = (model: string): string => {
 const getVertexModel = (modelName: string): VertexGenerativeModel | null => {
     const keyStr = process.env.GCP_SERVICE_ACCOUNT_KEY;
     const project = process.env.GCP_PROJECT_ID;
-    const location = process.env.GCP_LOCATION || "us-east4";
+    const location = process.env.GCP_LOCATION || "us-central1";
 
-    console.log(`[Vertex AI Init] Initializing with Project: ${project}, Location: ${location}`);
+    console.log(`[Vertex AI Init] Starting initialization...`);
+    console.log(`[Vertex AI Init] Project ID: ${project}`);
+    console.log(`[Vertex AI Init] Region: ${location}`);
 
     if (!keyStr || !project) {
         console.error("[Vertex AI Config Missing] GCP_SERVICE_ACCOUNT_KEY 或 GCP_PROJECT_ID 未配置");
+        console.log(`[Vertex AI Debug] GCP_SERVICE_ACCOUNT_KEY exists: ${!!keyStr}`);
+        console.log(`[Vertex AI Debug] GCP_PROJECT_ID exists: ${!!project}`);
         return null;
     }
 
@@ -85,11 +89,19 @@ async function requestWithRetry<T>(
             const isRateLimit = status === 429 || message.includes("Rate limit") || message.includes("Quota");
             const isTimeout = message.includes("timeout") || message.includes("deadline");
 
-            console.error(`[Vertex AI Error] 尝试 ${i + 1}/${maxRetries + 1} 失败: ${message}`);
+            console.error(`[Vertex AI Error] 尝试 ${i + 1}/${maxRetries + 1} 失败`);
+            console.error(`[Vertex AI Error Message] ${message}`);
+            console.error(`[Vertex AI Error Status] ${status}`);
 
             // 如果是认证错误或模型未找到 (404)，重试通常无意义
             if (status === 404 || status === 401 || status === 403) {
-                console.error("[Vertex AI Fatal Error] 致命错误，停止重试");
+                console.error("[Vertex AI Fatal Error] 致命错误 (401/403/404)，停止重试。请检查 GCP 项目 ID、区域、API 启用状态、服务账号权限以及模型名称映射。");
+                console.error("[Vertex AI Debug Context]", {
+                    modelRequested: modelName,
+                    actualModel: vertexModelName,
+                    region: process.env.GCP_LOCATION || "us-central1",
+                    projectId: process.env.GCP_PROJECT_ID
+                });
                 throw error;
             }
 
