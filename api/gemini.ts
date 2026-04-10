@@ -1,38 +1,14 @@
-import { VertexAI, GenerativeModel as VertexGenerativeModel } from "@google-cloud/vertexai";
-
-
-/**
- * 适配 Vertex AI 模型名称
- */
-const getModelName = (model: string): string => {
-    // Vertex AI 模型名称映射关系
-    const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'publishers/google/models/gemini-1.5-flash',
-        'gemini-2.5-flash-image': 'publishers/google/models/gemini-1.5-flash',
-        'gemini-1.5-flash': 'publishers/google/models/gemini-1.5-flash',
-        'gemini-1.5-pro': 'publishers/google/models/gemini-1.5-pro'
-    };
-    
-    return mapping[model] || model;
-};
+import { GoogleAuth } from 'google-auth-library';
 
 /**
- * 获取 Vertex AI 模型实例
+ * 获取 GCP Access Token
  */
-const getVertexModel = (modelName: string): VertexGenerativeModel | null => {
+async function getAccessToken() {
     const keyStr = process.env.GCP_SERVICE_ACCOUNT_KEY;
     const project = process.env.GCP_PROJECT_ID;
-    const location = process.env.GCP_LOCATION || "us-central1";
-
-    console.log(`[Vertex AI Init] Starting initialization...`);
-    console.log(`[Vertex AI Init] Project ID: ${project}`);
-    console.log(`[Vertex AI Init] Region: ${location}`);
 
     if (!keyStr || !project) {
-        console.error("[Vertex AI Config Missing] GCP_SERVICE_ACCOUNT_KEY 或 GCP_PROJECT_ID 未配置");
-        console.log(`[Vertex AI Debug] GCP_SERVICE_ACCOUNT_KEY exists: ${!!keyStr}`);
-        console.log(`[Vertex AI Debug] GCP_PROJECT_ID exists: ${!!project}`);
-        return null;
+        throw new Error("GCP_SERVICE_ACCOUNT_KEY 或 GCP_PROJECT_ID 未配置");
     }
 
     try {
@@ -42,75 +18,100 @@ const getVertexModel = (modelName: string): VertexGenerativeModel | null => {
         }
         
         const credentials = JSON.parse(sanitizedKey);
-        const vertexAI = new VertexAI({
-            project,
-            location,
-            googleAuthOptions: { credentials },
-            // @ts-ignore
-            version: 'v1beta1'
+        const auth = new GoogleAuth({
+            credentials,
+            scopes: 'https://www.googleapis.com/auth/cloud-platform',
         });
-
-        // 获取模型实例时尝试指定完整路径或别名
-        return vertexAI.preview.getGenerativeModel({
-            model: modelName,
-        });
-    } catch (e) {
-        console.error("[Vertex AI Init Error] 初始化 Vertex AI 失败:", e);
-        return null;
+        const client = await auth.getClient();
+        const tokenResponse = await client.getAccessToken();
+        return tokenResponse.token;
+    } catch (e: any) {
+        console.error("[Auth Error] 获取 Access Token 失败:", e.message);
+        throw e;
     }
+}
+
+/**
+ * 适配 Vertex AI 模型名称
+ */
+const getModelName = (model: string): string => {
+    const mapping: Record<string, string> = {
+        'gemini-3-flash-preview': 'gemini-1.5-flash',
+        'gemini-2.5-flash-image': 'gemini-1.5-flash',
+        'gemini-1.5-flash': 'gemini-1.5-flash',
+        'gemini-1.5-pro': 'gemini-1.5-pro'
+    };
+    const mapped = mapping[model] || model;
+    // 强制使用完整路径模式
+    return `publishers/google/models/${mapped}`;
 };
 
 /**
- * 带有超时和自动重试的 Vertex AI 请求包装器
+ * 底层 Fetch 调用 Vertex AI REST API (v1beta1)
+ */
+async function callVertexAI(modelName: string, payload: any) {
+    const project = process.env.GCP_PROJECT_ID;
+    const location = process.env.GCP_LOCATION || "us-central1";
+    const token = await getAccessToken();
+
+    const modelPath = getModelName(modelName);
+    const url = `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/${modelPath}:generateContent`;
+
+    console.log(`[Vertex AI Request] URL: ${url}`);
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Vertex AI API Error] Status: ${response.status}`, errorText);
+        throw new Error(`Vertex API Error (${response.status}): ${errorText}`);
+    }
+
+    return await response.json();
+}
+
+/**
+ * 带有超时和自动重试的请求包装器
  */
 async function requestWithRetry<T>(
     modelName: string,
-    operation: (model: VertexGenerativeModel) => Promise<T>,
+    operation: (model: any) => Promise<T>,
     maxRetries = 3,
     initialDelay = 1000
 ): Promise<T> {
     let lastError: any;
-    const vertexModelName = getModelName(modelName);
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
-            const vertexModel = getVertexModel(vertexModelName);
-            if (!vertexModel) {
-                throw new Error("Vertex AI 模型初始化失败，请检查 GCP 环境变量配置");
-            }
+            // 模拟 SDK 接口
+            const mockModel = {
+                generateContent: async (payload: any) => {
+                    const result = await callVertexAI(modelName, payload);
+                    return { response: result };
+                }
+            };
 
-            console.log(`[Vertex AI Request] 尝试 ${i + 1}/${maxRetries + 1} 使用模型: ${vertexModelName}`);
-            return await operation(vertexModel);
+            return await operation(mockModel);
 
         } catch (error: any) {
             lastError = error;
-            const status = error?.status || error?.code || error?.response?.status;
             const message = error?.message || "";
             
-            // 常见的可重试错误：503/429/超时
-            const isOverloaded = status === 503 || status === 'UNAVAILABLE' || message.includes("overloaded") || message.includes("demand") || message.includes("Too Many Requests");
-            const isRateLimit = status === 429 || message.includes("Rate limit") || message.includes("Quota");
-            const isTimeout = message.includes("timeout") || message.includes("deadline");
+            console.error(`[Retry Strategy] 尝试 ${i + 1}/${maxRetries + 1} 失败: ${message}`);
 
-            console.error(`[Vertex AI Error] 尝试 ${i + 1}/${maxRetries + 1} 失败`);
-            console.error(`[Vertex AI Error Message] ${message}`);
-            console.error(`[Vertex AI Error Status] ${status}`);
-
-            // 如果是认证错误或模型未找到 (404)，重试通常无意义
-            if (status === 404 || status === 401 || status === 403) {
-                console.error("[Vertex AI Fatal Error] 致命错误 (401/403/404)，停止重试。请检查 GCP 项目 ID、区域、API 启用状态、服务账号权限以及模型名称映射。");
-                console.error("[Vertex AI Debug Context]", {
-                    modelRequested: modelName,
-                    actualModel: vertexModelName,
-                    region: process.env.GCP_LOCATION || "us-central1",
-                    projectId: process.env.GCP_PROJECT_ID
-                });
+            if (message.includes("404") || message.includes("401") || message.includes("403")) {
                 throw error;
             }
 
-            if (i < maxRetries && (isOverloaded || isRateLimit || isTimeout)) {
+            if (i < maxRetries) {
                 const delay = initialDelay * Math.pow(2, i); 
-                console.log(`[Retry] 将在 ${delay}ms 后重试...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
@@ -122,41 +123,27 @@ async function requestWithRetry<T>(
 
 // Vercel Serverless Function Handler
 export default async function handler(req: any, res: any) {
-    // 设置 CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
         const { action, type, images, gender, baseImage, itemImage, itemType, faceImage, image } = req.body;
 
         switch (action) {
             case 'detectPhotoContent': {
-                // 用于检测用户上传的照片是否符合要求（脸部+上半身）
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const systemInstruction = "你是一个图像合规性审计专家。判断用户上传的图片是否同时包含【清晰的人脸】以及【至少覆盖肩膀和胸部的上半身部位】。如果是，回复 TRUE，否则回复 FALSE。只需要回复一个单词，不要说明原因。";
-                    const contents = [
-                        {
-                            role: 'user',
-                            parts: [
-                                {
-                                    inlineData: {
-                                        mimeType: 'image/jpeg',
-                                        data: image.split(',')[1] || image
-                                    }
-                                },
-                                { text: "这张图是否符合：包含人脸且包含足以试穿衣服的上半身？" }
-                            ]
-                        }
-                    ];
+                    const contents = [{
+                        role: 'user',
+                        parts: [
+                            { inlineData: { mimeType: 'image/jpeg', data: image.split(',')[1] || image } },
+                            { text: "这张图是否符合：包含人脸且包含足以试穿衣服的上半身？" }
+                        ]
+                    }];
                     const response = await model.generateContent({
                         contents,
                         generationConfig: { temperature: 0.1 },
@@ -165,50 +152,33 @@ export default async function handler(req: any, res: any) {
                     const resultText = response.response.candidates[0].content.parts[0].text || "";
                     return resultText.trim().toUpperCase().includes('TRUE');
                 });
-
                 return res.status(200).json({ valid: result });
             }
 
             case 'analyze': {
-                // 图像分析 (颜值打分、舌诊、面诊等)
-                const isBeautyScore = type === '颜值打分';
                 const isFengShui = type === '摆设风水分析';
-
-                let analysisStyle = '';
-                if (isFengShui) {
-                    analysisStyle = '按中国传统风水术语（如：明堂、青龙白虎位、煞气、避讳、聚气等）进行深度详解和布局建议。';
-                } else {
-                    analysisStyle = '按五官（眼睛、鼻子、嘴巴、脸型、眉毛等）逐个进行美学或健康角度的详细分析。';
-                }
-
+                const isBeautyScore = type === '颜值打分';
                 const systemInstruction = `
           你是一位资深${isFengShui ? '风水命理大师' : '美妆生活博主'}，语气采用典型的小红书风格（多用emoji、语气助词、感叹号，排版优美，分段清晰）。
           请针对用户上传的图片进行深度分析。
           要求：
           1. 标题要吸引人，使用【】括起来。
           ${isBeautyScore ? '2. 【重要】报告的第一行必须是分数，格式为：[SCORE:XX分]，其中 XX 是 0-100 之间的具体分数。' : ''}
-          ${isBeautyScore ? '3.' : '2.'} ${analysisStyle}
-          ${isBeautyScore ? '4.' : '3.'} 给出针对性的${isFengShui ? '改进建议或化解方案' : '变美建议、穿搭建议 or 健康调理方案'}。
-          ${isBeautyScore ? '5.' : '4.'} 结尾要有互动感。
-          ${isBeautyScore ? '6.' : '5.'} 报告内容详尽且专业，文字要贴心。
+          3. ${isFengShui ? '按中国传统风水术语进行深度详解' : '按五官逐个进行美学或健康角度的详细分析'}。
+          4. 给出针对性的${isFengShui ? '改进建议或化解方案' : '变美建议、穿搭建议 or 健康调理方案'}。
         `;
                 const prompt = `分析类型：${type}。${gender ? `性别：${gender}` : ''}`;
 
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
-                    const contents = [
-                        {
-                            role: 'user',
-                            parts: [
-                                ...images.map((img: string) => ({
-                                    inlineData: {
-                                        mimeType: 'image/jpeg',
-                                        data: img.split(',')[1] || img
-                                    }
-                                })),
-                                { text: prompt }
-                            ]
-                        }
-                    ];
+                    const contents = [{
+                        role: 'user',
+                        parts: [
+                            ...images.map((img: string) => ({
+                                inlineData: { mimeType: 'image/jpeg', data: img.split(',')[1] || img }
+                            })),
+                            { text: prompt }
+                        ]
+                    }];
                     const response = await model.generateContent({
                         contents,
                         generationConfig: { temperature: 0.7 },
@@ -216,97 +186,47 @@ export default async function handler(req: any, res: any) {
                     });
                     return response.response.candidates[0].content.parts[0].text;
                 });
-
                 return res.status(200).json({ result });
             }
 
             case 'tryOn': {
-                // AI 试穿/试戴
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const prompt = itemType === 'clothes'
                         ? '将图中人物的衣服换成另一张图中的款式，保持人物面容和环境不变，生成高品质穿搭效果图。输出图片比例必须为9:16竖版。'
-                        : '在图中人物的耳朵上戴上另一张图中的耳坠。如果是正面，请在左右两侧耳朵都展示出来。效果要自然，光影和谐。';
-
-                    const response = await model.generateContent({
-                        contents: [
-                            {
-                                role: 'user',
-                                parts: [
-                                    { inlineData: { mimeType: 'image/jpeg', data: baseImage.split(',')[1] } },
-                                    { inlineData: { mimeType: 'image/jpeg', data: itemImage.split(',')[1] } },
-                                    { text: prompt }
-                                ]
-                            }
-                        ],
-                        // Vertex AI 风格的 config
-                        generationConfig: {
-                            temperature: 0.4
-                        }
-                    });
-
-                    for (const part of response.response.candidates?.[0]?.content?.parts || []) {
-                        if (part.inlineData) {
-                            return `data:image/png;base64,${part.inlineData.data}`;
-                        }
-                    }
-                    return null;
-                });
-
-                return res.status(200).json({ result });
-            }
-
-            case 'hairstyle': {
-                // 发型生成 (单个)
-                const { hairstyleName, hairstyleDesc } = req.body;
-
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
-                    const prompt = `为图中这位${gender}性生成一种具体的时尚发型：${hairstyleName}。
-          ${hairstyleDesc ? `发型具体特征描述：${hairstyleDesc}` : ''}
-          要求：
-          1. 发型必须与原图中的脸型和五官完美融合。
-          2. 确保发型特征非常明显，与其他发型有显著区别。
-          3. 生成高品质、真实感强的效果图。
-          4. 仅仅改变发型，保持人脸特征不变。`;
+                        : '在图中人物的耳朵上戴上另一张图中的耳坠。效果要自然，光影和谐。';
 
                     const response = await model.generateContent({
                         contents: [{
                             role: 'user',
                             parts: [
-                                { inlineData: { mimeType: 'image/jpeg', data: faceImage.split(',')[1] } },
+                                { inlineData: { mimeType: 'image/jpeg', data: baseImage.split(',')[1] } },
+                                { inlineData: { mimeType: 'image/jpeg', data: itemImage.split(',')[1] } },
                                 { text: prompt }
                             ]
-                        }]
+                        }],
+                        generationConfig: { temperature: 0.4 }
                     });
 
-                    for (const part of response.response.candidates?.[0]?.content?.parts || []) {
-                        if (part.inlineData) {
-                            return `data:image/png;base64,${part.inlineData.data}`;
-                        }
+                    const parts = response.response.candidates?.[0]?.content?.parts || [];
+                    for (const part of parts) {
+                        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
                     }
                     return null;
                 });
-
                 return res.status(200).json({ result });
             }
 
+            case 'hairstyle':
             case 'makeup': {
-                // 美妆效果生成
-                const { faceImage, styleName, styleDesc } = req.body;
-
-                if (!faceImage || !styleName) {
-                    return res.status(400).json({ error: '缺少人脸图片或化妆风格' });
-                }
+                const isHairstyle = action === 'hairstyle';
+                const { hairstyleName, hairstyleDesc, styleName, styleDesc } = req.body;
+                const name = isHairstyle ? hairstyleName : styleName;
+                const desc = isHairstyle ? hairstyleDesc : styleDesc;
 
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
-                    const prompt = `请为图中人物化上"${styleName}"风格的妆容。
-${styleDesc ? `风格特点：${styleDesc}` : ''}
-
-【重要要求】：
-1. 绝对不能改变人物的五官特征、脸型、眼睛形状等面部骨骼结构
-2. 只能在原有五官基础上添加化妆效果（眼影、腮红、口红、眉毛修饰等）
-3. 保持人物原本的肤色基调，妆容要自然融合
-4. 生成高品质、真实感强的美妆效果图
-5. 确保妆容风格特征明显，符合"${styleName}"的典型特点`;
+                    const prompt = isHairstyle 
+                        ? `为图中这位${gender}性生成发型：${name}。特点：${desc}。保持人脸特征不变。`
+                        : `为图中人物化上"${name}"风格妆容。特点：${desc}。不可改变五官骨骼。`;
 
                     const response = await model.generateContent({
                         contents: [{
@@ -318,32 +238,24 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                         }]
                     });
 
-                    for (const part of response.response.candidates?.[0]?.content?.parts || []) {
-                        if (part.inlineData) {
-                            return `data:image/png;base64,${part.inlineData.data}`;
-                        }
+                    const parts = response.response.candidates?.[0]?.content?.parts || [];
+                    for (const part of parts) {
+                        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
                     }
                     return null;
                 });
-
                 return res.status(200).json({ result });
             }
 
-            case 'marriageAnalysis': {
-                // 八字婚姻分析
+            case 'marriageAnalysis':
+            case 'wealthAnalysis': {
+                const isMarriage = action === 'marriageAnalysis';
                 const { birthInfo, gender } = req.body;
-                const systemInstruction = `
-          你是一位深谙中国传统八字命理与相术的姻缘大师。语气采用典型的小红书风格（多用emoji、语气助词、感叹号，排版优美，分段清晰）。
-          请根据用户提供的出生信息进行分析。
-          要求：
-          1. 标题要吸引人，使用【】括起来。
-          2. 将其对应的新历换算成农历，并排出简单的八字（干支）。
-          3. 分析其婚姻面相/命理特征：包括哪年或哪几年遇到另一半机会最大（流年机会）。
-          4. 详细描述未来另一半的特征：包括大概年龄差异、性格特点、相貌特征（如：浓眉大眼、书生气质、甚至具体的身材特征）。
-          5. 给出变美/吸引正缘的建议。
-          6. 报告内容结尾需要包含一个特殊的标记 [PARTNER_DESC:xxxxx]，其中 xxxxx 是你对理想另一半相貌特征的精炼描述（用于AI生成图片），不超过100字。
-        `;
-                const prompt = `用户出生信息：${birthInfo}，性别：${gender}。`;
+                const systemInstruction = isMarriage 
+                    ? `你是一位姻缘大师，分析用户出生信息。给出一份小红书风格的报告。末尾包含 [PARTNER_DESC:xxxxx]`
+                    : `你是一位财运解析大师，分析用户出生信息。给出一份小红书风格的报告。`;
+                
+                const prompt = `用户信息：${birthInfo}，性别：${gender}。`;
 
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const response = await model.generateContent({
@@ -353,94 +265,36 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                     });
                     return response.response.candidates[0].content.parts[0].text;
                 });
-
                 return res.status(200).json({ result });
             }
 
             case 'generatePartner': {
-                // 根据相术描述生成理想另一半
                 const { description, gender, userImage } = req.body;
                 const targetGender = gender === '男' ? '女' : '男';
 
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
-                    const prompt = `你是一位顶级的形象设计师和命理专家。
-请为图中这位${gender}性生成一位【命中注定、高度匹配】的中华${targetGender}性。
-
-【目标形象要求】：
-1. 必须基于以下相术描述进行创作：${description}。
-2. 气质上要与原图中的人物形成绝佳的“夫妻相”或“互补美”。
-3. 必须符合东方审美，容貌俊美/秀丽，气质出众。
-4. 照片级别真实感（Photorealistic），背景为温馨的生活化场景或纯净背景。
-5. 两个人的风格要统一，仿佛生活在同一个次元。
-
-【如果不提供原图，请直接生成符合描述的中国${targetGender}性写真】。`;
-
+                    const prompt = `生成一位高度匹配的中华${targetGender}性。描述：${description}。照片级真实。`;
                     const parts: any[] = [];
-
                     if (userImage) {
-                        parts.push({
-                            inlineData: {
-                                mimeType: 'image/jpeg',
-                                data: userImage.split(',')[1]
-                            }
-                        });
+                        parts.push({ inlineData: { mimeType: 'image/jpeg', data: userImage.split(',')[1] } });
                     }
-
                     parts.push({ text: prompt });
 
                     const response = await model.generateContent({
-                        contents: [{
-                            role: 'user',
-                            parts
-                        }]
+                        contents: [{ role: 'user', parts }]
                     });
 
-                    for (const part of response.response.candidates?.[0]?.content?.parts || []) {
-                        if (part.inlineData) {
-                            return `data:image/png;base64,${part.inlineData.data}`;
-                        }
+                    const partsOut = response.response.candidates?.[0]?.content?.parts || [];
+                    for (const part of partsOut) {
+                        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
                     }
                     return null;
                 });
-
-                return res.status(200).json({ result });
-            }
-
-            case 'wealthAnalysis': {
-                // 八字财运分析
-                const { birthInfo, gender } = req.body;
-                const systemInstruction = `
-          你是一位资深的周易理财与职业规划大师。语气采用典型的小红书风格（多用emoji、语气助词、感叹号，排版优美，分段清晰）。
-          请根据用户提供的出生信息进行分析。
-          要求：
-          1. 标题要吸引人，使用【】括起来。
-          2. 将其对应的新历换算成农历，并分析八字中的财星。
-          3. 分析其一生财运起伏：重点指出哪年或哪几年财运比较旺（流年利财）。
-          4. 给出职业建议：适合做什么行业（根据五行喜忌），是适合打工、创业还是理财。
-          5. 给出具体的旺财建议（如家居摆设、幸运色等）。
-        `;
-                const prompt = `用户出生信息：${birthInfo}，性别：${gender}。`;
-
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
-                    const response = await model.generateContent({
-                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: 0.7 },
-                        systemInstruction: { parts: [{ text: systemInstruction }] }
-                    });
-                    return response.response.candidates[0].content.parts[0].text;
-                });
-
                 return res.status(200).json({ result });
             }
 
             case 'textAnalysis': {
-                // 纯文本分析 (五行车牌等)
                 const { prompt } = req.body;
-
-                if (!prompt) {
-                    return res.status(400).json({ error: '缺少分析内容' });
-                }
-
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const response = await model.generateContent({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -448,136 +302,39 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                     });
                     return response.response.candidates[0].content.parts[0].text;
                 });
-
                 return res.status(200).json({ result });
             }
 
-            case 'jadeAppraisal': {
-                // 翡翠深度鉴定
-                const systemInstruction = `你是一位世界级的翡翠鉴定专家，拥有数十年的翡翠行业经验。
-你的任务是根据用户提供的多角度、不同光影下的翡翠照片，进行严谨、客观的鉴定。
-
-鉴定维度必须包括：
-1. 真伪鉴定 (Authenticity)：观察是否有“苍蝇翅”（翠性）、“橘皮效应”、酸洗纹（B货特征）、染色迹象（C货特征）。
-2. 种水评估 (Texture & Transparency)：判断是玻璃种、冰种、糯种还是豆种。
-3. 颜色分析 (Color)：评估颜色的浓、阳、正、和。
-4. 工艺评价 (Craftsmanship)：评价雕工的精细度、比例和艺术价值。
-5. 瑕疵观察：观察是否有裂纹、棉、黑点等。
-
-请以 JSON 格式返回结果，结构如下：
-{
-  "authenticity": {
-    "conclusion": "鉴定结论（如：天然翡翠A货、疑似处理翡翠等）",
-    "reasons": ["理由1", "理由2"],
-    "riskLevel": "low | medium | high"
-  },
-  "quality": {
-    "color": "颜色描述",
-    "transparency": "水头描述",
-    "texture": "种质描述",
-    "craftsmanship": "工艺描述",
-    "overallGrade": "综合评分/等级"
-  },
-  "detailedAnalysis": "详细的Markdown格式分析报告，包含专业术语解析"
-}`;
-
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
-                    const contents = [{
-                        role: 'user',
-                        parts: [
-                            ...images.map((img: string) => ({
-                                inlineData: {
-                                    mimeType: 'image/jpeg',
-                                    data: img.split(',')[1] || img
-                                }
-                            })),
-                            { text: "请对这些翡翠照片进行深度鉴定。请务必严谨，如果照片清晰度不足以支撑结论，请在报告中说明。" }
-                        ]
-                    }];
-                    const response = await model.generateContent({
-                        contents,
-                        generationConfig: { temperature: 0.7 },
-                        systemInstruction: { parts: [{ text: systemInstruction }] }
-                    });
-
-                    let text = response.response.candidates[0].content.parts[0].text || "";
-                    const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*\}/);
-                    if (jsonMatch) {
-                        text = jsonMatch[1] || jsonMatch[0];
-                    }
-
-                    try {
-                        return JSON.parse(text);
-                    } catch (e) {
-                        console.error("[Jade API Parse Error]", text);
-                        return { error: "解析鉴定报告失败", raw: text };
-                    }
-                });
-
-                return res.status(200).json({ result });
-            }
-
+            case 'jadeAppraisal':
             case 'eyeDiagnosis': {
-                // AI 看眼 - 中医五轮学说
-                const systemInstruction = `你是一位精通中国传统中医“五轮学说”的望诊专家。
-你的任务是通过用户上传的五个角度的眼睛照片（正视、上视、下视、左视、右视），分析其脏腑健康状况。
-
-【中医五轮理论基础】：
-1. 肉轮（胞睑/眼睑）：属脾，主运化。观察是否有浮肿、下垂、颜色异常（如萎黄、红肿）。
-2. 血轮（两眦/内外眼角）：属心，主血脉。观察是否有血丝、红赤、溢血。
-3. 气轮（白睛/巩膜）：属肺，主气。观察是否有黄染、血丝、色斑（如蓝斑、黑点）。
-4. 风轮（黑睛/角膜）：属肝，主疏泄。观察是否混浊、有翳。
-5. 水轮（瞳神/瞳孔）：属肾，主精气。观察瞳孔大小、光反应速度。
-
-请以 JSON 格式返回分析结果，结构如下：
-{
-  "healthScore": 0-100的健康得分,
-  "mainFinding": "最核心的一个健康发现（如：脾胃虚弱、心火旺盛等）",
-  "visceraStatus": "五脏六腑总体状态描述",
-  "detailedAnalysis": {
-      "spleenStomach": "肉轮（眼睑）分析：脾胃运化状况",
-      "heart": "血轮（眼角）分析：心神与血液状况",
-      "lung": "气轮（白睛）分析：肺气与呼吸相关状况",
-      "liver": "风轮（黑睛）分析：肝胆疏泄状况",
-      "kidney": "水轮（瞳孔）分析：肾精充盈状况"
-  },
-  "suggestions": ["建议1", "建议2", "建议3"],
-  "reportMarkdown": "一份精美的、小红书风格的详细分析报告，包含中医术语解释、日常调理方案、饮食建议等。多用emoji，排版美观。"
-}`;
+                const isJade = action === 'jadeAppraisal';
+                const systemInstruction = isJade ? "你是一位翡翠鉴定专家，请以JSON格式返回分析。" : "你是一位中医望诊专家，分析眼睛照片，请以JSON格式返回分析。";
 
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
-                    const contents = [{
-                        role: 'user',
-                        parts: [
-                            ...images.map((img: string) => ({
-                                inlineData: {
-                                    mimeType: 'image/jpeg',
-                                    data: img.split(',')[1] || img
-                                }
-                            })),
-                            { text: "这是我从五个角度拍摄的眼睛照片，请根据中医五轮学说进行深度健康分析。" }
-                        ]
-                    }];
                     const response = await model.generateContent({
-                        contents,
+                        contents: [{
+                            role: 'user',
+                            parts: [
+                                ...images.map((img: string) => ({
+                                    inlineData: { mimeType: 'image/jpeg', data: img.split(',')[1] || img }
+                                })),
+                                { text: "请开始深度分析。" }
+                            ]
+                        }],
                         generationConfig: { temperature: 0.7 },
                         systemInstruction: { parts: [{ text: systemInstruction }] }
                     });
 
                     let text = response.response.candidates[0].content.parts[0].text || "";
                     const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*\}/);
-                    if (jsonMatch) {
-                        text = jsonMatch[1] || jsonMatch[0];
-                    }
+                    if (jsonMatch) text = jsonMatch[1] || jsonMatch[0];
 
                     try {
                         return JSON.parse(text);
                     } catch (e) {
-                        console.error("[Eye Diagnosis API Parse Error]", text);
-                        return { error: "解析分析报告失败", raw: text };
+                        return { error: "解析失败", raw: text };
                     }
                 });
-
                 return res.status(200).json({ result });
             }
 
@@ -585,7 +342,7 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                 return res.status(400).json({ error: 'Invalid action' });
         }
     } catch (error: any) {
-        console.error('[API Error]', error);
+        console.error('[API Error]', error.message);
         return res.status(500).json({ error: error.message || 'Internal server error' });
     }
 }
