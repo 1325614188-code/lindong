@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { GoogleAuth } from "google-auth-library";
 
 // 从环境变量加载多个 API Key (支持 GEMINI_API_KEY, GEMINI_API_KEY1, GEMINI_API_KEY2...)
 const getApiKeys = (): string[] => {
@@ -22,17 +23,66 @@ const getApiKeys = (): string[] => {
 
 let currentKeyIndex = 0;
 
+/**
+ * 判断当前是否启用了 Vertex AI 模式
+ */
+const isVertexEnabled = (): boolean => {
+    return !!(process.env.GCP_SERVICE_ACCOUNT_KEY && process.env.GCP_PROJECT_ID);
+};
+
+/**
+ * 适配 Vertex AI 模型名称
+ */
+const getModelName = (model: string): string => {
+    if (!isVertexEnabled()) return model;
+    
+    // Vertex AI 模型名称映射关系
+    // 注意：Vertex AI 稳定版通常不带 -preview 后缀
+    const mapping: Record<string, string> = {
+        'gemini-3-flash-preview': 'gemini-1.5-flash',
+        'gemini-2.5-flash-image': 'gemini-1.5-flash', // Vertex AI 1.5 Flash 同样支持多模态
+        'gemini-1.5-flash': 'gemini-1.5-flash',
+        'gemini-1.5-pro': 'gemini-1.5-pro'
+    };
+    
+    return mapping[model] || model;
+};
+
 const getClient = (): GoogleGenAI => {
+    // 1. 优先尝试 Vertex AI (使用 GCP 赠送金)
+    const gcpServiceAccount = process.env.GCP_SERVICE_ACCOUNT_KEY;
+    const gcpProjectId = process.env.GCP_PROJECT_ID;
+    const gcpLocation = process.env.GCP_LOCATION || "us-central1";
+
+    if (gcpServiceAccount && gcpProjectId) {
+        try {
+            const credentials = JSON.parse(gcpServiceAccount);
+            const auth = new GoogleAuth({
+                credentials,
+                scopes: "https://www.googleapis.com/auth/cloud-platform",
+            });
+
+            return new GoogleGenAI({
+                vertexAI: {
+                    project: gcpProjectId,
+                    location: gcpLocation,
+                },
+                authClient: auth,
+            });
+        } catch (e) {
+            console.error("[Vertex AI Auth Error] 解析 GCP_SERVICE_ACCOUNT_KEY 失败，将退回到 API Key 模式:", e);
+        }
+    }
+
+    // 2. 退回到原来的 API Key 模式
     const keys = getApiKeys();
-    if (keys.length === 0) throw new Error("未配置 GEMINI_API_KEY");
+    if (keys.length === 0) throw new Error("未配置 GCP 凭据且未发现 GEMINI_API_KEY");
     const key = keys[currentKeyIndex % keys.length];
     
-    // 支持通过环境变量设置代理地址
     const baseUrl = process.env.GEMINI_BASE_URL;
     
     return new GoogleGenAI({ 
         apiKey: key,
-        // 使用 v1beta 版本以支持最新模型
         apiVersion: 'v1beta',
         ...(baseUrl ? { baseUrl } : {})
     });
@@ -128,7 +178,7 @@ export default async function handler(req: any, res: any) {
                         ]
                     };
                     const response = await ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
+                        model: getModelName('gemini-3-flash-preview'),
                         contents,
                         config: { systemInstruction, temperature: 0.1 }
                     });
@@ -176,7 +226,7 @@ export default async function handler(req: any, res: any) {
                         ]
                     };
                     const response = await ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
+                        model: getModelName('gemini-3-flash-preview'),
                         contents,
                         config: { systemInstruction, temperature: 0.7 }
                     });
@@ -194,7 +244,7 @@ export default async function handler(req: any, res: any) {
                         : '在图中人物的耳朵上戴上另一张图中的耳坠。如果是正面，请在左右两侧耳朵都展示出来。效果要自然，光影和谐。';
 
                     const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash-image',
+                        model: getModelName('gemini-2.5-flash-image'),
                         contents: {
                             parts: [
                                 { inlineData: { mimeType: 'image/jpeg', data: baseImage.split(',')[1] } },
@@ -231,7 +281,7 @@ export default async function handler(req: any, res: any) {
           4. 仅仅改变发型，保持人脸特征不变。`;
 
                     const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash-image',
+                        model: getModelName('gemini-2.5-flash-image'),
                         contents: {
                             parts: [
                                 { inlineData: { mimeType: 'image/jpeg', data: faceImage.split(',')[1] } },
@@ -271,7 +321,7 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
 5. 确保妆容风格特征明显，符合"${styleName}"的典型特点`;
 
                     const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash-image',
+                        model: getModelName('gemini-2.5-flash-image'),
                         contents: {
                             parts: [
                                 { inlineData: { mimeType: 'image/jpeg', data: faceImage.split(',')[1] } },
@@ -309,7 +359,7 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
 
                 const result = await requestWithRetry(async (ai) => {
                     const response = await ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
+                        model: getModelName('gemini-3-flash-preview'),
                         contents: { parts: [{ text: prompt }] },
                         config: { systemInstruction, temperature: 0.7 }
                     });
@@ -353,7 +403,7 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                     contents.parts.push({ text: prompt });
 
                     const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash-image',
+                        model: getModelName('gemini-2.5-flash-image'),
                         contents
                     } as any);
 
@@ -385,7 +435,7 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
 
                 const result = await requestWithRetry(async (ai) => {
                     const response = await ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
+                        model: getModelName('gemini-3-flash-preview'),
                         contents: { parts: [{ text: prompt }] },
                         config: { systemInstruction, temperature: 0.7 }
                     });
@@ -405,7 +455,7 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
 
                 const result = await requestWithRetry(async (ai) => {
                     const response = await ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
+                        model: getModelName('gemini-3-flash-preview'),
                         contents: { parts: [{ text: prompt }] },
                         config: { temperature: 0.7 }
                     });
@@ -457,7 +507,7 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                         ]
                     };
                     const response = await ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
+                        model: getModelName('gemini-3-flash-preview'),
                         contents,
                         config: {
                             systemInstruction,
@@ -523,7 +573,7 @@ ${styleDesc ? `风格特点：${styleDesc}` : ''}
                         ]
                     };
                     const response = await ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
+                        model: getModelName('gemini-3-flash-preview'),
                         contents,
                         config: {
                             systemInstruction,
