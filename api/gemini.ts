@@ -36,10 +36,10 @@ async function getAccessToken() {
  */
 const getModelName = (model: string): string => {
     const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-1.5-flash',
-        'gemini-2.5-flash-image': 'gemini-1.5-flash',
-        'gemini-1.5-flash': 'gemini-1.5-flash',
-        'gemini-1.5-pro': 'gemini-1.5-pro'
+        'gemini-3-flash-preview': 'gemini-3-flash',
+        'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
+        'gemini-1.5-flash': 'gemini-2.0-flash',
+        'gemini-1.5-pro': 'gemini-2.0-pro'
     };
     const mapped = mapping[model] || model;
     // 强制使用完整路径模式
