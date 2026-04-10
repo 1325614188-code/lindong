@@ -7,10 +7,10 @@ import { VertexAI, GenerativeModel as VertexGenerativeModel } from "@google-clou
 const getModelName = (model: string): string => {
     // Vertex AI 模型名称映射关系
     const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-1.5-flash',
-        'gemini-2.5-flash-image': 'gemini-1.5-flash',
-        'gemini-1.5-flash': 'gemini-1.5-flash',
-        'gemini-1.5-pro': 'gemini-1.5-pro'
+        'gemini-3-flash-preview': 'publishers/google/models/gemini-1.5-flash',
+        'gemini-2.5-flash-image': 'publishers/google/models/gemini-1.5-flash',
+        'gemini-1.5-flash': 'publishers/google/models/gemini-1.5-flash',
+        'gemini-1.5-pro': 'publishers/google/models/gemini-1.5-pro'
     };
     
     return mapping[model] || model;
@@ -45,10 +45,13 @@ const getVertexModel = (modelName: string): VertexGenerativeModel | null => {
         const vertexAI = new VertexAI({
             project,
             location,
-            googleAuthOptions: { credentials }
+            googleAuthOptions: { credentials },
+            // @ts-ignore
+            version: 'v1beta1'
         });
 
-        return vertexAI.getGenerativeModel({
+        // 获取模型实例时尝试指定完整路径或别名
+        return vertexAI.preview.getGenerativeModel({
             model: modelName,
         });
     } catch (e) {
