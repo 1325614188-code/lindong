@@ -1,5 +1,10 @@
 import { GoogleAuth } from 'google-auth-library';
 import { astro } from 'iztro';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * 获取 GCP Access Token
@@ -72,12 +77,71 @@ const getModelName = (model: string): string => {
     const mapping: Record<string, string> = {
         'gemini-3-flash-preview': 'gemini-3-flash',
         'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
-        'gemini-1.5-flash': 'gemini-2.5-flash', // 2026年优先尝试 2.5 系列
+        'gemini-1.5-flash': 'gemini-2.5-flash', 
         'gemini-1.5-pro': 'gemini-2.5-pro'
     };
     const mapped = mapping[model] || model;
     return `publishers/google/models/${mapped}`;
 };
+
+/**
+ * 随机获取一个 Gemini API Key (1-100)
+ */
+function getRandomGeminiKey(): string {
+    const randomIndex = Math.floor(Math.random() * 100) + 1;
+    const key = process.env[`GEMINI_API_KEY${randomIndex}`] || process.env.GEMINI_API_KEY;
+    if (!key) {
+        // 尝试按序找一个存在的
+        for (let i = 1; i <= 100; i++) {
+            const k = process.env[`GEMINI_API_KEY${i}`];
+            if (k) return k;
+        }
+    }
+    return key || "";
+}
+
+/**
+ * 获取当前的 AI 服务商配置
+ */
+async function getAIProvider(): Promise<string> {
+    try {
+        const { data } = await supabase
+            .from('app_config')
+            .select('value')
+            .eq('key', 'ai_provider')
+            .maybeSingle();
+        return data?.value || 'vertex';
+    } catch (e) {
+        return 'vertex';
+    }
+}
+
+/**
+ * 底层 Fetch 调用 Gemini API (AI Studio)
+ */
+async function callGeminiAPI(modelName: string, payload: any) {
+    const apiKey = getRandomGeminiKey();
+    if (!apiKey) throw new Error("未配置 GEMINI_API_KEY");
+
+    // 适配模型名称：Gemini API 使用简洁名称
+    const apiModelName = modelName.replace('gemini-2.5', 'gemini-1.5'); 
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${apiModelName}:generateContent?key=${apiKey}`;
+
+    console.log(`[Gemini API Request] URL: ${url.split('?')[0]} (Key indexed)`);
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Gemini API Error (${response.status}): ${errorText}`);
+    }
+
+    return await response.json();
+}
 
 /**
  * 底层 Fetch 调用 Vertex AI REST API (v1beta1)
@@ -120,16 +184,20 @@ async function callVertexAI(modelName: string, payload: any) {
 async function requestWithRetry<T>(
     modelName: string,
     operation: (model: any) => Promise<T>,
-    maxRetries = 3,
+    maxRetries = 2,
     initialDelay = 1000
 ): Promise<T> {
     let lastError: any;
+    const provider = await getAIProvider();
+    console.log(`[AI Strategy] Current Provider: ${provider}`);
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
             const mockModel = {
                 generateContent: async (payload: any) => {
-                    const result = await callVertexAI(modelName, payload);
+                    const result = provider === 'gemini' 
+                        ? await callGeminiAPI(modelName, payload)
+                        : await callVertexAI(modelName, payload);
                     return { response: result };
                 }
             };

@@ -629,6 +629,28 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.non_wechat_registration_enabled !== 'false' ? 'left-7' : 'left-1'}`} />
                                 </button>
                             </div>
+                            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-xl border border-purple-100">
+                                <div>
+                                    <p className="font-bold text-sm text-purple-700">AI 模型服务商</p>
+                                    <p className="text-[10px] text-purple-500 text-nowrap">
+                                        {config.ai_provider === 'gemini' ? '当前：Gemini API (耗 API Key)' : '当前：Vertex AI (耗 GCP 赠金)'}
+                                    </p>
+                                </div>
+                                <div className="flex bg-gray-200 p-1 rounded-lg">
+                                    <button
+                                        onClick={() => updateConfig('ai_provider', 'vertex')}
+                                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${config.ai_provider !== 'gemini' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500'}`}
+                                    >
+                                        Vertex
+                                    </button>
+                                    <button
+                                        onClick={() => updateConfig('ai_provider', 'gemini')}
+                                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${config.ai_provider === 'gemini' ? 'bg-white text-purple-600 shadow-sm' : 'text-gray-500'}`}
+                                    >
+                                        Gemini
+                                    </button>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
                                 <label className="w-28 text-sm font-bold shrink-0">佣金比例 (%)</label>
                                 <div className="flex-1 flex items-center gap-2">
