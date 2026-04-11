@@ -33,7 +33,7 @@ const MakeupView: React.FC<MakeupViewProps> = ({ onBack, onCheckCredits, onDeduc
             reader.onload = async () => {
                 const base64 = reader.result as string;
                 try {
-                    const compressed = await compressImage(base64, 1024, 0.7);
+                    const compressed = await compressImage(base64, 1024, 0.6);
                     setFaceImage(compressed);
                 } catch (e) {
                     console.error('[MakeupView] Compression error:', e);

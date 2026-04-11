@@ -23,7 +23,7 @@ const FengShuiView: React.FC<FengShuiViewProps> = ({ onBack, onCheckCredits, onD
       reader.onload = async () => {
         const base64 = reader.result as string;
         try {
-          const compressed = await compressImage(base64, 1024, 0.7);
+          const compressed = await compressImage(base64, 1024, 0.6);
           setImage(compressed);
         } catch (err) {
           console.error('[FengShuiView] Compression error:', err);

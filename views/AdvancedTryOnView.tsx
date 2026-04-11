@@ -95,7 +95,7 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
         const prevAvatar = avatarImage;
         
         try {
-          const compressed = await compressImage(base64, 1024, 0.7);
+          const compressed = await compressImage(base64, 1024, 0.6);
           setAvatarImage(compressed);
 
           // 这里借用已有的 detectPhotoContent
@@ -124,7 +124,7 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
       reader.onload = async () => {
         const base64 = reader.result as string;
         try {
-          const compressed = await compressImage(base64, 1024, 0.7);
+          const compressed = await compressImage(base64, 1024, 0.6);
           setSelectedItemImage(compressed);
         } catch (e) {
           console.error('[AdvancedTryOnView] Item compression error:', e);

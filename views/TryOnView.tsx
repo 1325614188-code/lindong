@@ -28,7 +28,7 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
 
         try {
           // 压缩图片
-          const compressed = await compressImage(base64, 1024, 0.7);
+          const compressed = await compressImage(base64, 1024, 0.6);
 
           if (isFaceImage) {
             setDetecting(true);

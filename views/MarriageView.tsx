@@ -47,7 +47,7 @@ const MarriageView: React.FC<MarriageViewProps> = ({ onBack, onCheckCredits, onD
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
                 try {
-                    const compressed = await compressImage(base64, 1024, 0.7);
+                    const compressed = await compressImage(base64, 1024, 0.6);
                     setUserPhoto(compressed);
                 } catch (err) {
                     console.error('[MarriageView] Compression error:', err);
