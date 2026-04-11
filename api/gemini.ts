@@ -368,7 +368,29 @@ export default async function handler(req: any, res: any) {
             case 'jadeAppraisal':
             case 'eyeDiagnosis': {
                 const isJade = action === 'jadeAppraisal';
-                const systemInstruction = isJade ? "你是一位翡翠鉴定专家，请以JSON格式返回分析报告。" : "你是一位中医望诊专家，分析眼睛照片状况，请以JSON格式返回分析报告。";
+                
+                // 定义明确的 JSON 结构要求
+                const jadeSchema = `{
+                    "authenticity": { "conclusion": "鉴定结论", "reasons": ["原因1", "原因2"], "riskLevel": "high|medium|low" },
+                    "quality": { "color": "颜色描述", "transparency": "透明度", "texture": "种地", "craftsmanship": "做工", "overallGrade": "综合等级" },
+                    "detailedAnalysis": "深度分析正文(Markdown)"
+                }`;
+                const eyeSchema = `{
+                    "healthScore": 85,
+                    "mainFinding": "核心发现",
+                    "visceraStatus": "脏腑情况概述",
+                    "detailedAnalysis": { "spleenStomach": "...", "heart": "...", "lung": "...", "liver": "...", "kidney": "..." },
+                    "suggestions": ["建议1", "建议2"],
+                    "reportMarkdown": "完整报告正文(Markdown)"
+                }`;
+
+                const systemInstruction = isJade 
+                    ? `你是一位翡翠鉴定专家。请分析用户上传的翡翠照片，并**严格按照以下 JSON 格式**返回报告。不要输出 JSON 以外的任何文字：\n${jadeSchema}`
+                    : `你是一位中医望诊专家。请分析用户上传的眼睛照片，并**严格按照以下 JSON 格式**返回报告。不要输出 JSON 以外的任何文字：\n${eyeSchema}`;
+
+                if (!images || !Array.isArray(images)) {
+                    return res.status(400).json({ error: 'Images array is required' });
+                }
 
                 const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
                     const response = await model.generateContent({
@@ -376,23 +398,30 @@ export default async function handler(req: any, res: any) {
                             role: 'user',
                             parts: [
                                 ...images.map((img: string) => ({
-                                    inlineData: { mimeType: 'image/jpeg', data: img.split(',')[1] || img }
+                                    inlineData: { mimeType: 'image/jpeg', data: img.includes(',') ? img.split(',')[1] : img }
                                 })),
-                                { text: "请开始深度分析并返回JSON。" }
+                                { text: "请开始深度分析并返回 JSON 报告。" }
                             ]
                         }],
-                        generationConfig: { temperature: 0.7 },
+                        generationConfig: { 
+                            temperature: 0.2, // 降低随机性以保证 JSON 格式
+                            responseMimeType: "application/json" // 强制定向 JSON 输出
+                        },
                         systemInstruction: { parts: [{ text: systemInstruction }] }
                     });
 
                     let text = response.response.candidates[0].content.parts[0].text || "";
-                    const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\{[\s\S]*\}/);
-                    if (jsonMatch) text = jsonMatch[1] || jsonMatch[0];
+                    console.log(`[${action}] Raw Response Sample: ${text.substring(0, 100)}...`);
+
+                    // 尝试清洗并解析 JSON
+                    const jsonMatch = text.match(/\{[\s\S]*\}/);
+                    const cleanJson = jsonMatch ? jsonMatch[0] : text;
 
                     try {
-                        return JSON.parse(text);
+                        return JSON.parse(cleanJson);
                     } catch (e) {
-                        return { error: "解析失败", raw: text };
+                        console.error(`[${action}] JSON Parse Failed:`, e);
+                        return { error: "AI 报告解析失败", raw: text };
                     }
                 });
                 return res.status(200).json({ result });
