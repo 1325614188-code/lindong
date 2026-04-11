@@ -75,7 +75,7 @@ async function listAvailableModels() {
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-3-flash',
+        'gemini-3-flash-preview': 'gemini-2.5-flash', // 极其重要：映射回 Vertex 之前的稳定版本以保持行为一致
         'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
         'gemini-1.5-flash': 'gemini-2.5-flash', 
         'gemini-1.5-pro': 'gemini-2.5-pro'
