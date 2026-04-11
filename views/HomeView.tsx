@@ -77,6 +77,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
         { id: AppSection.CALENDAR, title: '出门黄历', icon: '📅', color: 'bg-[#C69C6D]/80', border: 'border-[#A67C4D]', textColor: 'text-white' },
         { id: AppSection.MARRIAGE_ANALYSIS, title: '看姻缘', icon: '💘', color: 'bg-rose-50/80', border: 'border-rose-100' },
         { id: AppSection.WEALTH_ANALYSIS, title: '看财富', icon: '💰', color: 'bg-amber-50/80', border: 'border-amber-100' },
+        { id: AppSection.ZI_WEI, title: '紫微斗数', icon: '🌌', color: 'bg-indigo-50/80', border: 'border-indigo-100', isNew: true },
       ]
     },
     {

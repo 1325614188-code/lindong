@@ -1,4 +1,5 @@
 import { GoogleAuth } from 'google-auth-library';
+import { astro } from 'iztro';
 
 /**
  * 获取 GCP Access Token
@@ -317,6 +318,67 @@ export default async function handler(req: any, res: any) {
                     return response.response.candidates[0].content.parts[0].text;
                 });
                 return res.status(200).json({ result });
+            }
+
+            case 'ziWeiAnalysis': {
+                const { birthInfo, gender } = req.body;
+                // birthInfo: "YYYY年MM月DD日 HH:00"
+                const match = birthInfo.match(/(\d+)年(\d+)月(\d+)日\s+(\d+):/);
+                if (!match) return res.status(400).json({ error: '无效的出生日期格式' });
+                const [_, y, m, d, h] = match;
+
+                try {
+                    // 使用 iztro 进行排盘
+                    // 参数：日期字符串, 时辰(0-23), 性别('男'|'女'), 是否修正闰月(true), 语言('zh-CN')
+                    const chart = astro.bySolar(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`, parseInt(h), gender, true, 'zh-CN');
+                    
+                    // 简化星盘数据给 AI
+                    const payloadData = {
+                        basic: {
+                            gender: chart.gender,
+                            solarDate: chart.solarDate,
+                            lunarDate: chart.lunarDate,
+                            baZi: chart.fiveElements,
+                            chineseZodiac: chart.chineseZodiac
+                        },
+                        palaces: chart.palaces.map(p => ({
+                            name: p.name,
+                            isLifePalace: p.isLifePalace,
+                            majorStars: p.majorStars.map(s => s.name),
+                            minorStars: p.minorStars.map(s => s.name),
+                            luckyStars: p.luckyStars.map(s => s.name),
+                            badStars: p.badStars.map(s => s.name)
+                        }))
+                    };
+
+                    const systemInstruction = `
+                        你是一位精通紫微斗数的命理大师。
+                        请根据提供的星盘 JSON 数据，为用户生成一份极具专业度且富有温度的【紫微斗数深度解析报告】。
+                        风格要求：小红书爆款风格（多用emoji、语气助词、感叹号，排版优美，分段清晰）。
+                        
+                        报告应包含：
+                        1. 【命格总述】：整体运势格局。
+                        2. 【核心星位】：解析命宫、财帛宫、官禄宫、夫妻宫的重点星曜影响。
+                        3. 【财运与事业】：给出的具体建议。
+                        4. 【感情寄语】：针对姻缘的分析。
+                        5. 【大师锦囊】：给用户的一句建议。
+                    `;
+                    
+                    const prompt = `排盘详情：${JSON.stringify(payloadData)}`;
+
+                    const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                        const response = await model.generateContent({
+                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                            generationConfig: { temperature: 0.7 },
+                            systemInstruction: { parts: [{ text: systemInstruction }] }
+                        });
+                        return response.response.candidates[0].content.parts[0].text;
+                    });
+                    return res.status(200).json({ result });
+                } catch (e: any) {
+                    console.error("[ZiWei Error]", e.message);
+                    return res.status(500).json({ error: "排盘失败: " + e.message });
+                }
             }
 
             case 'generatePartner': {

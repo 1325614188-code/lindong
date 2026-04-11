@@ -179,3 +179,12 @@ export const analysisWealth = async (birthInfo: string, gender: string) => {
   });
   return result;
 };
+
+export const analysisZiWei = async (birthInfo: string, gender: string) => {
+  const { result } = await callApi({
+    action: 'ziWeiAnalysis',
+    birthInfo,
+    gender
+  });
+  return result;
+};

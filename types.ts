@@ -23,6 +23,7 @@ export enum AppSection {
   EQ_TEST = 'eq-test',
   IQ_TEST = 'iq-test',
   BIG_FIVE = 'big-five',
+  ZI_WEI = 'zi-wei',
   APP_DOWNLOAD = 'app-download'
 }
 
