@@ -25,7 +25,7 @@ const PRESET_CLOTHES = [
   'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=400&h=400&fit=crop'  // 女鞋搭配
 ];
 
-const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing }) => {
   const [activeTab, setActiveTab] = useState<'create' | 'lookbook'>('create');
   
   // 数字分身状态
@@ -171,6 +171,7 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
       // 判断是否生成失败（例如效果图和原图完全一致）
       if (result && result === avatarImage) {
         alert('生成效果与原图一致，判定为生成失败，本次不扣除使用次数，请尝试重新生成或更换图片');
+        onCancelProcessing?.();
         return;
       }
 
@@ -213,10 +214,12 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
         await onDeductCredit?.();
       } else {
         alert('生成失败，请稍后重试');
+        onCancelProcessing?.();
       }
     } catch (e) {
       console.error(e);
       alert('生成过程中出现网络异常，请重试');
+      onCancelProcessing?.();
     } finally {
       setLoading(false);
     }

@@ -36,7 +36,7 @@ const FEMALE_HAIRSTYLES = [
   { id: 'curtain', name: '窗帘刘海碎发', desc: '八字刘海显脸小，温柔甜美', icon: '🌸' },
 ];
 
-const HairstyleView: React.FC<HairstyleViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+const HairstyleView: React.FC<HairstyleViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing }) => {
   const [faceImage, setFaceImage] = useState<string | null>(null);
   const [gender, setGender] = useState<'女' | '男'>('女');
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
@@ -87,12 +87,15 @@ const HairstyleView: React.FC<HairstyleViewProps> = ({ onBack, onCheckCredits, o
       } else {
         console.warn('[HairstyleView] 生成失败，未返回结果');
         alert('生成失败，请稍后重试');
+        onCancelProcessing?.(); // 显式释放锁
       }
     } catch (e) {
       console.error(e);
       alert('生成失败，请稍后重试');
+      onCancelProcessing?.(); // 异常时释放锁
     } finally {
       setLoading(false);
+      onCancelProcessing?.(); // 保底释放锁
     }
   };
 

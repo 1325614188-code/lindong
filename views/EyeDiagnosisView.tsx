@@ -20,6 +20,7 @@ interface EyeDiagnosisViewProps {
     onBack: () => void;
     onCheckCredits: () => Promise<boolean>;
     onDeductCredit: () => Promise<boolean>;
+    onCancelProcessing?: () => void;
 }
 
 // 拍摄场景定义
@@ -31,7 +32,7 @@ const SHOTS = [
     { id: 'right', label: '右视向右', desc: '拨开上下眼皮，眼睛往右看', icon: '➡️' }
 ];
 
-const EyeDiagnosisView: React.FC<EyeDiagnosisViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+const EyeDiagnosisView: React.FC<EyeDiagnosisViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing }) => {
     const [step, setStep] = useState<'landing' | 'upload' | 'analyzing' | 'result'>('landing');
     const [images, setImages] = useState<(string | null)[]>([null, null, null, null, null]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -107,6 +108,7 @@ const EyeDiagnosisView: React.FC<EyeDiagnosisViewProps> = ({ onBack, onCheckCred
         if (!hasCredit) return;
 
         setStep('analyzing');
+        setIsAnalyzing(true);
         setError(null);
         try {
             const analysisResult = await analyzeEyeImages(images as string[]);
@@ -119,6 +121,10 @@ const EyeDiagnosisView: React.FC<EyeDiagnosisViewProps> = ({ onBack, onCheckCred
         } catch (err) {
             setError(err instanceof Error ? err.message : "分析失败");
             setStep('upload');
+            onCancelProcessing?.();
+        } finally {
+            setIsAnalyzing(false);
+            onCancelProcessing?.();
         }
     };
 

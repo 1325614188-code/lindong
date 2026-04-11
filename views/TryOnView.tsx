@@ -7,9 +7,10 @@ interface TryOnViewProps {
   onBack: () => void;
   onCheckCredits?: () => Promise<boolean>;
   onDeductCredit?: () => Promise<boolean>;
+  onCancelProcessing?: () => void;
 }
 
-const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onDeductCredit }) => {
+const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onDeductCredit, onCancelProcessing }) => {
   const [faceImage, setFaceImage] = useState<string | null>(null);
   const [itemImage, setItemImage] = useState<string | null>(null);
   const [resultImage, setResultImage] = useState<string | null>(null);
@@ -66,12 +67,15 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
       } else {
         console.warn('[TryOnView] 生成失败，未返回结果，不扣除额度');
         alert('生成失败，请稍后重试');
+        onCancelProcessing?.(); // 失败回收
       }
     } catch (e) {
       console.error(e);
       alert('生成失败，请稍后重试');
+      onCancelProcessing?.(); // 异常回收
     } finally {
       setLoading(false);
+      onCancelProcessing?.(); // 保底回收
     }
   };
 

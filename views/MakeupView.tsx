@@ -18,7 +18,7 @@ const MAKEUP_STYLES = [
     { id: 'retro', name: '复古港风妆', desc: '浓眉红唇，经典复古', icon: '🌹' },
 ];
 
-const MakeupView: React.FC<MakeupViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+const MakeupView: React.FC<MakeupViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing }) => {
     const [faceImage, setFaceImage] = useState<string | null>(null);
     const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
     const [resultImage, setResultImage] = useState<string | null>(null);
@@ -52,12 +52,15 @@ const MakeupView: React.FC<MakeupViewProps> = ({ onBack, onCheckCredits, onDeduc
             } else {
                 console.warn('[MakeupView] 生成失败，未返回结果，不扣除额度');
                 alert('生成失败，请稍后重试');
+                onCancelProcessing?.();
             }
         } catch (e) {
             console.error(e);
             alert('生成失败，请稍后重试');
+            onCancelProcessing?.();
         } finally {
             setLoading(false);
+            onCancelProcessing?.();
         }
     };
 

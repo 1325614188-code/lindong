@@ -223,7 +223,7 @@ export default async function handler(req: any, res: any) {
             }
 
             case 'tryOn': {
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const result = await requestWithRetry('gemini-2.5-flash-image', async (model) => {
                     const prompt = itemType === 'clothes'
                         ? '将图中人物的衣服换成另一张图中的款式，保持人物面容和环境不变，生成高品质穿搭效果图。输出图片比例必须为9:16竖版。'
                         : '在图中人物的耳朵上戴上另一张图中的耳坠。效果要自然，光影和谐。';
@@ -241,9 +241,18 @@ export default async function handler(req: any, res: any) {
                     });
 
                     const parts = response.response.candidates?.[0]?.content?.parts || [];
+                    console.log(`[tryOn] Gemini Response Parts: ${parts.length}`);
+                    
                     for (const part of parts) {
-                        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+                        if (part.inlineData) {
+                            console.log('[tryOn] Found inlineData in response');
+                            return `data:image/png;base64,${part.inlineData.data}`;
+                        }
+                        if (part.text) {
+                            console.warn('[tryOn] Model returned text instead of image:', part.text);
+                        }
                     }
+                    console.error('[tryOn] No inlineData found in candidate parts');
                     return null;
                 });
                 return res.status(200).json({ result });
@@ -256,7 +265,7 @@ export default async function handler(req: any, res: any) {
                 const name = isHairstyle ? hairstyleName : styleName;
                 const desc = isHairstyle ? hairstyleDesc : styleDesc;
 
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const result = await requestWithRetry('gemini-2.5-flash-image', async (model) => {
                     const prompt = isHairstyle 
                         ? `为图中这位${gender}性生成发型：${name}。特点：${desc}。保持人脸特征不变。`
                         : `为图中人物化上"${name}"风格妆容。特点：${desc}。不可改变五官骨骼。`;
@@ -272,9 +281,18 @@ export default async function handler(req: any, res: any) {
                     });
 
                     const parts = response.response.candidates?.[0]?.content?.parts || [];
+                    console.log(`[${action}] Gemini Response Parts: ${parts.length}`);
+
                     for (const part of parts) {
-                        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+                        if (part.inlineData) {
+                            console.log(`[${action}] Found inlineData in response`);
+                            return `data:image/png;base64,${part.inlineData.data}`;
+                        }
+                        if (part.text) {
+                            console.warn(`[${action}] Model returned text instead of image:`, part.text);
+                        }
                     }
+                    console.error(`[${action}] No inlineData found in candidate parts`);
                     return null;
                 });
                 return res.status(200).json({ result });
@@ -305,7 +323,7 @@ export default async function handler(req: any, res: any) {
                 const { description, gender, userImage } = req.body;
                 const targetGender = gender === '男' ? '女' : '男';
 
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const result = await requestWithRetry('gemini-2.5-flash-image', async (model) => {
                     const prompt = `生成一位高度匹配的中华${targetGender}性。描述：${description}。照片级真实。`;
                     const parts: any[] = [];
                     if (userImage) {
@@ -318,9 +336,18 @@ export default async function handler(req: any, res: any) {
                     });
 
                     const partsOut = response.response.candidates?.[0]?.content?.parts || [];
+                    console.log(`[generatePartner] Gemini Response Parts: ${partsOut.length}`);
+
                     for (const part of partsOut) {
-                        if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+                        if (part.inlineData) {
+                            console.log('[generatePartner] Found inlineData in response');
+                            return `data:image/png;base64,${part.inlineData.data}`;
+                        }
+                        if (part.text) {
+                            console.warn('[generatePartner] Model returned text:', part.text);
+                        }
                     }
+                    console.error('[generatePartner] No inlineData found in candidate parts');
                     return null;
                 });
                 return res.status(200).json({ result });

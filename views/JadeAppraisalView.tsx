@@ -18,9 +18,10 @@ interface JadeAppraisalViewProps {
     onBack: () => void;
     onCheckCredits: () => Promise<boolean>;
     onDeductCredit: () => Promise<boolean>;
+    onCancelProcessing?: () => void;
 }
 
-const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCredits, onDeductCredit }) => {
+const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing }) => {
     const [images, setImages] = useState<string[]>([]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [result, setResult] = useState<JadeAnalysisResult | null>(null);
@@ -70,8 +71,10 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
             setResult(analysisResult);
         } catch (err) {
             setError(err instanceof Error ? err.message : "分析过程中出现错误");
+            onCancelProcessing?.();
         } finally {
             setIsAnalyzing(false);
+            onCancelProcessing?.();
         }
     };
 

@@ -11,9 +11,10 @@ interface AnalysisViewProps {
   helpText?: string;
   onCheckCredits?: () => Promise<boolean>;
   onDeductCredit?: () => Promise<boolean>;
+  onCancelProcessing?: () => void;
 }
 
-const AnalysisView: React.FC<AnalysisViewProps> = ({ title, type, onBack, helpText, onCheckCredits, onDeductCredit }) => {
+const AnalysisView: React.FC<AnalysisViewProps> = ({ title, type, onBack, helpText, onCheckCredits, onDeductCredit, onCancelProcessing }) => {
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<string | null>(null);
@@ -46,12 +47,15 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ title, type, onBack, helpTe
       } else {
         console.warn('[AnalysisView] 分析失败，未返回结果，不扣除额度');
         alert('分析遇到了点困难，稍后再试吧');
+        onCancelProcessing?.();
       }
     } catch (e) {
       console.error(e);
       alert('分析遇到了点困难，稍后再试吧');
+      onCancelProcessing?.();
     } finally {
       setLoading(false);
+      onCancelProcessing?.();
     }
   };
 
