@@ -71,9 +71,9 @@ async function listAvailableModels() {
 }
 
 /**
- * 适配 Vertex AI 模型名称
+ * 适配 Vertex AI 模型路径 (确保 Vertex 逻辑不被改动)
  */
-const getModelName = (model: string): string => {
+const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
         'gemini-3-flash-preview': 'gemini-3-flash',
         'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
@@ -82,6 +82,14 @@ const getModelName = (model: string): string => {
     };
     const mapped = mapping[model] || model;
     return `publishers/google/models/${mapped}`;
+};
+
+/**
+ * 适配 Gemini API (AI Studio) 模型名称
+ */
+const getGeminiModelName = (model: string): string => {
+    // 隔离策略：Gemini 模式下直接使用传入的名称，不进行任何强制降级
+    return model;
 };
 
 /**
@@ -123,11 +131,11 @@ async function callGeminiAPI(modelName: string, payload: any) {
     const apiKey = getRandomGeminiKey();
     if (!apiKey) throw new Error("未配置 GEMINI_API_KEY");
 
-    // 适配模型名称：Gemini API 使用简洁名称
-    const apiModelName = modelName.replace('gemini-2.5', 'gemini-1.5'); 
+    // 隔离处理：使用专用的 Gemini 模型映射
+    const apiModelName = getGeminiModelName(modelName); 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${apiModelName}:generateContent?key=${apiKey}`;
 
-    console.log(`[Gemini API Request] URL: ${url.split('?')[0]} (Key indexed)`);
+    console.log(`[Gemini API Request] URL: ${url.split('?')[0]} (Model: ${apiModelName})`);
 
     const response = await fetch(url, {
         method: 'POST',
@@ -151,7 +159,8 @@ async function callVertexAI(modelName: string, payload: any) {
     const location = process.env.GCP_LOCATION || "us-central1";
     const token = await getAccessToken();
 
-    const modelPath = getModelName(modelName);
+    // 隔离处理：使用专用的 Vertex 模型映射
+    const modelPath = getVertexModelPath(modelName);
     const url = `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/${modelPath}:generateContent`;
 
     console.log(`[Vertex AI Request] URL: ${url}`);
@@ -237,7 +246,7 @@ export default async function handler(req: any, res: any) {
 
         switch (action) {
             case 'detectPhotoContent': {
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const systemInstruction = "你是一个图像合规性审计专家。判断用户上传的图片是否同时包含【清晰的人脸】以及【至少覆盖肩膀和胸部的上半身部位】。如果是，回复 TRUE，否则回复 FALSE。只需要回复一个单词，不要说明原因。";
                     const contents = [{
                         role: 'user',
@@ -271,7 +280,7 @@ export default async function handler(req: any, res: any) {
         `;
                 const prompt = `分析类型：${type}。${gender ? `性别：${gender}` : ''}`;
 
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const contents = [{
                         role: 'user',
                         parts: [
@@ -377,7 +386,7 @@ export default async function handler(req: any, res: any) {
                 
                 const prompt = `用户信息：${birthInfo}，性别：${gender}。`;
 
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                         generationConfig: { temperature: 0.7 },
@@ -434,7 +443,7 @@ export default async function handler(req: any, res: any) {
                     
                     const prompt = `排盘详情：${JSON.stringify(payloadData)}`;
 
-                    const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                    const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                         const response = await model.generateContent({
                             contents: [{ role: 'user', parts: [{ text: prompt }] }],
                             generationConfig: { temperature: 0.7 },
@@ -485,7 +494,7 @@ export default async function handler(req: any, res: any) {
 
             case 'textAnalysis': {
                 const { prompt } = req.body;
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                         generationConfig: { temperature: 0.7 }
@@ -522,7 +531,7 @@ export default async function handler(req: any, res: any) {
                     return res.status(400).json({ error: 'Images array is required' });
                 }
 
-                const result = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{
                             role: 'user',
