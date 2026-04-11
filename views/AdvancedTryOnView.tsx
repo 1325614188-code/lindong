@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { generateTryOnImage, detectPhotoContent } from '../services/gemini';
 import { saveImageToDevice } from '../lib/download';
+import { compressImage } from '../lib/image';
 
 interface AdvancedTryOnViewProps {
   onBack: () => void;
   onCheckCredits?: () => Promise<boolean>;
   onDeductCredit?: () => Promise<boolean>;
+  onCancelProcessing?: () => void;
 }
 
 interface SavedLook {
@@ -87,24 +89,26 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
     if (file) {
       const reader = new FileReader();
       reader.onload = async () => {
-        const imageData = reader.result as string;
+        const base64 = reader.result as string;
         setDetectingAvatar(true);
         // 先乐观更新 UI
         const prevAvatar = avatarImage;
-        setAvatarImage(imageData);
-
+        
         try {
+          const compressed = await compressImage(base64, 1024, 0.7);
+          setAvatarImage(compressed);
+
           // 这里借用已有的 detectPhotoContent
-          const isValid = await detectPhotoContent(imageData);
+          const isValid = await detectPhotoContent(compressed);
           if (!isValid) {
             alert('检测建议：请上传带脸部的上半身正面清晰照片，以获得最佳试穿效果。');
-            // 可以选择恢复上一张，或者允许用户继续尝试。这里倾向于稍微宽松，仅作提示。
           }
           // 保存数字分身
-          try { localStorage.setItem('tryon_avatar', imageData); } catch(e) { console.warn('无法保存分身：', e); }
+          try { localStorage.setItem('tryon_avatar', compressed); } catch(e) { console.warn('无法保存分身：', e); }
         } catch (error) {
-          console.error('[AdvancedTryOnView] Detection error:', error);
-          try { localStorage.setItem('tryon_avatar', imageData); } catch(e) {} // 万一接口挂了也允许保存
+          console.error('[AdvancedTryOnView] Avatar compression/detection error:', error);
+          setAvatarImage(base64);
+          try { localStorage.setItem('tryon_avatar', base64); } catch(e) {}
         } finally {
           setDetectingAvatar(false);
         }
@@ -117,8 +121,15 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => {
-        setSelectedItemImage(reader.result as string);
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        try {
+          const compressed = await compressImage(base64, 1024, 0.7);
+          setSelectedItemImage(compressed);
+        } catch (e) {
+          console.error('[AdvancedTryOnView] Item compression error:', e);
+          setSelectedItemImage(base64);
+        }
         setCurrentResultImage(null); // 上传新衣服后清除旧结果
       };
       reader.readAsDataURL(file);

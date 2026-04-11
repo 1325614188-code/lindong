@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { getApiUrl } from '../lib/api-config';
 import { saveImageToDevice } from '../lib/download';
+import { compressImage } from '../lib/image';
 
 interface HairstyleViewProps {
   onBack: () => void;
   onCheckCredits?: () => Promise<boolean>;
   onDeductCredit?: () => Promise<boolean>;
+  onCancelProcessing?: () => void;
 }
 
 // 男生发型风格
@@ -49,7 +51,16 @@ const HairstyleView: React.FC<HairstyleViewProps> = ({ onBack, onCheckCredits, o
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => setFaceImage(reader.result as string);
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        try {
+          const compressed = await compressImage(base64, 1024, 0.7);
+          setFaceImage(compressed);
+        } catch (err) {
+          console.error('[HairstyleView] Compression error:', err);
+          setFaceImage(base64);
+        }
+      };
       reader.readAsDataURL(file);
     }
   };

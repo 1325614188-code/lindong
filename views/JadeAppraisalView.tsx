@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { analyzeJadeImages, JadeAnalysisResult } from '../services/jadeService';
+import { compressImage } from '../lib/image';
 
 interface JadeAppraisalViewProps {
     onBack: () => void;
@@ -37,8 +38,15 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
 
         files.forEach(file => {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setImages(prev => [...prev, reader.result as string]);
+            reader.onloadend = async () => {
+                const base64 = reader.result as string;
+                try {
+                    const compressed = await compressImage(base64, 1024, 0.7);
+                    setImages(prev => [...prev, compressed]);
+                } catch (e) {
+                    console.error('[JadeAppraisalView] Compression error:', e);
+                    setImages(prev => [...prev, base64]);
+                }
             };
             reader.readAsDataURL(file);
         });

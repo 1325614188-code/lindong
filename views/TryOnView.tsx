@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { generateTryOnImage, detectPhotoContent } from '../services/gemini';
 import { saveImageToDevice } from '../lib/download';
+import { compressImage } from '../lib/image';
 
 interface TryOnViewProps {
   type: 'clothes' | 'accessories';
@@ -23,26 +24,34 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
     if (file) {
       const reader = new FileReader();
       reader.onload = async () => {
-        const imageData = reader.result as string;
+        const base64 = reader.result as string;
 
-        if (isFaceImage) {
-          setDetecting(true);
-          setFaceImage(imageData); // 先显示预览，增强反馈感
-          try {
-            const isValid = await detectPhotoContent(imageData);
-            if (!isValid) {
-              alert('检测失败：需要上传带脸部的上半身正面照片（需露出肩膀和胸部）。');
-              setFaceImage(null);
+        try {
+          // 压缩图片
+          const compressed = await compressImage(base64, 1024, 0.7);
+
+          if (isFaceImage) {
+            setDetecting(true);
+            setFaceImage(compressed); // 先显示预览，增强反馈感
+            try {
+              const isValid = await detectPhotoContent(compressed);
+              if (!isValid) {
+                alert('检测失败：需要上传带脸部的上半身正面照片（需露出肩膀和胸部）。');
+                setFaceImage(null);
+              }
+            } catch (error) {
+              console.error('[TryOnView] Detection error:', error);
+            } finally {
+              setDetecting(false);
             }
-          } catch (error) {
-            console.error('[TryOnView] Detection error:', error);
-            // 如果检测接口报错，为了不影响核心流程，默认放行或提示重传
-            // 这里选择允许，但在生成逻辑里会有 AI 最终把关
-          } finally {
-            setDetecting(false);
+          } else {
+            setItemImage(compressed);
           }
-        } else {
-          setItemImage(imageData);
+        } catch (err) {
+          console.error('[TryOnView] Compression error:', err);
+          // 备选方案：如果压缩失败，尝试使用原图（但可能会报 413）
+          if (isFaceImage) setFaceImage(base64);
+          else setItemImage(base64);
         }
       };
       reader.readAsDataURL(file);

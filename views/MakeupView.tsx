@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { generateMakeupImage } from '../services/gemini';
 import { saveImageToDevice } from '../lib/download';
+import { compressImage } from '../lib/image';
 
 interface MakeupViewProps {
     onBack: () => void;
     onCheckCredits?: () => Promise<boolean>;
     onDeductCredit?: () => Promise<boolean>;
+    onCancelProcessing?: () => void;
 }
 
 // 6种化妆风格
@@ -28,7 +30,16 @@ const MakeupView: React.FC<MakeupViewProps> = ({ onBack, onCheckCredits, onDeduc
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = () => setFaceImage(reader.result as string);
+            reader.onload = async () => {
+                const base64 = reader.result as string;
+                try {
+                    const compressed = await compressImage(base64, 1024, 0.7);
+                    setFaceImage(compressed);
+                } catch (e) {
+                    console.error('[MakeupView] Compression error:', e);
+                    setFaceImage(base64);
+                }
+            };
             reader.readAsDataURL(file);
         }
     };

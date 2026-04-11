@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { analyzeEyeImages, EyeDiagnosisResult } from '../services/eyeService';
+import { compressImage } from '../lib/image';
 
 interface EyeDiagnosisViewProps {
     onBack: () => void;
@@ -41,34 +42,6 @@ const EyeDiagnosisView: React.FC<EyeDiagnosisViewProps> = ({ onBack, onCheckCred
     const [currentShotIndex, setCurrentShotIndex] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // 图片压缩工具函数
-    const compressImage = (base64Str: string, maxWidth = 800, quality = 0.7): Promise<string> => {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.src = base64Str;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                if (width > maxWidth) {
-                    height = (maxWidth / width) * height;
-                    width = maxWidth;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', quality));
-                } else {
-                    resolve(base64Str);
-                }
-            };
-            img.onerror = () => resolve(base64Str);
-        });
-    };
 
     // 自动滚动到顶部
     useEffect(() => {
@@ -83,16 +56,23 @@ const EyeDiagnosisView: React.FC<EyeDiagnosisViewProps> = ({ onBack, onCheckCred
         reader.onloadend = async () => {
             const base64 = reader.result as string;
             // 压缩图片
-            const compressed = await compressImage(base64);
-            
-            const newImages = [...images];
-            newImages[currentShotIndex] = compressed;
-            setImages(newImages);
-            
-            // 自动跳到下一个未上传的槽位
-            const nextEmpty = newImages.findIndex((img, idx) => img === null && idx > currentShotIndex);
-            if (nextEmpty !== -1) {
-                setCurrentShotIndex(nextEmpty);
+            try {
+                const compressed = await compressImage(base64, 1024, 0.7);
+                
+                const newImages = [...images];
+                newImages[currentShotIndex] = compressed;
+                setImages(newImages);
+                
+                // 自动跳到下一个未上传的槽位
+                const nextEmpty = newImages.findIndex((img, idx) => img === null && idx > currentShotIndex);
+                if (nextEmpty !== -1) {
+                    setCurrentShotIndex(nextEmpty);
+                }
+            } catch (err) {
+                console.error('[EyeDiagnosisView] Compression error:', err);
+                const newImages = [...images];
+                newImages[currentShotIndex] = base64;
+                setImages(newImages);
             }
         };
         reader.readAsDataURL(file);
