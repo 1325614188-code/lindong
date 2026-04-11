@@ -2,6 +2,7 @@ import ReactMarkdown from 'react-markdown';
 
 import React, { useState } from 'react';
 import { generateXHSStyleReport } from '../services/gemini';
+import { compressImage } from '../lib/image';
 
 
 interface FengShuiViewProps {
@@ -19,7 +20,16 @@ const FengShuiView: React.FC<FengShuiViewProps> = ({ onBack, onCheckCredits, onD
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => setImage(reader.result as string);
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        try {
+          const compressed = await compressImage(base64, 1024, 0.7);
+          setImage(compressed);
+        } catch (err) {
+          console.error('[FengShuiView] Compression error:', err);
+          setImage(base64);
+        }
+      };
       reader.readAsDataURL(file);
     }
   };

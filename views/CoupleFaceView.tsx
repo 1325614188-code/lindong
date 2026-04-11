@@ -2,6 +2,7 @@ import ReactMarkdown from 'react-markdown';
 
 import React, { useState } from 'react';
 import { generateXHSStyleReport } from '../services/gemini';
+import { compressImage } from '../lib/image';
 
 
 interface CoupleFaceViewProps {
@@ -20,7 +21,16 @@ const CoupleFaceView: React.FC<CoupleFaceViewProps> = ({ onBack, onCheckCredits,
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => setter(reader.result as string);
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        try {
+          const compressed = await compressImage(base64, 1024, 0.7);
+          setter(compressed);
+        } catch (err) {
+          console.error('[CoupleFaceView] Compression error:', err);
+          setter(base64);
+        }
+      };
       reader.readAsDataURL(file);
     }
   };

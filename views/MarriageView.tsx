@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Solar } from 'lunar-javascript';
 import { analysisMarriage, generatePartnerImage } from '../services/gemini';
+import { compressImage } from '../lib/image';
 
 interface MarriageViewProps {
     onBack: () => void;
@@ -43,8 +44,15 @@ const MarriageView: React.FC<MarriageViewProps> = ({ onBack, onCheckCredits, onD
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setUserPhoto(reader.result as string);
+            reader.onloadend = async () => {
+                const base64 = reader.result as string;
+                try {
+                    const compressed = await compressImage(base64, 1024, 0.7);
+                    setUserPhoto(compressed);
+                } catch (err) {
+                    console.error('[MarriageView] Compression error:', err);
+                    setUserPhoto(base64);
+                }
             };
             reader.readAsDataURL(file);
         }
