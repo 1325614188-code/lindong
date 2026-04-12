@@ -400,14 +400,29 @@ export default async function handler(req: any, res: any) {
             case 'ziWeiAnalysis': {
                 const { birthInfo, gender } = req.body;
                 // birthInfo: "YYYY年MM月DD日 HH:00"
-                const match = birthInfo.match(/(\d+)年(\d+)月(\d+)日\s+(\d+):/);
-                if (!match) return res.status(400).json({ error: '无效的出生日期格式' });
-                const [_, y, m, d, h] = match;
+                console.log(`[ZiWei Request] Received birthInfo: "${birthInfo}", gender: "${gender}"`);
+                
+                // 改进正则表达式：更加严密地匹配 YYYY年MM月DD日 HH:mm
+                // 支持一位或两位数字，且明确限制空格后的位置
+                const match = birthInfo.match(/(\d+)年(\d+)月(\d+)日\s+(\d+):(\d+)/);
+                
+                if (!match) {
+                    console.error(`[ZiWei Error] 格式解析失败: "${birthInfo}"`);
+                    return res.status(400).json({ error: '无效的出生日期格式，期望: YYYY年MM月DD日 HH:mm' });
+                }
+                
+                const [_, y, m, d, h, min] = match;
+                const hourNum = parseInt(h);
+
+                // 防御性校验：确保小时在 0-23 之间
+                if (isNaN(hourNum) || hourNum < 0 || hourNum > 23) {
+                    console.error(`[ZiWei Error] 非法的小时值: ${h} (来自输入 "${birthInfo}")`);
+                    return res.status(400).json({ error: `非法的小时数值: ${h}` });
+                }
 
                 try {
                     // 使用 iztro 进行排盘
-                    // 参数：日期字符串, 时辰(0-23), 性别('男'|'女'), 是否修正闰月(true), 语言('zh-CN')
-                    const chart = astro.bySolar(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`, parseInt(h), gender, true, 'zh-CN');
+                    const chart = astro.bySolar(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`, hourNum, gender, true, 'zh-CN');
                     
                     // 简化星盘数据给 AI
                     const payloadData = {
