@@ -430,18 +430,19 @@ export default async function handler(req: any, res: any) {
                             gender: chart.gender,
                             solarDate: chart.solarDate,
                             lunarDate: chart.lunarDate,
-                            baZi: chart.fiveElements,
+                            baZi: chart.eightWords || chart.fiveElements, // 尽量提供八字或五行局
                             chineseZodiac: chart.chineseZodiac
                         },
                         palaces: chart.palaces.map(p => ({
                             name: p.name,
                             isLifePalace: p.isLifePalace,
-                            majorStars: p.majorStars.map(s => s.name),
-                            minorStars: p.minorStars.map(s => s.name),
-                            luckyStars: p.luckyStars.map(s => s.name),
-                            badStars: p.badStars.map(s => s.name)
+                            majorStars: p.majorStars?.map(s => s.name) || [],
+                            minorStars: p.minorStars?.map(s => s.name) || [],
+                            adjectiveStars: p.adjectiveStars?.map(s => s.name) || [] // 替代不存在的 lucky/bad stars
                         }))
                     };
+
+                    console.log(`[ZiWei] Payload generated for AI with ${payloadData.palaces.length} palaces.`);
 
                     const systemInstruction = `
                         你是一位精通紫微斗数的命理大师。
