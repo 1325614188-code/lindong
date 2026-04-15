@@ -6,7 +6,7 @@
  */
 
 // 生产环境后端域名
-const PROD_DOMAIN = 'https://www.marylab.xyz';
+const PROD_DOMAIN = 'https://www.marylab.top';
 
 export const getApiUrl = (path: string): string => {
     const cleanPath = path.startsWith('/') ? path.substring(1) : path;

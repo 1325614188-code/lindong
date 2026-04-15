@@ -57,6 +57,9 @@ function buildAlipayParams(config: Record<string, string>, orderId: string, amou
 
     if (config.alipay_notify_url) {
         params.notify_url = config.alipay_notify_url;
+    } else {
+        // 按照用户需求，默认回退到绑定的 qczj.xyz
+        params.notify_url = 'https://qczj.xyz/api/alipay';
     }
 
     const sortedKeys = Object.keys(params).sort();
@@ -182,7 +185,7 @@ export default async function handler(req: any, res: any) {
                     console.error('[Alipay] DB Insert Error:', insertError);
                     return res.status(500).json({ error: '订单创建失败，请稍后重试' });
                 }
-                const returnUrl = 'https://marylab.xyz';
+                const returnUrl = 'https://www.marylab.top';
                 const params = buildAlipayParams(config, orderId, amount, credits, returnUrl);
                 const gateway = config.alipay_gateway || 'https://openapi.alipay.com/gateway.do';
                 const queryString = Object.entries(params)

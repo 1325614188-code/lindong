@@ -237,7 +237,7 @@ export default async function handler(req: any, res: any) {
                 // 调用微信支付 V3 下单接口
                 const timestamp = Math.floor(Date.now() / 1000);
                 const nonce = crypto.randomBytes(16).toString('hex');
-                const notifyUrl = config.wechat_pay_notify_url || 'https://marylab.xyz/api/wechat_pay';
+                const notifyUrl = config.wechat_pay_notify_url || 'https://www.marylab.top/api/wechat_pay';
 
                 const payBody = {
                     appid: config.wechat_app_id,
