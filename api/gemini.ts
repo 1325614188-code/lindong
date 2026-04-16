@@ -116,8 +116,8 @@ async function callVertexAI(modelName: string, payload: any) {
     // 1. 获取模型路径
     const modelPath = getVertexModelPath(modelName);
     
-    // 2. 定义探测列表 (针对新模型强制尝试 global 组合)
-    const isNewModel = modelPath.includes('gemini-3') || modelPath.includes('gemini-2.5');
+    // 2. 定义探测列表 (针对 Gemini 系列强制尝试 global 组合，确保新模型和老模型都能命中可用路径)
+    const isNewModel = modelPath.includes('gemini');
     
     const configs = isNewModel ? [
         { host: 'aiplatform.googleapis.com', version: 'v1', loc: 'global' },
