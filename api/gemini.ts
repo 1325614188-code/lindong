@@ -78,9 +78,9 @@ const getVertexModelPath = (model: string): string => {
         'gemini-3-flash-preview': 'gemini-2.5-flash', // 极其重要：映射回 Vertex 之前的稳定版本以保持行为一致
         'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
         'gemini-1.5-flash': 'gemini-2.5-flash', 
-        'gemini-1.5-pro': 'gemini-2.5-pro'
+        'gemini-1.5-pro': 'gemini-2.5-flash' // 锁死 Pro：将 Pro 请求强行降级为 Flash，杜绝高额扣费
     };
-    const mapped = mapping[model] || model;
+    const mapped = mapping[model] || 'gemini-2.5-flash'; // 兜底也使用 Flash
     return `publishers/google/models/${mapped}`;
 };
 
@@ -139,7 +139,10 @@ async function callGeminiAPI(modelName: string, payload: any) {
 
     const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Client': 'antigravity-optimizer' // 标记流量来源
+        },
         body: JSON.stringify(payload),
     });
 
@@ -249,7 +252,7 @@ async function requestWithRetry<T>(
             // 遇到 404, 401, 403 或 429(频率限制) 时停止重试
             if (message.includes("404") || message.includes("401") || message.includes("403") || isRateLimit) {
                 if (isRateLimit) {
-                    console.warn("[Retry Strategy] 触发 429 频率限制，立即停止重试以节省额度。");
+                    console.warn("[Retry Strategy] 触发 429 频率限制，绝对停止重试并返回原始错误，以保护额度。");
                 }
                 throw error;
             }
