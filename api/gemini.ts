@@ -1,6 +1,7 @@
 import { astro } from 'iztro';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { GoogleAuth } from 'google-auth-library';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
