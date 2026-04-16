@@ -52,7 +52,8 @@ async function listAvailableModels() {
         let allModelNames: string[] = [];
 
         for (const loc of locations) {
-            const url = `https://${loc === 'global' ? '' : loc + '-'}aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${loc}/publishers/google/models`;
+            const host = loc === 'global' ? 'global-aiplatform.googleapis.com' : `${loc}-aiplatform.googleapis.com`;
+            const url = `https://${host}/v1beta1/projects/${project}/locations/${loc}/publishers/google/models`;
             console.log(`[Diagnostic] 正在尝试从 ${url} 获取可用模型列表...`);
             
             try {
@@ -89,14 +90,14 @@ async function listAvailableModels() {
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-3-flash',
-        'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
+        'gemini-3-flash-preview': 'gemini-3-flash-preview',
+        'gemini-2.5-flash-image': 'gemini-2.5-flash',
         // 兜底映射，确保旧调用不报错但强制降级
-        'gemini-1.5-flash': 'gemini-3-flash',
-        'gemini-1.5-pro': 'gemini-3-flash',
-        'gemini-2.5-pro': 'gemini-3-flash'
+        'gemini-1.5-flash': 'gemini-2.5-flash',
+        'gemini-1.5-pro': 'gemini-2.5-flash',
+        'gemini-2.5-pro': 'gemini-2.5-flash'
     };
-    const mapped = mapping[model] || 'gemini-3-flash';
+    const mapped = mapping[model] || 'gemini-2.5-flash';
     return `publishers/google/models/${mapped}`;
 };
 
@@ -113,13 +114,12 @@ async function callVertexAI(modelName: string, payload: any) {
     // 隔离处理：使用专用的 Vertex 模型映射
     const modelPath = getVertexModelPath(modelName);
     
-    // 2026 策略适配：Gemini 2.5/3 系列必须走 global 端点
     const isNewModel = modelPath.includes('gemini-3') || modelPath.includes('gemini-2.5');
     if (isNewModel) {
         location = "global";
     }
 
-    const host = location === 'global' ? 'aiplatform.googleapis.com' : `${location}-aiplatform.googleapis.com`;
+    const host = location === 'global' ? 'global-aiplatform.googleapis.com' : `${location}-aiplatform.googleapis.com`;
     const url = `https://${host}/v1beta1/projects/${project}/locations/${location}/${modelPath}:generateContent`;
 
     console.log(`[Vertex AI Request] URL: ${url}`);
