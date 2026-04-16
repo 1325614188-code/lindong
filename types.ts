@@ -24,6 +24,9 @@ export enum AppSection {
   IQ_TEST = 'iq-test',
   BIG_FIVE = 'big-five',
   ZI_WEI = 'zi-wei',
+  FACE_AGE = 'face-age',
+  PERSONAL_NAMING = 'personal-naming',
+  COMPANY_NAMING = 'company-naming',
   APP_DOWNLOAD = 'app-download'
 }
 

@@ -49,6 +49,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
         { id: AppSection.HAIRSTYLE, title: '发型参考', icon: '💇‍♀️', color: 'bg-rose-100/80', border: 'border-rose-200' },
         { id: AppSection.MAKEUP, title: '美妆效果', icon: '💄', color: 'bg-fuchsia-100/80', border: 'border-fuchsia-200' },
         { id: AppSection.BEAUTY_SCORE, title: '颜值打分', icon: '✨', color: 'bg-orange-100/80', border: 'border-orange-200' },
+        { id: AppSection.FACE_AGE, title: '相貌年龄', icon: '👶', color: 'bg-blue-100/80', border: 'border-blue-200', isNew: true },
         { id: AppSection.JADE_APPRAISAL, title: '翡翠鉴别', icon: '📿', color: 'bg-emerald-100/80', border: 'border-emerald-200' },
       ]
     },
@@ -78,6 +79,8 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
         { id: AppSection.MARRIAGE_ANALYSIS, title: '看姻缘', icon: '💘', color: 'bg-rose-50/80', border: 'border-rose-100' },
         { id: AppSection.WEALTH_ANALYSIS, title: '看财富', icon: '💰', color: 'bg-amber-50/80', border: 'border-amber-100' },
         { id: AppSection.ZI_WEI, title: '紫微斗数', icon: '🌌', color: 'bg-indigo-50/80', border: 'border-indigo-100', isNew: true },
+        { id: AppSection.PERSONAL_NAMING, title: '个人起名', icon: '👶', color: 'bg-orange-50/80', border: 'border-orange-100', isNew: true },
+        { id: AppSection.COMPANY_NAMING, title: '公司起名', icon: '🏢', color: 'bg-blue-50/80', border: 'border-blue-100', isNew: true },
       ]
     },
     {

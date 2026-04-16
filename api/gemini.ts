@@ -323,15 +323,34 @@ export default async function handler(req: any, res: any) {
             case 'analyze': {
                 const isFengShui = type === '摆设风水分析';
                 const isBeautyScore = type === '颜值打分';
-                const systemInstruction = `
+                const isFaceAge = type === '相貌年龄';
+
+                let systemInstruction = `
           你是一位资深${isFengShui ? '风水命理大师' : '美妆生活博主'}，语气采用典型的小红书风格（多用emoji、语气助词、感叹号，排版优美，分段清晰）。
           请针对用户上传的图片进行深度分析。
           要求：
           1. 标题要吸引人，使用【】括起来。
           ${isBeautyScore ? '2. 【重要】报告的第一行必须是分数，格式为：[SCORE:XX分]，其中 XX 是 0-100 之间的具体分数。' : ''}
-          3. ${isFengShui ? '按中国传统风水术语进行深度详解' : '按五官逐个进行美学或健康角度的详细分析'}。
+          ${isFaceAge ? '2. 【重要】报告的第一行必须是结论，格式为：[AGE:XX岁]，其中 XX 是你估算的看起来的年龄。' : ''}
+          3. ${isFengShui ? '按中国传统风水术语进行深度详解' : isFaceAge ? '根据照片细节、肤色等给出“分析依据”，并详细分析五官、皮肤、脸型' : '按五官逐个进行美学或健康角度的详细分析'}。
           4. 给出针对性的${isFengShui ? '改进建议或化解方案' : '变美建议、穿搭建议 or 健康调理方案'}。
         `;
+
+                if (isFaceAge) {
+                    systemInstruction = `
+          你是一位资深的相貌分析专家和美学研究员。语气采用的小红书风格（多用emoji、语气助词、感叹号，排版优美，分段清晰）。
+          请根据用户上传的正面脸部照片，分析其相貌年龄。
+          要求：
+          1. 标题吸引人，如【AI揭秘：你看起来到底多少岁？】
+          2. 【重要】报告的第一行必须是结论，格式为：[AGE:XX岁]，其中 XX 是你估算的看起来的年龄数字。
+          3. 包含详细的“分析依据”，解释为什么给出这个年龄结论。
+          4. 分章节详细分析：
+             - 【五官分析】：详细描述眼睛、鼻子、嘴巴、耳朵、眉毛的细节（如眼角细纹、紧致度等）。
+             - 【皮肤状态】：分析肤色、纹理、透亮感、皮脂情况等。
+             - 【脸型轮廓】：分析轮廓线条的流畅度、骨骼感、肌肉走向等。
+          5. 最后给出一些维持年轻感或提升气质的针对性美学建议。
+        `;
+                }
                 const prompt = `分析类型：${type}。${gender ? `性别：${gender}` : ''}`;
 
                 const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
@@ -581,6 +600,79 @@ export default async function handler(req: any, res: any) {
                     console.error("[ZiWei Error]", e.message);
                     return res.status(500).json({ error: "排盘失败: " + e.message });
                 }
+            }
+
+            case 'namingAnalysis': {
+                const { type, birthInfo, gender, surname, expectations, nameToScore, ownerName, industry } = req.body;
+                
+                let systemInstruction = "";
+                let prompt = "";
+
+                // 解析出生信息以获取八字参考 (可选，但能提高专业度)
+                let baziContext = "";
+                try {
+                    const match = birthInfo.match(/(\d+)年(\d+)月(\d+)日\s+(\d+):(\d+)/);
+                    if (match) {
+                        const [_, y, m, d, h] = match;
+                        const chart = astro.bySolar(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`, parseInt(h), gender || '男', true, 'zh-CN');
+                        baziContext = `【生辰背景】八字：${chart.eightWords.join(' ')}，五行：${chart.fiveElements}，生肖：${chart.chineseZodiac}。`;
+                    }
+                } catch (e) {}
+
+                if (type === 'personal_recommend') {
+                    systemInstruction = `你是一位精通易经、八字命理和姓名学的起名专家。请根据用户的生辰八字和期望，推荐5个蕴含深意、悦耳好听且符合命理的高质量名字。
+风格：小红书爆款风格，排版美观，多用符号。
+要求：
+1. 简要分析生辰八字及五行喜忌。
+2. 给出5个推荐名字，每个名字都要包含【名字】、【含义解析】、【命理契合度说明】。
+3. 名字要结合用户的期望。`;
+                    prompt = `姓氏：${surname}，性别：${gender}，出生信息：${birthInfo}。期望：${expectations}。${baziContext}`;
+                } else if (type === 'personal_score') {
+                    systemInstruction = `你是一位姓名学大师，请根据用户的生辰八字，对指定的“姓名”进行深度解析和评分（满分100）。
+风格：专业且具有小红书分享感。
+要求：
+1. 第一行必须显示：[SCORE:XX分]。
+2. 详细分析：三才五格、数理吉凶、音律美感、以及与八字的契合度。
+3. 给出评价总结。`;
+                    prompt = `姓名：${nameToScore}，性别：${gender}，出生信息：${birthInfo}。${baziContext}`;
+                } else if (type === 'company_recommend') {
+                    systemInstruction = `你是一位资深的国学起名大师，擅长根据老板命理和行业属性为公司起名。
+风格：高端、大气、专业，适合小红书发布。
+要求：
+1. 分析老板八字对事业的影响。
+2. 推荐5个公司名称，包含【字号】、【寓意深意】、【行业契合度】。
+3. 名称要符合行业特征。`;
+                    prompt = `老板姓名：${ownerName}，行业：${industry}，老板出生信息：${birthInfo}。${baziContext}`;
+                } else if (type === 'company_score') {
+                    systemInstruction = `你是一位专业的品牌起名专家，结合国学命理对公司名称进行测评。
+风格：严谨、专业、具有洞察力。
+要求：
+1. 第一行必须显示：[SCORE:XX分]。
+2. 分析字号的能量、行业匹配度、对老板命理的支持程度。
+3. 给出发展建议。`;
+                    prompt = `公司名字：${nameToScore}，行业：${industry}，老板出生信息：${birthInfo}。${baziContext}`;
+                }
+
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
+                    const response = await model.generateContent({
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.8 },
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
+                    });
+                    return response.response.candidates[0].content.parts[0].text;
+                });
+
+                logUsage({
+                    action: `${action}:${type}`,
+                    model_id: 'gemini-3-flash-preview',
+                    prompt_tokens: usage?.promptTokenCount,
+                    completion_tokens: usage?.candidatesTokenCount,
+                    total_tokens: usage?.totalTokenCount,
+                    duration_ms: duration,
+                    status: 'success'
+                });
+
+                return res.status(200).json({ result });
             }
 
             case 'generatePartner': {

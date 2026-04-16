@@ -121,7 +121,14 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ title, type, onBack, helpTe
           // 提取分数 (格式: [SCORE:XX分])
           const scoreMatch = report.match(/\[SCORE:(\d+)分?\]/);
           const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
-          const cleanReport = report.replace(/\[SCORE:\d+分?\]\s*/, '');
+          
+          // 提取年龄 (格式: [AGE:XX岁])
+          const ageMatch = report.match(/\[AGE:(\d+)岁?\]/);
+          const age = ageMatch ? ageMatch[1] : null;
+
+          let cleanReport = report;
+          if (scoreMatch) cleanReport = cleanReport.replace(/\[SCORE:\d+分?\]\s*/, '');
+          if (ageMatch) cleanReport = cleanReport.replace(/\[AGE:\d+岁?\]\s*/, '');
 
           return (
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-pink-50 prose prose-pink max-w-none">
@@ -136,6 +143,20 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ title, type, onBack, helpTe
                   </p>
                 </div>
               )}
+
+              {/* 相貌年龄时显示年龄卡片 */}
+              {type === '相貌年龄' && age !== null && (
+                <div className="flex flex-col items-center mb-6 -mt-2">
+                  <div className="w-32 h-32 rounded-3xl bg-gradient-to-br from-blue-400 to-indigo-500 flex flex-col items-center justify-center shadow-lg transform rotate-3 hover:rotate-0 transition-transform">
+                    <span className="text-white text-xs font-bold opacity-80 mb-1">看起来像</span>
+                    <span className="text-4xl font-bold text-white">{age}<span className="text-lg ml-1">岁</span></span>
+                  </div>
+                  <p className="text-gray-500 text-sm mt-4 font-medium">
+                    ✨ 岁月在您脸上留下了温婉的痕迹 ✨
+                  </p>
+                </div>
+              )}
+
               <ReactMarkdown>{cleanReport}</ReactMarkdown>
             </div>
           );

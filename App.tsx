@@ -26,6 +26,8 @@ import MemberView from './views/MemberView';
 import AdminView from './views/AdminView';
 import DownloadAppView from './views/DownloadAppView';
 import EyeDiagnosisView from './views/EyeDiagnosisView';
+import PersonalNamingView from './views/PersonalNamingView';
+import CompanyNamingView from './views/CompanyNamingView';
 import { getApiUrl } from './lib/api-config';
 import { App as CapApp } from '@capacitor/app';
 import { getStableDeviceId } from './lib/fingerprint';
@@ -248,6 +250,7 @@ const App: React.FC = () => {
                 {currentSection === AppSection.HAIRSTYLE && <HairstyleView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                 {currentSection === AppSection.MAKEUP && <MakeupView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                 {currentSection === AppSection.BEAUTY_SCORE && <AnalysisView title="颜值打分" type="颜值打分" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                {currentSection === AppSection.FACE_AGE && <AnalysisView title="相貌年龄" type="相貌年龄" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                 {currentSection === AppSection.COUPLE_FACE && <CoupleFaceView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                 {currentSection === AppSection.TONGUE_DIAGNOSIS && <AnalysisView title="趣味舌诊" type="舌诊" onBack={() => setCurrentSection(AppSection.HOME)} helpText="请上传一张清晰的舌头照片哦～" onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                 {currentSection === AppSection.FACE_COLOR && <AnalysisView title="面色分析" type="中医面色" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
@@ -263,6 +266,8 @@ const App: React.FC = () => {
                 {currentSection === AppSection.MARRIAGE_ANALYSIS && <MarriageView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                 {currentSection === AppSection.WEALTH_ANALYSIS && <WealthView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                 {currentSection === AppSection.ZI_WEI && <ZiWeiView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                {currentSection === AppSection.PERSONAL_NAMING && <PersonalNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                {currentSection === AppSection.COMPANY_NAMING && <CompanyNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                 {currentSection === AppSection.JADE_APPRAISAL && <JadeAppraisalView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                 {currentSection === AppSection.AI_EYE_DIAGNOSIS && <EyeDiagnosisView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                 {currentSection === AppSection.APP_DOWNLOAD && <DownloadAppView onBack={() => setCurrentSection(AppSection.HOME)} />}

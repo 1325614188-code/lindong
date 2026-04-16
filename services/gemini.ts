@@ -182,3 +182,20 @@ export const analysisZiWei = async (birthInfo: string, gender: string) => {
   });
   return result;
 };
+
+export const analysisNaming = async (params: {
+  type: 'personal_recommend' | 'personal_score' | 'company_recommend' | 'company_score';
+  birthInfo: string;
+  gender?: string;
+  surname?: string;
+  expectations?: string;
+  nameToScore?: string;
+  ownerName?: string;
+  industry?: string;
+}) => {
+  const { result } = await callApi({
+    action: 'namingAnalysis',
+    ...params
+  });
+  return result;
+};
