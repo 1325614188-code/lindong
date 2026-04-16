@@ -15,10 +15,11 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     const [editingPoints, setEditingPoints] = useState<{ id: string; amount: number; original: number } | null>(null);
     const [pointRedemptions, setPointRedemptions] = useState<any[]>([]);
     const [commissions, setCommissions] = useState<any[]>([]);
-    const [withdrawals, setWithdrawals] = useState<any[]>([]);
+    const [withdrawalList, setWithdrawalList] = useState<any[]>([]);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    const [aiUsage, setAiUsage] = useState<any[]>([]);
+    const [recentAiLogs, setRecentAiLogs] = useState<any[]>([]);
     const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'withdrawals' | 'config' | 'ai'>('users');
-    const [aiStats, setAiStats] = useState<any>(null);
     const [cBoard, setCBoard] = useState<any[]>(Array(20).fill({ user: '', amount: '' }));
     const [pBoard, setPBoard] = useState<any[]>(Array(20).fill({ user: '', amount: '' }));
 
@@ -121,16 +122,17 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
 
             // 获取佣金提现申请
             const withdrawalsData = await withdrawalsRes.json();
-            setWithdrawals(withdrawalsData.list || []);
+            setWithdrawalList(withdrawalsData.list || []);
 
-            // 获取 AI 统计
+            // 获取 AI 使用统计
             const aiRes = await fetch(getApiUrl('/api/admin'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getAIStats', adminId: admin.id })
+                body: JSON.stringify({ action: 'getAIUsage', adminId: admin.id })
             });
             const aiData = await aiRes.json();
-            setAiStats(aiData);
+            setAiUsage(aiData.stats || []);
+            setRecentAiLogs(aiData.recentLogs || []);
         } catch (e) {
             console.error(e);
         } finally {
@@ -293,7 +295,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                     onClick={() => setActiveTab('ai')}
                     className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'ai' ? 'bg-white shadow-sm text-indigo-500' : 'text-gray-500'}`}
                 >
-                    🤖 AI 监控
+                    🤖 AI
                 </button>
             </div>
 
@@ -474,7 +476,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {withdrawals.map(req => (
+                                {withdrawalList.map(req => (
                                     <tr key={req.id} className="border-b border-gray-100">
                                         <td className="py-3">
                                             <div className="font-bold">{req.username}</div>
@@ -512,65 +514,13 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                 ))}
                             </tbody>
                         </table>
-                        {withdrawals.length === 0 && (
+                        {withdrawalList.length === 0 && (
                             <div className="py-10 text-center text-gray-400 text-xs">暂无提现申请</div>
                         )}
                     </div>
                 </div>
             )}
 
-            {activeTab === 'ai' && aiStats && (
-                <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
-                            <p className="text-xs text-indigo-500 font-bold mb-1">总请求量 (7天)</p>
-                            <p className="text-2xl font-black text-indigo-700">{aiStats.totalRequests}</p>
-                        </div>
-                        <div className="bg-green-50 p-4 rounded-2xl border border-green-100">
-                            <p className="text-xs text-green-500 font-bold mb-1">累计 Token</p>
-                            <p className="text-2xl font-black text-green-700">{(aiStats.totalTokens / 1000).toFixed(1)}k</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                        <h3 className="font-bold mb-4 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                            模型分布
-                        </h3>
-                        <div className="space-y-3">
-                            {Object.entries(aiStats.byModel).map(([model, count]: [any, any]) => (
-                                <div key={model} className="flex items-center justify-between">
-                                    <span className="text-xs font-mono text-gray-500">{model}</span>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                            <div 
-                                                className="h-full bg-indigo-500" 
-                                                style={{ width: `${(count / aiStats.totalRequests) * 100}%` }}
-                                            />
-                                        </div>
-                                        <span className="text-xs font-bold">{count} 次</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                        <h3 className="font-bold mb-4 flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                            热门功能
-                        </h3>
-                        <div className="grid grid-cols-1 gap-2">
-                            {Object.entries(aiStats.byAction || {}).sort((a:any, b:any) => b[1] - a[1]).slice(0, 10).map(([action, count]: [any, any]) => (
-                                <div key={action} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg transition-colors">
-                                    <span className="text-xs font-bold text-gray-700">{action}</span>
-                                    <span className="text-xs font-mono text-gray-400">{count} 次</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {activeTab === 'config' && (
                 <div className="space-y-6">
@@ -1198,6 +1148,144 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                     </div>
                 </div>
             )}
+
+            {activeTab === 'ai' && (
+                <div className="space-y-6">
+                    {/* AI 统计概览 */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-indigo-50">
+                            <div className="text-gray-400 text-[10px] font-bold uppercase mb-1">总调用次数</div>
+                            <div className="text-2xl font-black text-indigo-600">
+                                {aiUsage.reduce((acc, curr) => acc + curr.usage_count, 0)}
+                            </div>
+                        </div>
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-indigo-50">
+                            <div className="text-gray-400 text-[10px] font-bold uppercase mb-1">累计 Token</div>
+                            <div className="text-2xl font-black text-purple-600">
+                                {(aiUsage.reduce((acc, curr) => acc + curr.total_tokens, 0) / 1000).toFixed(1)}k
+                            </div>
+                        </div>
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-indigo-50">
+                            <div className="text-gray-400 text-[10px] font-bold uppercase mb-1">成功率</div>
+                            <div className="text-2xl font-black text-green-500">
+                                {recentAiLogs.length > 0 
+                                    ? Math.round((recentAiLogs.filter(l => l.status === 'success').length / recentAiLogs.length) * 100) 
+                                    : 100}%
+                            </div>
+                        </div>
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-indigo-50">
+                            <div className="text-gray-400 text-[10px] font-bold uppercase mb-1">活动模型</div>
+                            <div className="text-2xl font-black text-orange-500">{aiUsage.length}</div>
+                        </div>
+                    </div>
+
+                    {/* 模型详细分配 */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 className="font-bold mb-6 flex items-center gap-2">
+                            <span>📊</span> 模型用量看板 (Tokens)
+                        </h3>
+                        <div className="space-y-6">
+                            {aiUsage.map(model => {
+                                const total = aiUsage.reduce((acc, curr) => acc + curr.total_tokens, 0);
+                                const percentage = total > 0 ? (model.total_tokens / total) * 100 : 0;
+                                return (
+                                    <div key={model.model_id} className="space-y-2">
+                                        <div className="flex justify-between items-end">
+                                            <div>
+                                                <span className="text-sm font-bold text-gray-700">{model.model_id}</span>
+                                                <span className="ml-2 text-[10px] text-gray-400">调用 {model.usage_count} 次</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="text-xs font-bold text-indigo-500">{model.total_tokens.toLocaleString()}</span>
+                                                <span className="text-[10px] text-gray-400 ml-1">Tokens</span>
+                                            </div>
+                                        </div>
+                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 transition-all duration-1000" 
+                                                style={{ width: `${percentage}%` }}
+                                            />
+                                        </div>
+                                        <div className="flex gap-4 text-[9px] text-gray-400">
+                                            <span>输入: {model.prompt_tokens.toLocaleString()}</span>
+                                            <span>输出: {model.completion_tokens.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {aiUsage.length === 0 && (
+                                <div className="py-10 text-center text-gray-400 text-xs">暂无使用数据</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 最近活动日志 */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="font-bold flex items-center gap-2">
+                                <span>🕒</span> 最近调用日志
+                            </h3>
+                            <button 
+                                onClick={loadData}
+                                className="text-[10px] bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-bold hover:bg-indigo-100 transition-colors"
+                            >
+                                刷新数据
+                            </button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-50">
+                                        <th className="pb-3 font-bold">动作</th>
+                                        <th className="pb-3 font-bold">模型</th>
+                                        <th className="pb-3 font-bold">Tokens</th>
+                                        <th className="pb-3 font-bold">耗时</th>
+                                        <th className="pb-3 font-bold">状态</th>
+                                        <th className="pb-3 font-bold">时间</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {recentAiLogs.map(log => (
+                                        <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="py-4">
+                                                <div className="text-xs font-bold text-gray-700">{log.action || 'unknown'}</div>
+                                            </td>
+                                            <td className="py-4">
+                                                <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md font-medium">
+                                                    {log.model_id}
+                                                </span>
+                                            </td>
+                                            <td className="py-4">
+                                                <div className="text-xs font-bold text-indigo-500">{log.total_tokens || 0}</div>
+                                            </td>
+                                            <td className="py-4">
+                                                <div className="text-[10px] text-gray-400">{log.duration_ms ? `${log.duration_ms}ms` : '-'}</div>
+                                            </td>
+                                            <td className="py-4">
+                                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                                                    log.status === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                                                }`}>
+                                                    {log.status === 'success' ? '成功' : '失败'}
+                                                </span>
+                                            </td>
+                                            <td className="py-4">
+                                                <div className="text-[10px] text-gray-400 whitespace-nowrap">
+                                                    {new Date(log.created_at).toLocaleString()}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {recentAiLogs.length === 0 && (
+                                <div className="py-20 text-center">
+                                    <div className="text-4xl mb-2">🔭</div>
+                                    <div className="text-gray-400 text-xs">尚无任何活动记录</div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
         </div>
     );
 };

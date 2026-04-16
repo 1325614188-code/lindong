@@ -207,6 +207,48 @@ export default async function handler(req: any, res: any) {
                 });
             }
 
+            case 'getAIUsage': {
+                // 1. 获取汇总统计
+                const { data: logs, error: statsError } = await supabase
+                    .from('gemini_usage_logs')
+                    .select('model_id, prompt_tokens, completion_tokens, total_tokens')
+                    .eq('status', 'success');
+
+                if (statsError) throw statsError;
+
+                const stats: Record<string, any> = {};
+                logs?.forEach(log => {
+                    const model = log.model_id;
+                    if (!stats[model]) {
+                        stats[model] = {
+                            model_id: model,
+                            usage_count: 0,
+                            prompt_tokens: 0,
+                            completion_tokens: 0,
+                            total_tokens: 0
+                        };
+                    }
+                    stats[model].usage_count += 1;
+                    stats[model].prompt_tokens += (log.prompt_tokens || 0);
+                    stats[model].completion_tokens += (log.completion_tokens || 0);
+                    stats[model].total_tokens += (log.total_tokens || 0);
+                });
+
+                // 2. 获取最近 50 条详细日志
+                const { data: recentLogs, error: logError } = await supabase
+                    .from('gemini_usage_logs')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+
+                if (logError) throw logError;
+
+                return res.status(200).json({ 
+                    stats: Object.values(stats),
+                    recentLogs: recentLogs || []
+                });
+            }
+
             case 'getCommissions': {
                 // 获取佣金记录
                 const { data: commissions } = await supabase
