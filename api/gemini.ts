@@ -8,6 +8,28 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
+ * 获取当前的 AI 提供商设置
+ */
+async function getAIProvider(): Promise<string> {
+    try {
+        const { data, error } = await supabase
+            .from('app_config')
+            .select('value')
+            .eq('key', 'ai_provider')
+            .single();
+        
+        if (error) {
+            console.error("[Config Error] 获取 ai_provider 失败:", error.message);
+            return 'gemini'; // 默认回退
+        }
+        return data?.value || 'gemini';
+    } catch (e: any) {
+        console.error("[Config Exception] 获取 ai_provider 异常:", e.message);
+        return 'gemini';
+    }
+}
+
+/**
  * 获取 GCP Access Token
  */
 async function getAccessToken() {
@@ -19,15 +41,18 @@ async function getAccessToken() {
     }
 
     try {
+        // 处理 Vercel 环境变量中的转义引号
         let sanitizedKey = keyStr.trim();
         if (sanitizedKey.startsWith('"') && sanitizedKey.endsWith('"')) {
             sanitizedKey = sanitizedKey.substring(1, sanitizedKey.length - 1).replace(/\\"/g, '"');
+        } else {
+            sanitizedKey = sanitizedKey.replace(/\\n/g, '\n');
         }
         
         const credentials = JSON.parse(sanitizedKey);
         const auth = new GoogleAuth({
             credentials,
-            scopes: 'https://www.googleapis.com/auth/cloud-platform',
+            scopes: ['https://www.googleapis.com/auth/cloud-platform'],
         });
         const client = await auth.getClient();
         const tokenResponse = await client.getAccessToken();
@@ -90,16 +115,14 @@ async function listAvailableModels() {
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        // 保持用户最初使用的 Key，优先映射到标准模型名
-        'gemini-3-flash-preview': 'gemini-3-flash-preview', 
+        'gemini-3-flash-preview': 'gemini-2.0-flash-exp', // 映射到最新的 flash 预览版
         'gemini-1.5-flash': 'gemini-1.5-flash',
-
-        // 对于图像系列，尝试指向标准 Pro 版（如果 gemini-3/2.5 的自定义版本没权限）
-        'gemini-2.5-flash-image': 'gemini-1.5-pro',
-        'gemini-1.5-pro': 'gemini-1.5-pro',
-        'gemini-2.5-pro': 'gemini-1.5-pro'
+        'gemini-2.5-flash-image': 'gemini-1.5-flash', // 图像任务也强制用 flash 以节省成本
+        
+        // 核心成本锁定策略：1.5-pro 强制映射到 gemini-2.5-flash (遵循用户严格要求)
+        'gemini-1.5-pro': 'gemini-2.5-flash', 
+        'gemini-2.5-pro': 'gemini-2.5-flash'
     };
-    // 如果没有映射命中，直接返回模型名（支持用户直接传入自定义模型 ID）
     const mapped = mapping[model] || model;
     return `publishers/google/models/${mapped}`;
 };
@@ -107,77 +130,47 @@ const getVertexModelPath = (model: string): string => {
 // 移除 Gemini API (AI Studio) 调用函数，强制走 Vertex AI 路线
 
 /**
- * 底层 Fetch 调用 Vertex AI REST API (带多路径探测)
+ * 底层 Fetch 调用 Vertex AI REST API (标准路径)
  */
 async function callVertexAI(modelName: string, payload: any) {
     const project = process.env.GCP_PROJECT_ID;
-    const defaultLocation = process.env.GCP_LOCATION || "us-central1";
+    const location = process.env.GCP_LOCATION || "us-central1";
     const token = await getAccessToken();
-
-    // 1. 获取模型路径
     const modelPath = getVertexModelPath(modelName);
     
-    // 2. 定义增强的探测列表 (对所有 Gemini 模型同时探测 global 和 regional 路径，增加容错性)
-    const configs = [
-        { host: 'aiplatform.googleapis.com', version: 'v1', loc: 'global' },
-        { host: 'aiplatform.googleapis.com', version: 'v1beta1', loc: 'global' },
-        { host: `${defaultLocation}-aiplatform.googleapis.com`, version: 'v1', loc: defaultLocation },
-        { host: `${defaultLocation}-aiplatform.googleapis.com`, version: 'v1beta1', loc: defaultLocation },
-        { host: 'global-aiplatform.googleapis.com', version: 'v1', loc: 'global' },
-        { host: 'global-aiplatform.googleapis.com', version: 'v1beta1', loc: 'global' },
-    ];
- 
-    let lastError = null;
- 
-    // 3. 开始多路探测
-    for (const config of configs) {
-        const url = `https://${config.host}/${config.version}/projects/${project}/locations/${config.loc}/${modelPath}:generateContent`;
-        
-        console.log(`[Vertex AI Probe] Trying URL: ${url}`);
- 
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload),
-            });
- 
-            if (response.ok) {
-                console.log(`[Vertex AI Success] Path found: ${config.version} @ ${config.host} (${config.loc})`);
-                return await response.json();
-            }
- 
-            const errorText = await response.text();
-            console.warn(`[Vertex AI Probe failed] ${config.version} @ ${config.host} code: ${response.status}`);
-            lastError = { status: response.status, text: errorText, url };
-            
-            // 如果是权限或计费问题 (401/403/429)，说明路径大概率对但配置有问题，直接报错不尝试其他路径
-            if ([401, 403, 429].includes(response.status)) {
-                break;
-            }
-        } catch (e: any) {
-            console.error(`[Vertex AI Probe Error] ${url}:`, e.message);
-            lastError = { status: 0, text: e.message, url };
+    // 构造标准 REST 端点
+    const url = `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/${modelPath}:generateContent`;
+    
+    console.log(`[Vertex AI Execution] Endpoint: ${url}`);
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (response.ok) {
+            return await response.json();
         }
-    }
- 
-    // 4. 全部失败，输出极详尽的错误诊断（包含响应正文）以便修复
-    if (lastError) {
-        const errorMessage = `Vertex AI 调用失败。
-已尝试路径数: ${configs.length}
-最后尝试 URL: ${lastError.url}
-状态码: ${lastError.status}
-响应正文: ${lastError.text || '无'}
-模型路径: ${modelPath}`;
 
-        console.error("[Vertex AI Final Error]", errorMessage);
-        throw new Error(errorMessage);
-    }
+        const errorText = await response.text();
+        console.error(`[Vertex AI Error] Status: ${response.status}, Body: ${errorText}`);
 
-    throw new Error("Unknown error during Vertex AI call");
+        // 诊断逻辑：404 触发可用模型列表查询
+        if (response.status === 404) {
+            console.warn("[Vertex AI Diagnostic] 收到 404，正在列出可用模型以供排查...");
+            await listAvailableModels();
+        }
+
+        throw new Error(`Vertex AI Call Failed (${response.status}): ${errorText}`);
+    } catch (e: any) {
+        console.error(`[Vertex AI Exception] ${e.message}`);
+        throw e;
+    }
 }
 
 /**
@@ -235,15 +228,12 @@ function getCacheKey(action: string, model: string, body: any): string {
 async function requestWithRetry<T>(
     modelName: string,
     operation: (model: any) => Promise<T>,
-    maxRetries = 3,
+    maxRetries = 2,
     initialDelay = 1000
 ): Promise<{ result: T; usage?: any; duration: number }> {
     let lastError: any;
     const startTime = Date.now();
     
-    // 强制锁定策略：Vertex AI
-    console.log(`[AI Strategy] Enforced Provider: Vertex AI (Model: ${modelName})`);
-
     for (let i = 0; i <= maxRetries; i++) {
         try {
             let lastUsage: any = null;
@@ -264,14 +254,21 @@ async function requestWithRetry<T>(
             lastError = error;
             const message = error?.message || "";
             
-            console.error(`[Retry Strategy] Vertex 尝试 ${i + 1}/${maxRetries + 1} 失败: ${message}`);
+            // 提取状态码 (假设格式为 "Call Failed (XXX): ...")
+            const statusMatch = message.match(/\((\d+)\)/);
+            const status = statusMatch ? parseInt(statusMatch[1]) : 0;
 
-            if (message.includes("404") || message.includes("401") || message.includes("403")) {
+            console.error(`[Retry Strategy] Vertex 尝试 ${i + 1}/${maxRetries + 1} 失败: Status: ${status}, Msg: ${message}`);
+
+            // 识别 404 (路径错)、401/403 (权限错) 和 429 (频率限制) 并立即停止
+            if ([401, 403, 404, 429].includes(status)) {
+                console.warn(`[Retry Strategy] 遇到停止状态码 ${status}，不再重试。`);
                 throw error;
             }
 
             if (i < maxRetries) {
-                const delay = initialDelay * Math.pow(2, i); 
+                const delay = initialDelay * Math.pow(2, i); // 指数退避
+                console.log(`[Retry Strategy] 将在 ${delay}ms 后进行下一次尝试...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
@@ -291,6 +288,12 @@ export default async function handler(req: any, res: any) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
+        const provider = await getAIProvider();
+        if (provider !== 'vertex') {
+            console.error(`[AI Strategy] 当前 AI 提供商为 ${provider}，非 vertex，拒绝执行 Vertex 专用逻辑。`);
+            return res.status(403).json({ error: `AI Provider (${provider}) is not configured for Vertex AI.` });
+        }
+
         const { action, type, images, gender, baseImage, itemImage, itemType, faceImage, image } = req.body;
 
         // 尝试从缓存获取 (仅限 GET 请求模拟或特定的分析动作)
