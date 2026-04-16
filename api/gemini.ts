@@ -90,14 +90,16 @@ async function listAvailableModels() {
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-3-flash-preview',
-        'gemini-2.5-flash-image': 'gemini-2.5-flash',
-        // 兜底映射，确保旧调用不报错但强制降级
-        'gemini-1.5-flash': 'gemini-2.5-flash',
-        'gemini-1.5-pro': 'gemini-2.5-flash',
-        'gemini-2.5-pro': 'gemini-2.5-flash'
+        // 1. 文本/对话类任务：继续使用 Flash 002 (稳定且便宜)
+        'gemini-3-flash-preview': 'gemini-1.5-flash-002',
+        'gemini-1.5-flash': 'gemini-1.5-flash-002',
+
+        // 2. 图像生成类任务：必须使用 Pro 002 以支持多模态生成输出 (inlineData)
+        'gemini-2.5-flash-image': 'gemini-1.5-pro-002',
+        'gemini-1.5-pro': 'gemini-1.5-pro-002',
+        'gemini-2.5-pro': 'gemini-1.5-pro-002'
     };
-    const mapped = mapping[model] || 'gemini-2.5-flash';
+    const mapped = mapping[model] || 'gemini-1.5-flash-002';
     return `publishers/google/models/${mapped}`;
 };
 
@@ -449,6 +451,14 @@ export default async function handler(req: any, res: any) {
                             console.warn('[tryOn] Model returned text instead of image:', part.text);
                         }
                     }
+
+                    // 额外诊断：记录完整的候选结果，查看是否被安全拒绝或有其他原因
+                    if (response.response.candidates?.[0]) {
+                        console.error('[tryOn] Full candidate[0]:', JSON.stringify(response.response.candidates[0]));
+                    } else {
+                        console.error('[tryOn] No candidates returned at all. Model Response:', JSON.stringify(response.response));
+                    }
+
                     console.error('[tryOn] No inlineData found in candidate parts');
                     return null;
                 });
