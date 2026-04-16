@@ -71,99 +71,20 @@ async function listAvailableModels() {
 }
 
 /**
- * 适配 Vertex AI 模型路径 (确保 Vertex 逻辑不被改动)
+ * 适配 Vertex AI 模型路径
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-2.5-flash', // 照搬 guojiban 验证过的映射
-        'gemini-1.5-flash': 'gemini-2.5-flash', 
-        'gemini-1.5-pro': 'gemini-2.5-flash', 
-        'gemini-2.5-flash-image': 'gemini-2.5-flash-image'
+        'gemini-3-flash-preview': 'gemini-1.5-flash', // 固定映射到 1.5 系列
+        'gemini-1.5-flash': 'gemini-1.5-flash', 
+        'gemini-1.5-pro': 'gemini-1.5-pro', 
+        'gemini-2.5-flash-image': 'gemini-1.5-flash' // 对应视觉能力
     };
     const mapped = mapping[model] || model;
     return `publishers/google/models/${mapped}`;
 };
 
-/**
- * 适配 Gemini API (AI Studio) 模型名称
- */
-const getGeminiModelName = (model: string): string => {
-    return model;
-};
-
-/**
- * 随机获取一个 Gemini API Key (1-100)
- */
-function getRandomGeminiKey(): string {
-    const randomIndex = Math.floor(Math.random() * 100) + 1;
-    const key = process.env[`GEMINI_API_KEY${randomIndex}`] || process.env.GEMINI_API_KEY;
-    if (!key) {
-        // 尝试按序找一个存在的
-        for (let i = 1; i <= 100; i++) {
-            const k = process.env[`GEMINI_API_KEY${i}`];
-            if (k) return k;
-        }
-    }
-    return key || "";
-}
-
-/**
- * 获取当前的 AI 服务商配置
- */
-async function getAIProvider(): Promise<string> {
-    try {
-        const { data, error } = await supabase
-            .from('app_config')
-            .select('value')
-            .eq('key', 'ai_provider')
-            .maybeSingle();
-        
-        if (error) {
-            console.error("[Supabase Error] 获取 ai_provider 失败:", error.message);
-            throw new Error(`无法读取 AI 配置: ${error.message}`);
-        }
-
-        if (!data || !data.value) {
-            console.warn("[AI Config Missing] 数据库中未找到 ai_provider 配置");
-            throw new Error("AI 服务未配置，请联系管理员在后台设置。");
-        }
-
-        return data.value;
-    } catch (e: any) {
-        console.error("[AI Config Exception] 隔离模式触发错误:", e.message);
-        throw e;
-    }
-}
-
-/**
- * 底层 Fetch 调用 Gemini API (AI Studio)
- */
-async function callGeminiAPI(modelName: string, payload: any) {
-    const apiKey = getRandomGeminiKey();
-    if (!apiKey) throw new Error("未配置 GEMINI_API_KEY");
-
-    // 隔离处理：使用专用的 Gemini 模型映射
-    const apiModelName = getGeminiModelName(modelName); 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${apiModelName}:generateContent?key=${apiKey}`;
-
-    console.log(`[Gemini API Request] URL: ${url.split('?')[0]} (Model: ${apiModelName})`);
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Client': 'antigravity-optimizer' // 标记流量来源
-        },
-        body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Gemini API Error (${response.status}): ${errorText}`);
-    }
-
-    return await response.json();
-}
+// 移除 Gemini API (AI Studio) 调用函数，强制走 Vertex AI 路线
 
 /**
  * 底层 Fetch 调用 Vertex AI REST API (v1beta1)
@@ -222,7 +143,7 @@ async function logUsage(data: {
 }
 
 /**
- * 带有超时和自动重试的请求包装器
+ * 带有超时和自动重试的请求包装器 (强制使用 Vertex AI)
  */
 async function requestWithRetry<T>(
     modelName: string,
@@ -231,18 +152,17 @@ async function requestWithRetry<T>(
     initialDelay = 1000
 ): Promise<{ result: T; usage?: any; duration: number }> {
     let lastError: any;
-    const provider = await getAIProvider();
     const startTime = Date.now();
-    console.log(`[AI Strategy] Provider: ${provider} (Model: ${modelName})`);
+    
+    // 强制锁定策略：Vertex AI
+    console.log(`[AI Strategy] Enforced Provider: Vertex AI (Model: ${modelName})`);
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
             let lastUsage: any = null;
             const mockModel = {
                 generateContent: async (payload: any) => {
-                    const result = provider === 'gemini' 
-                        ? await callGeminiAPI(modelName, payload)
-                        : await callVertexAI(modelName, payload);
+                    const result = await callVertexAI(modelName, payload);
                     lastUsage = result.usageMetadata || result.usage;
                     return { response: result };
                 }
@@ -257,7 +177,7 @@ async function requestWithRetry<T>(
             lastError = error;
             const message = error?.message || "";
             
-            console.error(`[Retry Strategy] 尝试 ${i + 1}/${maxRetries + 1} 失败: ${message}`);
+            console.error(`[Retry Strategy] Vertex 尝试 ${i + 1}/${maxRetries + 1} 失败: ${message}`);
 
             if (message.includes("429") || message.includes("404") || message.includes("401") || message.includes("403")) {
                 throw error;

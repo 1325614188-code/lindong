@@ -77,8 +77,7 @@ export default defineConfig(({ mode }) => {
       })
     ],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      // 移除前端 API KEY 暴露点，安全性增强
     },
     build: {
       // minify: false // This line was removed as per instruction
