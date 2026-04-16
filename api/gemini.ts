@@ -47,24 +47,34 @@ async function listAvailableModels() {
         const location = process.env.GCP_LOCATION || "us-central1";
         const token = await getAccessToken();
         
-        // 尝试列出公共模型
-        const url = `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/publishers/google/models`;
-        
-        console.log(`[Diagnostic] 正在尝试从 ${url} 获取可用模型列表...`);
-        
-        const response = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const modelNames = data.models?.map((m: any) => m.name.split('/').pop()) || [];
-            console.log("[Diagnostic Success] 当前项目可用的模型 ID 列表:", JSON.stringify(modelNames));
-            return modelNames;
-        } else {
-            const errorText = await response.text();
-            console.error(`[Diagnostic Failed] 状态码: ${response.status}`, errorText);
+        // 尝试列出公共模型 (按 regional 和 global 分两次尝试)
+        const locations = [location, "global"];
+        let allModelNames: string[] = [];
+
+        for (const loc of locations) {
+            const url = `https://${loc === 'global' ? '' : loc + '-'}aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${loc}/publishers/google/models`;
+            console.log(`[Diagnostic] 正在尝试从 ${url} 获取可用模型列表...`);
+            
+            try {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const names = data.models?.map((m: any) => m.name.split('/').pop()) || [];
+                    console.log(`[Diagnostic Success] ${loc} 区域可用模型:`, JSON.stringify(names));
+                    allModelNames = allModelNames.concat(names);
+                } else {
+                    const errorText = await response.text();
+                    console.warn(`[Diagnostic Skip] ${loc} 区域加载失败 (${response.status}):`, errorText.substring(0, 100));
+                }
+            } catch (err: any) {
+                console.warn(`[Diagnostic Skip] ${loc} 区域请求异常:`, err.message);
+            }
         }
+        
+        return Array.from(new Set(allModelNames));
     } catch (e: any) {
         console.error("[Diagnostic Exception]", e.message);
     }
@@ -97,12 +107,20 @@ const getVertexModelPath = (model: string): string => {
  */
 async function callVertexAI(modelName: string, payload: any) {
     const project = process.env.GCP_PROJECT_ID;
-    const location = process.env.GCP_LOCATION || "us-central1";
+    let location = process.env.GCP_LOCATION || "us-central1";
     const token = await getAccessToken();
 
     // 隔离处理：使用专用的 Vertex 模型映射
     const modelPath = getVertexModelPath(modelName);
-    const url = `https://${location}-aiplatform.googleapis.com/v1beta1/projects/${project}/locations/${location}/${modelPath}:generateContent`;
+    
+    // 2026 策略适配：Gemini 2.5/3 系列必须走 global 端点
+    const isNewModel = modelPath.includes('gemini-3') || modelPath.includes('gemini-2.5');
+    if (isNewModel) {
+        location = "global";
+    }
+
+    const host = location === 'global' ? 'aiplatform.googleapis.com' : `${location}-aiplatform.googleapis.com`;
+    const url = `https://${host}/v1beta1/projects/${project}/locations/${location}/${modelPath}:generateContent`;
 
     console.log(`[Vertex AI Request] URL: ${url}`);
 
