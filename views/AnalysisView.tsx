@@ -29,7 +29,7 @@ const AnalysisView: React.FC<AnalysisViewProps> = ({ title, type, onBack, helpTe
         const base64 = reader.result as string;
         try {
           // 降低分析类图片的分辨率和质量以节省 Token
-          const compressed = await compressImage(base64, 800, 0.5);
+          const compressed = await compressImage(base64, 640, 0.5);
           setImage(compressed);
         } catch (e) {
           console.error('[AnalysisView] Compression error:', e);

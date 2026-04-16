@@ -57,7 +57,7 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
     try {
       // 在此处进行延迟合规检测，使用低分辨率减少 Token 消耗
       setDetecting(true);
-      const detectionImage = await compressImage(faceImage, 512, 0.4);
+      const detectionImage = await compressImage(faceImage, 320, 0.4);
       const isValid = await detectPhotoContent(detectionImage);
       setDetecting(false);
 

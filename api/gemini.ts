@@ -75,12 +75,13 @@ async function listAvailableModels() {
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-2.5-flash', // 极其重要：映射回 Vertex 之前的稳定版本以保持行为一致
+        'gemini-3-flash-preview': 'gemini-3-flash-preview', 
         'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
-        'gemini-1.5-flash': 'gemini-2.5-flash', 
-        'gemini-1.5-pro': 'gemini-2.5-flash' // 锁死 Pro：将 Pro 请求强行降级为 Flash，杜绝高额扣费
+        'gemini-1.5-flash': 'gemini-3-flash-preview', 
+        'gemini-1.5-pro': 'gemini-3-flash-preview' // 严防死守：Pro 级请求强行转为逻辑分析模型
     };
-    const mapped = mapping[model] || 'gemini-2.5-flash'; // 兜底也使用 Flash
+    // 强制使用白名单内的模型，兜底使用逻辑分析模型
+    const mapped = mapping[model] || 'gemini-3-flash-preview';
     return `publishers/google/models/${mapped}`;
 };
 
@@ -88,8 +89,12 @@ const getVertexModelPath = (model: string): string => {
  * 适配 Gemini API (AI Studio) 模型名称
  */
 const getGeminiModelName = (model: string): string => {
-    // 隔离策略：Gemini 模式下直接使用传入的名称，不进行任何强制降级
-    return model;
+    // 统一白名单逻辑：Gemini API 模式下也必须锁定模型
+    const mapping: Record<string, string> = {
+        'gemini-3-flash-preview': 'gemini-3-flash-preview',
+        'gemini-2.5-flash-image': 'gemini-2.5-flash-image'
+    };
+    return mapping[model] || 'gemini-3-flash-preview';
 };
 
 /**
@@ -216,7 +221,7 @@ async function logUsage(data: {
 async function requestWithRetry<T>(
     modelName: string,
     operation: (model: any) => Promise<T>,
-    maxRetries = 2,
+    maxRetries = 1,
     initialDelay = 1000
 ): Promise<{ result: T; usage?: any; duration: number }> {
     let lastError: any;
