@@ -121,6 +121,11 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             setCommissions(commissionsData.commissions || []);
 
             // 获取佣金提现申请
+            const withdrawalsRes = await fetch(getApiUrl('/api/auth_v2'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getWithdrawalList', isAdmin: true })
+            });
             const withdrawalsData = await withdrawalsRes.json();
             setWithdrawalList(withdrawalsData.list || []);
 
