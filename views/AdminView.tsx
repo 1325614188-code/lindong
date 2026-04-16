@@ -17,7 +17,8 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     const [commissions, setCommissions] = useState<any[]>([]);
     const [withdrawals, setWithdrawals] = useState<any[]>([]);
     const [processingId, setProcessingId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'withdrawals' | 'config'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'withdrawals' | 'config' | 'ai'>('users');
+    const [aiStats, setAiStats] = useState<any>(null);
     const [cBoard, setCBoard] = useState<any[]>(Array(20).fill({ user: '', amount: '' }));
     const [pBoard, setPBoard] = useState<any[]>(Array(20).fill({ user: '', amount: '' }));
 
@@ -119,13 +120,17 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             setCommissions(commissionsData.commissions || []);
 
             // 获取佣金提现申请
-            const withdrawalsRes = await fetch(getApiUrl('/api/auth_v2'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getWithdrawalList', isAdmin: true })
-            });
             const withdrawalsData = await withdrawalsRes.json();
             setWithdrawals(withdrawalsData.list || []);
+
+            // 获取 AI 统计
+            const aiRes = await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getAIStats', adminId: admin.id })
+            });
+            const aiData = await aiRes.json();
+            setAiStats(aiData);
         } catch (e) {
             console.error(e);
         } finally {
@@ -283,6 +288,12 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                     className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'config' ? 'bg-white shadow-sm text-purple-500' : 'text-gray-500'}`}
                 >
                     ⚙️ 配置
+                </button>
+                <button
+                    onClick={() => setActiveTab('ai')}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'ai' ? 'bg-white shadow-sm text-indigo-500' : 'text-gray-500'}`}
+                >
+                    🤖 AI 监控
                 </button>
             </div>
 
@@ -504,6 +515,59 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                         {withdrawals.length === 0 && (
                             <div className="py-10 text-center text-gray-400 text-xs">暂无提现申请</div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'ai' && aiStats && (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                            <p className="text-xs text-indigo-500 font-bold mb-1">总请求量 (7天)</p>
+                            <p className="text-2xl font-black text-indigo-700">{aiStats.totalRequests}</p>
+                        </div>
+                        <div className="bg-green-50 p-4 rounded-2xl border border-green-100">
+                            <p className="text-xs text-green-500 font-bold mb-1">累计 Token</p>
+                            <p className="text-2xl font-black text-green-700">{(aiStats.totalTokens / 1000).toFixed(1)}k</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                        <h3 className="font-bold mb-4 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                            模型分布
+                        </h3>
+                        <div className="space-y-3">
+                            {Object.entries(aiStats.byModel).map(([model, count]: [any, any]) => (
+                                <div key={model} className="flex items-center justify-between">
+                                    <span className="text-xs font-mono text-gray-500">{model}</span>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-32 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-indigo-500" 
+                                                style={{ width: `${(count / aiStats.totalRequests) * 100}%` }}
+                                            />
+                                        </div>
+                                        <span className="text-xs font-bold">{count} 次</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                        <h3 className="font-bold mb-4 flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                            热门功能
+                        </h3>
+                        <div className="grid grid-cols-1 gap-2">
+                            {Object.entries(aiStats.byAction || {}).sort((a:any, b:any) => b[1] - a[1]).slice(0, 10).map(([action, count]: [any, any]) => (
+                                <div key={action} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                                    <span className="text-xs font-bold text-gray-700">{action}</span>
+                                    <span className="text-xs font-mono text-gray-400">{count} 次</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}

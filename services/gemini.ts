@@ -4,6 +4,7 @@
  */
 
 import { getApiUrl } from '../lib/api-config';
+import { compressImage } from '../lib/image';
 
 const API_BASE = getApiUrl('/api/gemini');
 
@@ -29,9 +30,11 @@ async function callApi(body: Record<string, any>): Promise<any> {
  * 检测照片是否合规（包含人脸和上半身）
  */
 export const detectPhotoContent = async (image: string): Promise<boolean> => {
+  // Tier A: Detection (Smallest)
+  const compressed = await compressImage(image, 256, 0.5);
   const { valid } = await callApi({
     action: 'detectPhotoContent',
-    image
+    image: compressed
   });
   return valid;
 };
@@ -41,10 +44,15 @@ export const analyzeImage = async (
   images: string[],
   systemInstruction?: string
 ) => {
+  // Tier B: Analysis (Balanced)
+  const compressedImages = await Promise.all(
+    images.map(img => compressImage(img, 512, 0.6))
+  );
+
   const { result } = await callApi({
     action: 'analyze',
     type: prompt,
-    images
+    images: compressedImages
   });
   return result;
 };
@@ -54,6 +62,11 @@ export const generateXHSStyleReport = async (
   images: string[],
   additionalPrompt: string = ""
 ) => {
+  // Tier B: Analysis (Balanced)
+  const compressedImages = await Promise.all(
+    images.map(img => compressImage(img, 512, 0.6))
+  );
+
   // 从 additionalPrompt 中提取性别信息
   const genderMatch = additionalPrompt.match(/性别：(男|女)/);
   const gender = genderMatch ? genderMatch[1] : null;
@@ -61,7 +74,7 @@ export const generateXHSStyleReport = async (
   const { result } = await callApi({
     action: 'analyze',
     type,
-    images,
+    images: compressedImages,
     gender
   });
   return result;
@@ -72,10 +85,14 @@ export const generateTryOnImage = async (
   itemImage: string,
   type: 'clothes' | 'earrings'
 ) => {
+  // Tier C: Generation (High quality)
+  const compressedBase = await compressImage(baseImage, 1024, 0.7);
+  const compressedItem = await compressImage(itemImage, 1024, 0.7);
+
   const { result } = await callApi({
     action: 'tryOn',
-    baseImage,
-    itemImage,
+    baseImage: compressedBase,
+    itemImage: compressedItem,
     itemType: type
   });
   return result;
@@ -108,9 +125,12 @@ export const generateHairstyles = async (
     onProgress?.(i + 1, total);
 
     try {
+      // Tier C: Generation (High quality)
+      const compressedFace = await compressImage(faceImage, 1024, 0.7);
+
       const { result } = await callApi({
         action: 'hairstyle',
-        faceImage,
+        faceImage: compressedFace,
         gender,
         hairstyleName: item.name,
         hairstyleDesc: item.desc
@@ -137,9 +157,12 @@ export const generateMakeupImage = async (
   styleName: string,
   styleDesc: string
 ): Promise<string | null> => {
+  // Tier C: Generation (High quality)
+  const compressedFace = await compressImage(faceImage, 1024, 0.7);
+
   const { result } = await callApi({
     action: 'makeup',
-    faceImage,
+    faceImage: compressedFace,
     styleName,
     styleDesc
   });
@@ -156,11 +179,17 @@ export const analysisMarriage = async (birthInfo: string, gender: string) => {
 };
 
 export const generatePartnerImage = async (description: string, gender: string, userImage?: string) => {
+  // Tier C: Generation (High quality)
+  let compressedUserImg = undefined;
+  if (userImage) {
+    compressedUserImg = await compressImage(userImage, 1024, 0.7);
+  }
+
   const { result } = await callApi({
     action: 'generatePartner',
     description,
     gender,
-    userImage
+    userImage: compressedUserImg
   });
   return result;
 };

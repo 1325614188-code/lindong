@@ -1,4 +1,5 @@
 import { getApiUrl } from "../lib/api-config";
+import { compressImage } from "../lib/image";
 
 export interface EyeDiagnosisResult {
     healthScore: number;
@@ -22,12 +23,16 @@ export async function analyzeEyeImages(images: string[]): Promise<EyeDiagnosisRe
         throw new Error("请上传全部5张照片进行分析");
     }
 
+    const compressedImages = await Promise.all(
+        images.map(img => compressImage(img, 512, 0.6))
+    );
+
     const response = await fetch(API_BASE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             action: 'eyeDiagnosis',
-            images
+            images: compressedImages
         })
     });
 

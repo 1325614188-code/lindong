@@ -230,6 +230,39 @@ export default async function handler(req: any, res: any) {
                 return res.status(200).json({ success: true });
             }
 
+            case 'getAIStats': {
+                // 获取最近 7 天的 AI 使用统计
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+                const { data: logs } = await supabase
+                    .from('gemini_usage_logs')
+                    .select('*')
+                    .gte('created_at', sevenDaysAgo.toISOString())
+                    .order('created_at', { ascending: false });
+
+                // 计算统计数据
+                const stats = {
+                    totalRequests: logs?.length || 0,
+                    successRequests: logs?.filter(l => l.status === 'success').length || 0,
+                    errorRequests: logs?.filter(l => l.status === 'error').length || 0,
+                    totalTokens: logs?.reduce((acc, l) => acc + (l.total_tokens || 0), 0) || 0,
+                    byModel: {} as Record<string, number>,
+                    byAction: {} as Record<string, number>,
+                    dailyTokens: {} as Record<string, number>
+                };
+
+                logs?.forEach(log => {
+                    stats.byModel[log.model_id] = (stats.byModel[log.model_id] || 0) + 1;
+                    stats.byAction[log.action] = (stats.byAction[log.action] || 0) + 1;
+                    
+                    const day = new Date(log.created_at).toLocaleDateString();
+                    stats.dailyTokens[day] = (stats.dailyTokens[day] || 0) + (log.total_tokens || 0);
+                });
+
+                return res.status(200).json(stats);
+            }
+
             default:
                 return res.status(400).json({ error: 'Invalid action' });
         }

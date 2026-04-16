@@ -1,6 +1,6 @@
-import { GoogleAuth } from 'google-auth-library';
 import { astro } from 'iztro';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -73,14 +73,19 @@ async function listAvailableModels() {
 /**
  * 适配 Vertex AI 模型路径 (复刻自参考版本配置)
  */
+/**
+ * 适配 Vertex AI 模型路径 (严格锁定 Flash 系列，杜绝 Pro)
+ */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
         'gemini-3-flash-preview': 'gemini-3-flash',
         'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
-        'gemini-1.5-flash': 'gemini-2.5-flash', // 2026年优先尝试 2.5 系列
-        'gemini-1.5-pro': 'gemini-2.5-pro'
+        // 兜底映射，确保旧调用不报错但强制降级
+        'gemini-1.5-flash': 'gemini-3-flash',
+        'gemini-1.5-pro': 'gemini-3-flash',
+        'gemini-2.5-pro': 'gemini-3-flash'
     };
-    const mapped = mapping[model] || model;
+    const mapped = mapping[model] || 'gemini-3-flash';
     return `publishers/google/models/${mapped}`;
 };
 
@@ -140,6 +145,35 @@ async function logUsage(data: {
     } catch (e) {
         console.error("[Usage Log Error] 记录失败:", e);
     }
+}
+
+/**
+ * 计算请求的 Hash 值做为缓存 key
+ */
+function getCacheKey(action: string, model: string, body: any): string {
+    const data = {
+        action,
+        model,
+        params: {
+            type: body.type,
+            gender: body.gender,
+            itemType: body.itemType,
+            birthInfo: body.birthInfo,
+            hairstyleName: body.hairstyleName,
+            styleName: body.styleName,
+            description: body.description,
+            industry: body.industry
+        },
+        // 对图像数据取指纹（取前1000个字符和后1000个字符）以平衡速度与准确度
+        imagesFingerprint: [
+            body.image,
+            body.baseImage,
+            body.itemImage,
+            body.faceImage,
+            ...(body.images || [])
+        ].filter(Boolean).map(img => img.substring(0, 1000) + img.substring(img.length - 1000))
+    };
+    return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
 }
 
 /**
@@ -206,9 +240,28 @@ export default async function handler(req: any, res: any) {
     try {
         const { action, type, images, gender, baseImage, itemImage, itemType, faceImage, image } = req.body;
 
+        // 尝试从缓存获取 (仅限 GET 请求模拟或特定的分析动作)
+        let cacheKey = "";
+        if (['analyze', 'ziWeiAnalysis', 'marriageAnalysis', 'wealthAnalysis', 'namingAnalysis', 'jadeAppraisal', 'eyeDiagnosis'].includes(action)) {
+            cacheKey = getCacheKey(action, 'gemini-3-flash-preview', req.body);
+            const { data: cached } = await supabase.from('gemini_cache').select('result').eq('input_hash', cacheKey).single();
+            if (cached) {
+                console.log(`[Cache Hit] Action: ${action}, Key: ${cacheKey}`);
+                return res.status(200).json({ result: cached.result });
+            }
+        } else if (['tryOn', 'hairstyle', 'makeup', 'generatePartner'].includes(action)) {
+            cacheKey = getCacheKey(action, 'gemini-2.5-flash-image', req.body);
+            // 图像生成也支持缓存，节省昂贵生成成本
+            const { data: cached } = await supabase.from('gemini_cache').select('result').eq('input_hash', cacheKey).single();
+            if (cached) {
+                console.log(`[Cache Hit Image] Action: ${action}, Key: ${cacheKey}`);
+                return res.status(200).json({ result: cached.result });
+            }
+        }
+
         switch (action) {
             case 'detectPhotoContent': {
-                const { result, usage, duration } = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const systemInstruction = "你是一个图像合规性审计专家。判断用户上传的图片是否同时包含【清晰的人脸】以及【至少覆盖肩膀和胸部的上半身部位】。如果是，回复 TRUE，否则回复 FALSE。只需要回复一个单词，不要说明原因。";
                     const contents = [{
                         role: 'user',
@@ -229,13 +282,17 @@ export default async function handler(req: any, res: any) {
                 // 异步记录日志
                 logUsage({
                     action,
-                    model_id: 'gemini-1.5-flash',
+                    model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
                     completion_tokens: usage?.candidatesTokenCount,
                     total_tokens: usage?.totalTokenCount,
                     duration_ms: duration,
                     status: 'success'
                 });
+
+                if (result && cacheKey) {
+                    await supabase.from('gemini_cache').upsert({ input_hash: cacheKey, result });
+                }
 
                 return res.status(200).json({ valid: result });
             }
@@ -273,7 +330,7 @@ export default async function handler(req: any, res: any) {
                 }
                 const prompt = `分析类型：${type}。${gender ? `性别：${gender}` : ''}`;
 
-                const { result, usage, duration } = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const contents = [{
                         role: 'user',
                         parts: [
@@ -293,13 +350,17 @@ export default async function handler(req: any, res: any) {
 
                 logUsage({
                     action: `${action}:${type}`,
-                    model_id: 'gemini-1.5-flash',
+                    model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
                     completion_tokens: usage?.candidatesTokenCount,
                     total_tokens: usage?.totalTokenCount,
                     duration_ms: duration,
                     status: 'success'
                 });
+
+                if (result && cacheKey) {
+                    await supabase.from('gemini_cache').upsert({ input_hash: cacheKey, result });
+                }
 
                 return res.status(200).json({ result });
             }
@@ -347,6 +408,10 @@ export default async function handler(req: any, res: any) {
                     duration_ms: duration,
                     status: 'success'
                 });
+
+                if (result && cacheKey) {
+                    await supabase.from('gemini_cache').upsert({ input_hash: cacheKey, result });
+                }
 
                 return res.status(200).json({ result });
             }
@@ -412,7 +477,7 @@ export default async function handler(req: any, res: any) {
                 
                 const prompt = `用户信息：${birthInfo}，性别：${gender}。`;
 
-                const { result, usage, duration } = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                         generationConfig: { temperature: 0.7 },
@@ -423,13 +488,17 @@ export default async function handler(req: any, res: any) {
 
                 logUsage({
                     action,
-                    model_id: 'gemini-1.5-flash',
+                    model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
                     completion_tokens: usage?.candidatesTokenCount,
                     total_tokens: usage?.totalTokenCount,
                     duration_ms: duration,
                     status: 'success'
                 });
+
+                if (result && cacheKey) {
+                    await supabase.from('gemini_cache').upsert({ input_hash: cacheKey, result });
+                }
 
                 return res.status(200).json({ result });
             }
@@ -496,7 +565,7 @@ export default async function handler(req: any, res: any) {
                     
                     const prompt = `排盘详情：${JSON.stringify(payloadData)}`;
 
-                    const { result, usage, duration } = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                    const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                         const response = await model.generateContent({
                             contents: [{ role: 'user', parts: [{ text: prompt }] }],
                             generationConfig: { temperature: 0.7 },
@@ -507,13 +576,17 @@ export default async function handler(req: any, res: any) {
 
                     logUsage({
                         action,
-                        model_id: 'gemini-1.5-flash',
+                        model_id: 'gemini-3-flash-preview',
                         prompt_tokens: usage?.promptTokenCount,
                         completion_tokens: usage?.candidatesTokenCount,
                         total_tokens: usage?.totalTokenCount,
                         duration_ms: duration,
                         status: 'success'
                     });
+
+                    if (result && cacheKey) {
+                        await supabase.from('gemini_cache').upsert({ input_hash: cacheKey, result });
+                    }
 
                     return res.status(200).json({ result });
                 } catch (e: any) {
@@ -573,7 +646,7 @@ export default async function handler(req: any, res: any) {
                     prompt = `公司名字：${nameToScore}，行业：${industry}，老板出生信息：${birthInfo}。${baziContext}`;
                 }
 
-                const { result, usage, duration } = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                         generationConfig: { temperature: 0.8 },
@@ -584,13 +657,17 @@ export default async function handler(req: any, res: any) {
 
                 logUsage({
                     action: `${action}:${type}`,
-                    model_id: 'gemini-1.5-flash',
+                    model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
                     completion_tokens: usage?.candidatesTokenCount,
                     total_tokens: usage?.totalTokenCount,
                     duration_ms: duration,
                     status: 'success'
                 });
+
+                if (result && cacheKey) {
+                    await supabase.from('gemini_cache').upsert({ input_hash: cacheKey, result });
+                }
 
                 return res.status(200).json({ result });
             }
@@ -642,7 +719,7 @@ export default async function handler(req: any, res: any) {
 
             case 'textAnalysis': {
                 const { prompt } = req.body;
-                const { result, usage, duration } = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                         generationConfig: { temperature: 0.7 }
@@ -652,13 +729,17 @@ export default async function handler(req: any, res: any) {
 
                 logUsage({
                     action,
-                    model_id: 'gemini-1.5-flash',
+                    model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
                     completion_tokens: usage?.candidatesTokenCount,
                     total_tokens: usage?.totalTokenCount,
                     duration_ms: duration,
                     status: 'success'
                 });
+
+                if (result && cacheKey) {
+                    await supabase.from('gemini_cache').upsert({ input_hash: cacheKey, result });
+                }
 
                 return res.status(200).json({ result });
             }
@@ -690,7 +771,7 @@ export default async function handler(req: any, res: any) {
                     return res.status(400).json({ error: 'Images array is required' });
                 }
 
-                const { result, usage, duration } = await requestWithRetry('gemini-1.5-flash', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{
                             role: 'user',
@@ -725,13 +806,17 @@ export default async function handler(req: any, res: any) {
 
                 logUsage({
                     action,
-                    model_id: 'gemini-1.5-flash',
+                    model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
                     completion_tokens: usage?.candidatesTokenCount,
                     total_tokens: usage?.totalTokenCount,
                     duration_ms: duration,
                     status: 'success'
                 });
+
+                if (result && cacheKey) {
+                    await supabase.from('gemini_cache').upsert({ input_hash: cacheKey, result });
+                }
 
                 return res.status(200).json({ result });
             }
