@@ -325,7 +325,7 @@ export default async function handler(req: any, res: any) {
                 });
 
                 // 异步记录日志
-                logUsage({
+                await logUsage({
                     action,
                     model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
@@ -393,7 +393,7 @@ export default async function handler(req: any, res: any) {
                     return response.response.candidates[0].content.parts[0].text;
                 });
 
-                logUsage({
+                await logUsage({
                     action: `${action}:${type}`,
                     model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
@@ -452,7 +452,7 @@ export default async function handler(req: any, res: any) {
                     return null;
                 });
 
-                logUsage({
+                await logUsage({
                     action,
                     model_id: 'gemini-2.5-flash-image',
                     prompt_tokens: usage?.promptTokenCount,
@@ -507,7 +507,7 @@ export default async function handler(req: any, res: any) {
                     return null;
                 });
 
-                logUsage({
+                await logUsage({
                     action,
                     model_id: 'gemini-2.5-flash-image',
                     prompt_tokens: usage?.promptTokenCount,
@@ -539,7 +539,7 @@ export default async function handler(req: any, res: any) {
                     return response.response.candidates[0].content.parts[0].text;
                 });
 
-                logUsage({
+                await logUsage({
                     action,
                     model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
@@ -627,7 +627,7 @@ export default async function handler(req: any, res: any) {
                         return response.response.candidates[0].content.parts[0].text;
                     });
 
-                    logUsage({
+                    await logUsage({
                         action,
                         model_id: 'gemini-3-flash-preview',
                         prompt_tokens: usage?.promptTokenCount,
@@ -708,7 +708,7 @@ export default async function handler(req: any, res: any) {
                     return response.response.candidates[0].content.parts[0].text;
                 });
 
-                logUsage({
+                await logUsage({
                     action: `${action}:${type}`,
                     model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
@@ -757,7 +757,7 @@ export default async function handler(req: any, res: any) {
                     return null;
                 });
 
-                logUsage({
+                await logUsage({
                     action,
                     model_id: 'gemini-2.5-flash-image',
                     prompt_tokens: usage?.promptTokenCount,
@@ -780,7 +780,7 @@ export default async function handler(req: any, res: any) {
                     return response.response.candidates[0].content.parts[0].text;
                 });
 
-                logUsage({
+                await logUsage({
                     action,
                     model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
@@ -857,7 +857,7 @@ export default async function handler(req: any, res: any) {
                     }
                 });
 
-                logUsage({
+                await logUsage({
                     action,
                     model_id: 'gemini-3-flash-preview',
                     prompt_tokens: usage?.promptTokenCount,
@@ -881,7 +881,7 @@ export default async function handler(req: any, res: any) {
         console.error('[API Error]', error.message);
         
         // 错误日志记录
-        logUsage({
+        await logUsage({
             action: req.body?.action || 'unknown',
             model_id: 'unknown',
             status: 'error',
