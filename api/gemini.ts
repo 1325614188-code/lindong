@@ -188,6 +188,26 @@ async function callVertexAI(modelName: string, payload: any) {
 }
 
 /**
+ * 记录 Gemini 使用情况
+ */
+async function logUsage(data: {
+    action: string;
+    model_id: string;
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    duration_ms?: number;
+    status: 'success' | 'error';
+    error_message?: string;
+}) {
+    try {
+        await supabase.from('gemini_usage_logs').insert([data]);
+    } catch (e) {
+        console.error("[Usage Log Error] 记录失败:", e);
+    }
+}
+
+/**
  * 带有超时和自动重试的请求包装器
  */
 async function requestWithRetry<T>(
@@ -195,29 +215,42 @@ async function requestWithRetry<T>(
     operation: (model: any) => Promise<T>,
     maxRetries = 2,
     initialDelay = 1000
-): Promise<T> {
+): Promise<{ result: T; usage?: any; duration: number }> {
     let lastError: any;
     const provider = await getAIProvider();
+    const startTime = Date.now();
     console.log(`[AI Strategy] Current Provider: ${provider}`);
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
+            let lastUsage: any = null;
             const mockModel = {
                 generateContent: async (payload: any) => {
                     const result = provider === 'gemini' 
                         ? await callGeminiAPI(modelName, payload)
                         : await callVertexAI(modelName, payload);
+                    lastUsage = result.usageMetadata || result.usage; // 适配不同 API 返回格式
                     return { response: result };
                 }
             };
-            return await operation(mockModel);
+            const result = await operation(mockModel);
+            return { 
+                result, 
+                usage: lastUsage, 
+                duration: Date.now() - startTime 
+            };
         } catch (error: any) {
             lastError = error;
             const message = error?.message || "";
+            const isRateLimit = message.includes("429");
             
             console.error(`[Retry Strategy] 尝试 ${i + 1}/${maxRetries + 1} 失败: ${message}`);
 
-            if (message.includes("404") || message.includes("401") || message.includes("403")) {
+            // 遇到 404, 401, 403 或 429(频率限制) 时停止重试
+            if (message.includes("404") || message.includes("401") || message.includes("403") || isRateLimit) {
+                if (isRateLimit) {
+                    console.warn("[Retry Strategy] 触发 429 频率限制，立即停止重试以节省额度。");
+                }
                 throw error;
             }
 
@@ -246,7 +279,7 @@ export default async function handler(req: any, res: any) {
 
         switch (action) {
             case 'detectPhotoContent': {
-                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const systemInstruction = "你是一个图像合规性审计专家。判断用户上传的图片是否同时包含【清晰的人脸】以及【至少覆盖肩膀和胸部的上半身部位】。如果是，回复 TRUE，否则回复 FALSE。只需要回复一个单词，不要说明原因。";
                     const contents = [{
                         role: 'user',
@@ -263,6 +296,18 @@ export default async function handler(req: any, res: any) {
                     const resultText = response.response.candidates[0].content.parts[0].text || "";
                     return resultText.trim().toUpperCase().includes('TRUE');
                 });
+
+                // 异步记录日志
+                logUsage({
+                    action,
+                    model_id: 'gemini-3-flash-preview',
+                    prompt_tokens: usage?.promptTokenCount,
+                    completion_tokens: usage?.candidatesTokenCount,
+                    total_tokens: usage?.totalTokenCount,
+                    duration_ms: duration,
+                    status: 'success'
+                });
+
                 return res.status(200).json({ valid: result });
             }
 
@@ -280,7 +325,7 @@ export default async function handler(req: any, res: any) {
         `;
                 const prompt = `分析类型：${type}。${gender ? `性别：${gender}` : ''}`;
 
-                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const contents = [{
                         role: 'user',
                         parts: [
@@ -297,11 +342,22 @@ export default async function handler(req: any, res: any) {
                     });
                     return response.response.candidates[0].content.parts[0].text;
                 });
+
+                logUsage({
+                    action: `${action}:${type}`,
+                    model_id: 'gemini-3-flash-preview',
+                    prompt_tokens: usage?.promptTokenCount,
+                    completion_tokens: usage?.candidatesTokenCount,
+                    total_tokens: usage?.totalTokenCount,
+                    duration_ms: duration,
+                    status: 'success'
+                });
+
                 return res.status(200).json({ result });
             }
 
             case 'tryOn': {
-                const result = await requestWithRetry('gemini-2.5-flash-image', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-2.5-flash-image', async (model) => {
                     const prompt = itemType === 'clothes'
                         ? '将图中人物的衣服换成另一张图中的款式，保持人物面容和环境不变，生成高品质穿搭效果图。输出图片比例必须为9:16竖版。'
                         : '在图中人物的耳朵上戴上另一张图中的耳坠。效果要自然，光影和谐。';
@@ -333,6 +389,17 @@ export default async function handler(req: any, res: any) {
                     console.error('[tryOn] No inlineData found in candidate parts');
                     return null;
                 });
+
+                logUsage({
+                    action,
+                    model_id: 'gemini-2.5-flash-image',
+                    prompt_tokens: usage?.promptTokenCount,
+                    completion_tokens: usage?.candidatesTokenCount,
+                    total_tokens: usage?.totalTokenCount,
+                    duration_ms: duration,
+                    status: 'success'
+                });
+
                 return res.status(200).json({ result });
             }
 
@@ -343,7 +410,7 @@ export default async function handler(req: any, res: any) {
                 const name = isHairstyle ? hairstyleName : styleName;
                 const desc = isHairstyle ? hairstyleDesc : styleDesc;
 
-                const result = await requestWithRetry('gemini-2.5-flash-image', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-2.5-flash-image', async (model) => {
                     const prompt = isHairstyle 
                         ? `为图中这位${gender}性生成发型：${name}。特点：${desc}。保持人脸特征不变。`
                         : `为图中人物化上"${name}"风格妆容。特点：${desc}。不可改变五官骨骼。`;
@@ -373,6 +440,17 @@ export default async function handler(req: any, res: any) {
                     console.error(`[${action}] No inlineData found in candidate parts`);
                     return null;
                 });
+
+                logUsage({
+                    action,
+                    model_id: 'gemini-2.5-flash-image',
+                    prompt_tokens: usage?.promptTokenCount,
+                    completion_tokens: usage?.candidatesTokenCount,
+                    total_tokens: usage?.totalTokenCount,
+                    duration_ms: duration,
+                    status: 'success'
+                });
+
                 return res.status(200).json({ result });
             }
 
@@ -386,7 +464,7 @@ export default async function handler(req: any, res: any) {
                 
                 const prompt = `用户信息：${birthInfo}，性别：${gender}。`;
 
-                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                         generationConfig: { temperature: 0.7 },
@@ -394,6 +472,17 @@ export default async function handler(req: any, res: any) {
                     });
                     return response.response.candidates[0].content.parts[0].text;
                 });
+
+                logUsage({
+                    action,
+                    model_id: 'gemini-3-flash-preview',
+                    prompt_tokens: usage?.promptTokenCount,
+                    completion_tokens: usage?.candidatesTokenCount,
+                    total_tokens: usage?.totalTokenCount,
+                    duration_ms: duration,
+                    status: 'success'
+                });
+
                 return res.status(200).json({ result });
             }
 
@@ -459,7 +548,7 @@ export default async function handler(req: any, res: any) {
                     
                     const prompt = `排盘详情：${JSON.stringify(payloadData)}`;
 
-                    const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
+                    const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                         const response = await model.generateContent({
                             contents: [{ role: 'user', parts: [{ text: prompt }] }],
                             generationConfig: { temperature: 0.7 },
@@ -467,6 +556,17 @@ export default async function handler(req: any, res: any) {
                         });
                         return response.response.candidates[0].content.parts[0].text;
                     });
+
+                    logUsage({
+                        action,
+                        model_id: 'gemini-3-flash-preview',
+                        prompt_tokens: usage?.promptTokenCount,
+                        completion_tokens: usage?.candidatesTokenCount,
+                        total_tokens: usage?.totalTokenCount,
+                        duration_ms: duration,
+                        status: 'success'
+                    });
+
                     return res.status(200).json({ result });
                 } catch (e: any) {
                     console.error("[ZiWei Error]", e.message);
@@ -478,7 +578,7 @@ export default async function handler(req: any, res: any) {
                 const { description, gender, userImage } = req.body;
                 const targetGender = gender === '男' ? '女' : '男';
 
-                const result = await requestWithRetry('gemini-2.5-flash-image', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-2.5-flash-image', async (model) => {
                     const prompt = `生成一位高度匹配的中华${targetGender}性。描述：${description}。照片级真实。`;
                     const parts: any[] = [];
                     if (userImage) {
@@ -505,18 +605,40 @@ export default async function handler(req: any, res: any) {
                     console.error('[generatePartner] No inlineData found in candidate parts');
                     return null;
                 });
+
+                logUsage({
+                    action,
+                    model_id: 'gemini-2.5-flash-image',
+                    prompt_tokens: usage?.promptTokenCount,
+                    completion_tokens: usage?.candidatesTokenCount,
+                    total_tokens: usage?.totalTokenCount,
+                    duration_ms: duration,
+                    status: 'success'
+                });
+
                 return res.status(200).json({ result });
             }
 
             case 'textAnalysis': {
                 const { prompt } = req.body;
-                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                         generationConfig: { temperature: 0.7 }
                     });
                     return response.response.candidates[0].content.parts[0].text;
                 });
+
+                logUsage({
+                    action,
+                    model_id: 'gemini-3-flash-preview',
+                    prompt_tokens: usage?.promptTokenCount,
+                    completion_tokens: usage?.candidatesTokenCount,
+                    total_tokens: usage?.totalTokenCount,
+                    duration_ms: duration,
+                    status: 'success'
+                });
+
                 return res.status(200).json({ result });
             }
 
@@ -547,7 +669,7 @@ export default async function handler(req: any, res: any) {
                     return res.status(400).json({ error: 'Images array is required' });
                 }
 
-                const result = await requestWithRetry('gemini-3-flash-preview', async (model) => {
+                const { result, usage, duration } = await requestWithRetry('gemini-3-flash-preview', async (model) => {
                     const response = await model.generateContent({
                         contents: [{
                             role: 'user',
@@ -579,6 +701,17 @@ export default async function handler(req: any, res: any) {
                         return { error: "AI 报告解析失败", raw: text };
                     }
                 });
+
+                logUsage({
+                    action,
+                    model_id: 'gemini-3-flash-preview',
+                    prompt_tokens: usage?.promptTokenCount,
+                    completion_tokens: usage?.candidatesTokenCount,
+                    total_tokens: usage?.totalTokenCount,
+                    duration_ms: duration,
+                    status: 'success'
+                });
+
                 return res.status(200).json({ result });
             }
 
@@ -587,6 +720,15 @@ export default async function handler(req: any, res: any) {
         }
     } catch (error: any) {
         console.error('[API Error]', error.message);
+        
+        // 错误日志记录
+        logUsage({
+            action: req.body?.action || 'unknown',
+            model_id: 'unknown',
+            status: 'error',
+            error_message: error.message
+        });
+
         return res.status(500).json({ error: error.message || 'Internal server error' });
     }
 }

@@ -41,7 +41,8 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
                 try {
-                    const compressed = await compressImage(base64, 800, 0.6);
+                    // 全局优化：降低分辨率到 768px，质量 0.5，显著减少 Token
+                    const compressed = await compressImage(base64, 768, 0.5);
                     setImages(prev => [...prev, compressed]);
                 } catch (e) {
                     console.error('[JadeAppraisalView] Compression error:', e);

@@ -57,7 +57,8 @@ const EyeDiagnosisView: React.FC<EyeDiagnosisViewProps> = ({ onBack, onCheckCred
             const base64 = reader.result as string;
             // 压缩图片
             try {
-                const compressed = await compressImage(base64, 800, 0.6);
+                // 全局优化：降低分辨率到 768px，质量 0.5，显著减少 Token
+                const compressed = await compressImage(base64, 768, 0.5);
                 
                 const newImages = [...images];
                 newImages[currentShotIndex] = compressed;

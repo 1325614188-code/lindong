@@ -54,7 +54,8 @@ const HairstyleView: React.FC<HairstyleViewProps> = ({ onBack, onCheckCredits, o
       reader.onload = async () => {
         const base64 = reader.result as string;
         try {
-          const compressed = await compressImage(base64, 1024, 0.6);
+          // 降低生成类任务的分辨率以节省 Token
+          const compressed = await compressImage(base64, 800, 0.5);
           setFaceImage(compressed);
         } catch (err) {
           console.error('[HairstyleView] Compression error:', err);

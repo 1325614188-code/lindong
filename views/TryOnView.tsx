@@ -27,29 +27,17 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
         const base64 = reader.result as string;
 
         try {
-          // 压缩图片
-          const compressed = await compressImage(base64, 1024, 0.6);
+          // 统一调整为全站优化后的 768px 分辨率和 0.5 质量
+          const compressed = await compressImage(base64, 768, 0.5);
 
           if (isFaceImage) {
-            setDetecting(true);
-            setFaceImage(compressed); // 先显示预览，增强反馈感
-            try {
-              const isValid = await detectPhotoContent(compressed);
-              if (!isValid) {
-                alert('检测失败：需要上传带脸部的上半身正面照片（需露出肩膀和胸部）。');
-                setFaceImage(null);
-              }
-            } catch (error) {
-              console.error('[TryOnView] Detection error:', error);
-            } finally {
-              setDetecting(false);
-            }
+            // 注意：不再在这里立即调用 API 检测，仅在点击生成时检测，节省额度
+            setFaceImage(compressed);
           } else {
             setItemImage(compressed);
           }
         } catch (err) {
           console.error('[TryOnView] Compression error:', err);
-          // 备选方案：如果压缩失败，尝试使用原图（但可能会报 413）
           if (isFaceImage) setFaceImage(base64);
           else setItemImage(base64);
         }
@@ -67,6 +55,18 @@ const TryOnView: React.FC<TryOnViewProps> = ({ type, onBack, onCheckCredits, onD
 
     setLoading(true);
     try {
+      // 在此处进行延迟合规检测，使用低分辨率减少 Token 消耗
+      setDetecting(true);
+      const detectionImage = await compressImage(faceImage, 512, 0.4);
+      const isValid = await detectPhotoContent(detectionImage);
+      setDetecting(false);
+
+      if (!isValid) {
+        alert('检测失败：需要上传带脸部的上半身正面照片（需露出肩膀和胸部）。');
+        setLoading(false);
+        return;
+      }
+
       const result = await generateTryOnImage(faceImage, itemImage, type === 'clothes' ? 'clothes' : 'earrings');
       if (result) {
         setResultImage(result);

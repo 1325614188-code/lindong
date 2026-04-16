@@ -95,18 +95,17 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
         const prevAvatar = avatarImage;
         
         try {
+          // 预压缩分身图片到 1024px，用于保存和展示
           const compressed = await compressImage(base64, 1024, 0.6);
           setAvatarImage(compressed);
 
-          // 这里借用已有的 detectPhotoContent
-          const isValid = await detectPhotoContent(compressed);
-          if (!isValid) {
-            alert('检测建议：请上传带脸部的上半身正面清晰照片，以获得最佳试穿效果。');
-          }
+          // 注意：不再在这里立即调用 API 检测，节省额度
+          // 仅在用户点击生成时进行检测
+          
           // 保存数字分身
           try { localStorage.setItem('tryon_avatar', compressed); } catch(e) { console.warn('无法保存分身：', e); }
         } catch (error) {
-          console.error('[AdvancedTryOnView] Avatar compression/detection error:', error);
+          console.error('[AdvancedTryOnView] Avatar compression error:', error);
           setAvatarImage(base64);
           try { localStorage.setItem('tryon_avatar', base64); } catch(e) {}
         } finally {
@@ -124,7 +123,8 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
       reader.onload = async () => {
         const base64 = reader.result as string;
         try {
-          const compressed = await compressImage(base64, 1024, 0.6);
+          // 压缩衣物图片，适当降低质量以减少 Token
+          const compressed = await compressImage(base64, 800, 0.5);
           setSelectedItemImage(compressed);
         } catch (e) {
           console.error('[AdvancedTryOnView] Item compression error:', e);
@@ -177,6 +177,17 @@ const AdvancedTryOnView: React.FC<AdvancedTryOnViewProps> = ({ onBack, onCheckCr
     setLoading(true);
     setCurrentResultImage(null);
     try {
+      // 1. 强制进行一次合规性检测 (使用极低低分辨率 512px 处理，节省 Token)
+      const detectionImage = await compressImage(avatarImage, 512, 0.4);
+      const isValid = await detectPhotoContent(detectionImage);
+      
+      if (!isValid) {
+        alert('上传的照片未能通过 AI 模特检测。请上传带清晰人脸的正面半身照，以确保试穿效果自然。');
+        setLoading(false);
+        return;
+      }
+
+      // 2. 正式开始生成 (1024px 保证质量)
       const result = await generateTryOnImage(avatarImage, selectedItemImage, 'clothes');
       
       // 判断是否生成失败（例如效果图和原图完全一致）
