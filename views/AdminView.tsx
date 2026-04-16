@@ -1157,7 +1157,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
             {activeTab === 'ai' && (
                 <div className="space-y-6">
                     {/* AI 统计概览 */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                         <div className="bg-white p-4 rounded-2xl shadow-sm border border-indigo-50">
                             <div className="text-gray-400 text-[10px] font-bold uppercase mb-1">总调用次数</div>
                             <div className="text-2xl font-black text-indigo-600">
@@ -1168,6 +1168,18 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                             <div className="text-gray-400 text-[10px] font-bold uppercase mb-1">累计 Token</div>
                             <div className="text-2xl font-black text-purple-600">
                                 {(aiUsage.reduce((acc, curr) => acc + curr.total_tokens, 0) / 1000).toFixed(1)}k
+                            </div>
+                        </div>
+                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-indigo-50">
+                            <div className="text-gray-400 text-[10px] font-bold uppercase mb-1">预估支出</div>
+                            <div className="text-2xl font-black text-pink-500">
+                                ${aiUsage.reduce((acc, curr) => {
+                                    const input = curr.prompt_tokens || 0;
+                                    const output = curr.completion_tokens || 0;
+                                    const isPro = curr.model_id?.includes('pro');
+                                    const rates = isPro ? { in: 3.5, out: 10.5 } : { in: 0.075, out: 0.30 };
+                                    return acc + (input / 1000000 * rates.in) + (output / 1000000 * rates.out);
+                                }, 0).toFixed(4)}
                             </div>
                         </div>
                         <div className="bg-white p-4 rounded-2xl shadow-sm border border-indigo-50">
@@ -1193,6 +1205,12 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                             {aiUsage.map(model => {
                                 const total = aiUsage.reduce((acc, curr) => acc + curr.total_tokens, 0);
                                 const percentage = total > 0 ? (model.total_tokens / total) * 100 : 0;
+                                
+                                // 根据模型 ID 获取计费（默认 Flash 价格）
+                                const isPro = model.model_id.includes('pro');
+                                const rates = isPro ? { in: 3.5, out: 10.5 } : { in: 0.075, out: 0.30 };
+                                const cost = (model.prompt_tokens / 1000000 * rates.in) + (model.completion_tokens / 1000000 * rates.out);
+
                                 return (
                                     <div key={model.model_id} className="space-y-2">
                                         <div className="flex justify-between items-end">
@@ -1201,8 +1219,8 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                                 <span className="ml-2 text-[10px] text-gray-400">调用 {model.usage_count} 次</span>
                                             </div>
                                             <div className="text-right">
-                                                <span className="text-xs font-bold text-indigo-500">{model.total_tokens.toLocaleString()}</span>
-                                                <span className="text-[10px] text-gray-400 ml-1">Tokens</span>
+                                                <div className="text-xs font-bold text-indigo-500">{model.total_tokens.toLocaleString()} <span className="text-[10px] text-gray-400 font-normal">Tokens</span></div>
+                                                <div className="text-[10px] font-bold text-pink-500">${cost.toFixed(4)}</div>
                                             </div>
                                         </div>
                                         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -1252,8 +1270,8 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                 <tbody className="divide-y divide-gray-50">
                                     {recentAiLogs.map(log => (
                                         <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="py-4">
-                                                <div className="text-xs font-bold text-gray-700">{log.action || 'unknown'}</div>
+                                            <td className="py-4 pr-4">
+                                                <div className="text-xs font-bold text-gray-700 break-all max-w-[120px] leading-tight">{log.action || 'unknown'}</div>
                                             </td>
                                             <td className="py-4">
                                                 <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md font-medium">
@@ -1262,6 +1280,14 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                             </td>
                                             <td className="py-4">
                                                 <div className="text-xs font-bold text-indigo-500">{log.total_tokens || 0}</div>
+                                                <div className="text-[9px] text-pink-500 font-medium">
+                                                    {(() => {
+                                                        const isPro = log.model_id?.includes('pro');
+                                                        const rates = isPro ? { in: 3.5, out: 10.5 } : { in: 0.075, out: 0.30 };
+                                                        const cost = ((log.prompt_tokens || 0) / 1000000 * rates.in) + ((log.completion_tokens || 0) / 1000000 * rates.out);
+                                                        return `$${cost.toFixed(5)}`;
+                                                    })()}
+                                                </div>
                                             </td>
                                             <td className="py-4">
                                                 <div className="text-[10px] text-gray-400">{log.duration_ms ? `${log.duration_ms}ms` : '-'}</div>
