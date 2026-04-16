@@ -75,13 +75,12 @@ async function listAvailableModels() {
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        // Vertex AI 上的模型 ID 通常与 AI Studio 不同，强制映射到验证过的稳定 Flash 模型
-        'gemini-3-flash-preview': 'gemini-1.5-flash', 
-        'gemini-2.5-flash-image': 'gemini-1.5-flash',
-        'gemini-1.5-flash': 'gemini-1.5-flash'
+        'gemini-3-flash-preview': 'gemini-2.5-flash', // 照搬 guojiban 验证过的映射
+        'gemini-1.5-flash': 'gemini-2.5-flash', 
+        'gemini-1.5-pro': 'gemini-2.5-flash', 
+        'gemini-2.5-flash-image': 'gemini-2.5-flash-image'
     };
-    // 强制使用 Vertex 上的稳定 Flash ID，防止 404
-    const mapped = mapping[model] || 'gemini-1.5-flash';
+    const mapped = mapping[model] || model;
     return `publishers/google/models/${mapped}`;
 };
 
@@ -89,12 +88,7 @@ const getVertexModelPath = (model: string): string => {
  * 适配 Gemini API (AI Studio) 模型名称
  */
 const getGeminiModelName = (model: string): string => {
-    // 统一白名单逻辑：Gemini API 模式下也必须锁定模型
-    const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-3-flash-preview',
-        'gemini-2.5-flash-image': 'gemini-2.5-flash-image'
-    };
-    return mapping[model] || 'gemini-3-flash-preview';
+    return model;
 };
 
 /**
@@ -118,14 +112,26 @@ function getRandomGeminiKey(): string {
  */
 async function getAIProvider(): Promise<string> {
     try {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('app_config')
             .select('value')
             .eq('key', 'ai_provider')
             .maybeSingle();
-        return data?.value || 'vertex';
-    } catch (e) {
-        return 'vertex';
+        
+        if (error) {
+            console.error("[Supabase Error] 获取 ai_provider 失败:", error.message);
+            throw new Error(`无法读取 AI 配置: ${error.message}`);
+        }
+
+        if (!data || !data.value) {
+            console.warn("[AI Config Missing] 数据库中未找到 ai_provider 配置");
+            throw new Error("AI 服务未配置，请联系管理员在后台设置。");
+        }
+
+        return data.value;
+    } catch (e: any) {
+        console.error("[AI Config Exception] 隔离模式触发错误:", e.message);
+        throw e;
     }
 }
 
@@ -221,13 +227,13 @@ async function logUsage(data: {
 async function requestWithRetry<T>(
     modelName: string,
     operation: (model: any) => Promise<T>,
-    maxRetries = 1,
+    maxRetries = 2,
     initialDelay = 1000
 ): Promise<{ result: T; usage?: any; duration: number }> {
     let lastError: any;
     const provider = await getAIProvider();
     const startTime = Date.now();
-    console.log(`[AI Strategy] Current Provider: ${provider}`);
+    console.log(`[AI Strategy] Provider: ${provider} (Model: ${modelName})`);
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
@@ -237,7 +243,7 @@ async function requestWithRetry<T>(
                     const result = provider === 'gemini' 
                         ? await callGeminiAPI(modelName, payload)
                         : await callVertexAI(modelName, payload);
-                    lastUsage = result.usageMetadata || result.usage; // 适配不同 API 返回格式
+                    lastUsage = result.usageMetadata || result.usage;
                     return { response: result };
                 }
             };
@@ -250,15 +256,10 @@ async function requestWithRetry<T>(
         } catch (error: any) {
             lastError = error;
             const message = error?.message || "";
-            const isRateLimit = message.includes("429");
             
             console.error(`[Retry Strategy] 尝试 ${i + 1}/${maxRetries + 1} 失败: ${message}`);
 
-            // 遇到 404, 401, 403 或 429(频率限制) 时停止重试
-            if (message.includes("404") || message.includes("401") || message.includes("403") || isRateLimit) {
-                if (isRateLimit) {
-                    console.warn("[Retry Strategy] 触发 429 频率限制，绝对停止重试并返回原始错误，以保护额度。");
-                }
+            if (message.includes("429") || message.includes("404") || message.includes("401") || message.includes("403")) {
                 throw error;
             }
 
