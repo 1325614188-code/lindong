@@ -90,16 +90,17 @@ async function listAvailableModels() {
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        // 文本类：使用标准稳定版 Flash
-        'gemini-3-flash-preview': 'gemini-1.5-flash',
+        // 保持用户最初使用的 Key，优先映射到标准模型名
+        'gemini-3-flash-preview': 'gemini-3-flash-preview', 
         'gemini-1.5-flash': 'gemini-1.5-flash',
 
-        // 图像类：必须使用 Pro 才能输出 inlineData
+        // 对于图像系列，尝试指向标准 Pro 版（如果 gemini-3/2.5 的自定义版本没权限）
         'gemini-2.5-flash-image': 'gemini-1.5-pro',
         'gemini-1.5-pro': 'gemini-1.5-pro',
         'gemini-2.5-pro': 'gemini-1.5-pro'
     };
-    const mapped = mapping[model] || 'gemini-1.5-flash';
+    // 如果没有映射命中，直接返回模型名（支持用户直接传入自定义模型 ID）
+    const mapped = mapping[model] || model;
     return `publishers/google/models/${mapped}`;
 };
 
@@ -116,27 +117,24 @@ async function callVertexAI(modelName: string, payload: any) {
     // 1. 获取模型路径
     const modelPath = getVertexModelPath(modelName);
     
-    // 2. 定义探测列表 (针对 Gemini 系列强制尝试 global 组合，确保新模型和老模型都能命中可用路径)
-    const isNewModel = modelPath.includes('gemini');
-    
-    const configs = isNewModel ? [
+    // 2. 定义增强的探测列表 (对所有 Gemini 模型同时探测 global 和 regional 路径，增加容错性)
+    const configs = [
         { host: 'aiplatform.googleapis.com', version: 'v1', loc: 'global' },
         { host: 'aiplatform.googleapis.com', version: 'v1beta1', loc: 'global' },
-        { host: 'global-aiplatform.googleapis.com', version: 'v1beta1', loc: 'global' },
-        { host: 'global-aiplatform.googleapis.com', version: 'v1', loc: 'global' },
-    ] : [
-        { host: `${defaultLocation}-aiplatform.googleapis.com`, version: 'v1beta1', loc: defaultLocation },
         { host: `${defaultLocation}-aiplatform.googleapis.com`, version: 'v1', loc: defaultLocation },
+        { host: `${defaultLocation}-aiplatform.googleapis.com`, version: 'v1beta1', loc: defaultLocation },
+        { host: 'global-aiplatform.googleapis.com', version: 'v1', loc: 'global' },
+        { host: 'global-aiplatform.googleapis.com', version: 'v1beta1', loc: 'global' },
     ];
-
+ 
     let lastError = null;
-
-    // 3. 开始探测
+ 
+    // 3. 开始多路探测
     for (const config of configs) {
         const url = `https://${config.host}/${config.version}/projects/${project}/locations/${config.loc}/${modelPath}:generateContent`;
         
         console.log(`[Vertex AI Probe] Trying URL: ${url}`);
-
+ 
         try {
             const response = await fetch(url, {
                 method: 'POST',
@@ -146,18 +144,18 @@ async function callVertexAI(modelName: string, payload: any) {
                 },
                 body: JSON.stringify(payload),
             });
-
+ 
             if (response.ok) {
-                console.log(`[Vertex AI Success] Path found: ${config.version} @ ${config.host}`);
+                console.log(`[Vertex AI Success] Path found: ${config.version} @ ${config.host} (${config.loc})`);
                 return await response.json();
             }
-
+ 
             const errorText = await response.text();
             console.warn(`[Vertex AI Probe failed] ${config.version} @ ${config.host} code: ${response.status}`);
             lastError = { status: response.status, text: errorText, url };
             
-            // 如果不是 404 (比如是 401/403/429)，说明路径是对的但其他有问题，不再尝试其他路径
-            if (response.status !== 404) {
+            // 如果是权限或计费问题 (401/403/429)，说明路径大概率对但配置有问题，直接报错不尝试其他路径
+            if ([401, 403, 429].includes(response.status)) {
                 break;
             }
         } catch (e: any) {
@@ -165,16 +163,15 @@ async function callVertexAI(modelName: string, payload: any) {
             lastError = { status: 0, text: e.message, url };
         }
     }
-
-    // 4. 全部失败，执行最终诊断并报错
+ 
+    // 4. 全部失败，输出极详尽的错误诊断（包含响应正文）以便修复
     if (lastError) {
-        const availableModels = await listAvailableModels();
         const errorMessage = `Vertex AI 调用失败。
-尝试路径: ${configs.length} 个
-最后失败 URL: ${lastError.url}
+已尝试路径数: ${configs.length}
+最后尝试 URL: ${lastError.url}
 状态码: ${lastError.status}
-错误详情: ${lastError.text.substring(0, 500)}
-当前项目可用模型列表 (扫描到的): ${JSON.stringify(availableModels)}`;
+响应正文: ${lastError.text || '无'}
+模型路径: ${modelPath}`;
 
         console.error("[Vertex AI Final Error]", errorMessage);
         throw new Error(errorMessage);
