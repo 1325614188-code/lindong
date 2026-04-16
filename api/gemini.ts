@@ -104,46 +104,81 @@ const getVertexModelPath = (model: string): string => {
 // 移除 Gemini API (AI Studio) 调用函数，强制走 Vertex AI 路线
 
 /**
- * 底层 Fetch 调用 Vertex AI REST API (v1beta1)
+ * 底层 Fetch 调用 Vertex AI REST API (带多路径探测)
  */
 async function callVertexAI(modelName: string, payload: any) {
     const project = process.env.GCP_PROJECT_ID;
-    let location = process.env.GCP_LOCATION || "us-central1";
+    const defaultLocation = process.env.GCP_LOCATION || "us-central1";
     const token = await getAccessToken();
 
-    // 隔离处理：使用专用的 Vertex 模型映射
+    // 1. 获取模型路径
     const modelPath = getVertexModelPath(modelName);
     
+    // 2. 定义探测列表 (针对新模型强制尝试 global 组合)
     const isNewModel = modelPath.includes('gemini-3') || modelPath.includes('gemini-2.5');
-    if (isNewModel) {
-        location = "global";
-    }
+    
+    const configs = isNewModel ? [
+        { host: 'aiplatform.googleapis.com', version: 'v1', loc: 'global' },
+        { host: 'aiplatform.googleapis.com', version: 'v1beta1', loc: 'global' },
+        { host: 'global-aiplatform.googleapis.com', version: 'v1beta1', loc: 'global' },
+        { host: 'global-aiplatform.googleapis.com', version: 'v1', loc: 'global' },
+    ] : [
+        { host: `${defaultLocation}-aiplatform.googleapis.com`, version: 'v1beta1', loc: defaultLocation },
+        { host: `${defaultLocation}-aiplatform.googleapis.com`, version: 'v1', loc: defaultLocation },
+    ];
 
-    const host = location === 'global' ? 'global-aiplatform.googleapis.com' : `${location}-aiplatform.googleapis.com`;
-    const url = `https://${host}/v1beta1/projects/${project}/locations/${location}/${modelPath}:generateContent`;
+    let lastError = null;
 
-    console.log(`[Vertex AI Request] URL: ${url}`);
+    // 3. 开始探测
+    for (const config of configs) {
+        const url = `https://${config.host}/${config.version}/projects/${project}/locations/${config.loc}/${modelPath}:generateContent`;
+        
+        console.log(`[Vertex AI Probe] Trying URL: ${url}`);
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    });
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        // 如果遇到 404，触发诊断逻辑
-        if (response.status === 404) {
-            console.error(`[Vertex AI API 404] 模型 ${modelName} 未找到，启动模型列表诊断...`);
-            await listAvailableModels();
+            if (response.ok) {
+                console.log(`[Vertex AI Success] Path found: ${config.version} @ ${config.host}`);
+                return await response.json();
+            }
+
+            const errorText = await response.text();
+            console.warn(`[Vertex AI Probe failed] ${config.version} @ ${config.host} code: ${response.status}`);
+            lastError = { status: response.status, text: errorText, url };
+            
+            // 如果不是 404 (比如是 401/403/429)，说明路径是对的但其他有问题，不再尝试其他路径
+            if (response.status !== 404) {
+                break;
+            }
+        } catch (e: any) {
+            console.error(`[Vertex AI Probe Error] ${url}:`, e.message);
+            lastError = { status: 0, text: e.message, url };
         }
-        throw new Error(`Vertex API Error (${response.status}): ${errorText}`);
     }
 
-    return await response.json();
+    // 4. 全部失败，执行最终诊断并报错
+    if (lastError) {
+        const availableModels = await listAvailableModels();
+        const errorMessage = `Vertex AI 调用失败。
+尝试路径: ${configs.length} 个
+最后失败 URL: ${lastError.url}
+状态码: ${lastError.status}
+错误详情: ${lastError.text.substring(0, 500)}
+当前项目可用模型列表 (扫描到的): ${JSON.stringify(availableModels)}`;
+
+        console.error("[Vertex AI Final Error]", errorMessage);
+        throw new Error(errorMessage);
+    }
+
+    throw new Error("Unknown error during Vertex AI call");
 }
 
 /**
