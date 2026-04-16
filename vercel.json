@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/0c3498513b491b0ff22a4b2525eea908.txt",
+      "destination": "/0c3498513b491b0ff22a4b2525eea908.txt"
+    },
+    {
+      "source": "/favicon.ico",
+      "destination": "/favicon.ico"
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "destination": "/manifest.webmanifest"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
