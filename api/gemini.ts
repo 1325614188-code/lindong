@@ -75,13 +75,13 @@ async function listAvailableModels() {
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        'gemini-3-flash-preview': 'gemini-3-flash-preview', 
-        'gemini-2.5-flash-image': 'gemini-2.5-flash-image',
-        'gemini-1.5-flash': 'gemini-3-flash-preview', 
-        'gemini-1.5-pro': 'gemini-3-flash-preview' // 严防死守：Pro 级请求强行转为逻辑分析模型
+        // Vertex AI 上的模型 ID 通常与 AI Studio 不同，强制映射到验证过的稳定 Flash 模型
+        'gemini-3-flash-preview': 'gemini-1.5-flash', 
+        'gemini-2.5-flash-image': 'gemini-1.5-flash',
+        'gemini-1.5-flash': 'gemini-1.5-flash'
     };
-    // 强制使用白名单内的模型，兜底使用逻辑分析模型
-    const mapped = mapping[model] || 'gemini-3-flash-preview';
+    // 强制使用 Vertex 上的稳定 Flash ID，防止 404
+    const mapped = mapping[model] || 'gemini-1.5-flash';
     return `publishers/google/models/${mapped}`;
 };
 
