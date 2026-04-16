@@ -90,16 +90,16 @@ async function listAvailableModels() {
  */
 const getVertexModelPath = (model: string): string => {
     const mapping: Record<string, string> = {
-        // 1. 文本/对话类任务：继续使用 Flash 002 (稳定且便宜)
-        'gemini-3-flash-preview': 'gemini-1.5-flash-002',
-        'gemini-1.5-flash': 'gemini-1.5-flash-002',
+        // 文本类：使用标准稳定版 Flash
+        'gemini-3-flash-preview': 'gemini-1.5-flash',
+        'gemini-1.5-flash': 'gemini-1.5-flash',
 
-        // 2. 图像生成类任务：必须使用 Pro 002 以支持多模态生成输出 (inlineData)
-        'gemini-2.5-flash-image': 'gemini-1.5-pro-002',
-        'gemini-1.5-pro': 'gemini-1.5-pro-002',
-        'gemini-2.5-pro': 'gemini-1.5-pro-002'
+        // 图像类：必须使用 Pro 才能输出 inlineData
+        'gemini-2.5-flash-image': 'gemini-1.5-pro',
+        'gemini-1.5-pro': 'gemini-1.5-pro',
+        'gemini-2.5-pro': 'gemini-1.5-pro'
     };
-    const mapped = mapping[model] || 'gemini-1.5-flash-002';
+    const mapped = mapping[model] || 'gemini-1.5-flash';
     return `publishers/google/models/${mapped}`;
 };
 
