@@ -735,6 +735,54 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                         </div>
                     </div>
 
+                    {/* 首页模块管理 */}
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-indigo-50">
+                        <h3 className="font-bold mb-4 text-indigo-600 flex items-center gap-2">
+                            <span>📱</span> 首页模块展示管理
+                        </h3>
+                        <p className="text-[10px] text-gray-400 mb-4">控制首页各个功能项的显示与隐藏，关闭后用户将无法在首页看到对应入口。</p>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[
+                                { id: 'advanced-try-on', name: '沉浸换装' },
+                                { id: 'try-on-accessories', name: '试佩饰' },
+                                { id: 'hairstyle', name: '发型参考' },
+                                { id: 'makeup', name: '美妆效果' },
+                                { id: 'beauty-score', name: '颜值打分' },
+                                { id: 'face-age', name: '相貌年龄' },
+                                { id: 'jade-appraisal', name: '翡翠鉴别' },
+                                { id: 'eye-diagnosis', name: 'AI看眼' },
+                                { id: 'tongue-diagnosis', name: '趣味舌诊' },
+                                { id: 'face-color', name: '面色调理' },
+                                { id: 'depression-test', name: '抑郁自测' },
+                                { id: 'couple-face', name: '夫妻相' },
+                                { id: 'face-reading', name: '相术面相' },
+                                { id: 'feng-shui', name: '摆设风水' },
+                                { id: 'license-plate', name: '五行车牌' },
+                                { id: 'calendar', name: '出门黄历' },
+                                { id: 'marriage-analysis', name: '看姻缘' },
+                                { id: 'wealth-analysis', name: '看财富' },
+                                { id: 'zi-wei', name: '紫微斗数' },
+                                { id: 'personal-naming', name: '个人起名' },
+                                { id: 'company-naming', name: '公司起名' },
+                                { id: 'mbti-test', name: '职业天赋测试' },
+                                { id: 'eq-test', name: '情商测试' },
+                                { id: 'iq-test', name: '智力测评' },
+                                { id: 'big-five', name: '大五人格' }
+                            ].map(mod => (
+                                <div key={mod.id} className="flex items-center justify-between p-3 bg-indigo-50/50 rounded-xl hover:bg-indigo-50 transition-colors">
+                                    <span className="text-sm font-bold text-gray-700">{mod.name}</span>
+                                    <button
+                                        onClick={() => updateConfig(`home_show_${mod.id}`, config[`home_show_${mod.id}`] === 'false' ? 'true' : 'false')}
+                                        className={`w-12 h-6 rounded-full transition-all relative ${config[`home_show_${mod.id}`] !== 'false' ? 'bg-indigo-500' : 'bg-gray-300'}`}
+                                    >
+                                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config[`home_show_${mod.id}`] !== 'false' ? 'left-7' : 'left-1'}`} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     {/* 支付宝配置 */}
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
                         <h3 className="font-bold mb-4">💰 支付宝配置</h3>

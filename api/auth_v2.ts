@@ -660,7 +660,7 @@ export default async function handler(req: any, res: any) {
                 const { data: configs } = await supabase
                     .from('app_config')
                     .select('key, value')
-                    .in('key', ['announcement', 'contact_wechat', 'recharge_enabled', 'sms_registration_enabled', 'wechat_login_enabled', 'home_download_app_enabled', 'home_add_to_desktop_enabled', 'non_wechat_registration_enabled', 'ai_provider']);
+                    .or('key.in.(announcement,contact_wechat,recharge_enabled,sms_registration_enabled,wechat_login_enabled,home_download_app_enabled,home_add_to_desktop_enabled,non_wechat_registration_enabled,ai_provider),key.ilike.home_show_%');
 
                 const configMap: Record<string, string> = {};
                 configs?.forEach(c => { configMap[c.key] = c.value; });

@@ -15,6 +15,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
   const [showDownloadDialog, setShowDownloadDialog] = React.useState(false);
   const [downloadEnabled, setDownloadEnabled] = React.useState(true);
   const [pwaEnabled, setPwaEnabled] = React.useState(true);
+  const [config, setConfig] = React.useState<any>({});
 
   React.useEffect(() => {
     fetch(getApiUrl('/api/auth_v2'), {
@@ -32,6 +33,9 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
         }
         if (data.config?.home_add_to_desktop_enabled === 'false') {
           setPwaEnabled(false);
+        }
+        if (data.config) {
+          setConfig(data.config);
         }
       })
       .catch(err => console.error('[HomeView] Failed to fetch announcement', err));
@@ -97,6 +101,12 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
     }
   ];
 
+  // 【优化】根据后台配置过滤显示的模块
+  const filteredCategories = categories.map(cat => ({
+    ...cat,
+    items: cat.items.filter(item => config[`home_show_${item.id}`] !== 'false')
+  })).filter(cat => cat.items.length > 0);
+
   // 检测是否在原生 App 环境（Capacitor）
   const isApp = (window as any).Capacitor?.isNative;
 
@@ -144,7 +154,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
       </div>
 
       <div className="space-y-10">
-        {categories.map((cat, catIdx) => (
+        {filteredCategories.map((cat, catIdx) => (
           <div 
             key={catIdx} 
             className={`${cat.bg} ${cat.border} border-2 border-dashed rounded-[32px] p-6 relative pt-8`}
