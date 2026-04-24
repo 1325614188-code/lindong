@@ -1500,6 +1500,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                         )}
                     </div>
                 </div>
+            )}
         </div>
     );
 };
