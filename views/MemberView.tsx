@@ -72,6 +72,9 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
     const [referralHistory, setReferralHistory] = useState<any[]>([]);
     const [userPoints, setUserPoints] = useState(0);
     const [pointsMessage, setPointsMessage] = useState('');
+    const [largeRedeemCode, setLargeRedeemCode] = useState('');
+    const [largeLoading, setLargeLoading] = useState(false);
+    const [largeMessage, setLargeMessage] = useState('');
 
     // 获取设备ID后6位
     const getDeviceIdSuffix = (): string => {
@@ -231,6 +234,25 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
             setRedeemCode('');
             refreshUser();
         } catch (err: any) { setMessage('❌ ' + err.message); } finally { setLoading(false); }
+    };
+
+    const handleLargeRedeem = async () => {
+        if (!largeRedeemCode.trim() || !user?.id) return;
+        setLargeLoading(true);
+        setLargeMessage('');
+        try {
+            const ts = Date.now();
+            const res = await fetch(getApiUrl(`/api/auth_v2?t=${ts}`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'redeemLargeCode', userId: user.id, code: largeRedeemCode.trim().toUpperCase() })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            setLargeMessage('🎉 ' + data.message);
+            setLargeRedeemCode('');
+            refreshUser();
+        } catch (err: any) { setLargeMessage('❌ ' + err.message); } finally { setLargeLoading(false); }
     };
 
     const copyInviteCode = () => {
@@ -653,6 +675,32 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         </button>
                     </div>
                     {message && <p className={`mt-2 text-sm font-medium ${message.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>{message}</p>}
+                </div>
+
+                {/* 大额充值码 */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-purple-50">
+                    <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-bold">✨ 大额充值码</h4>
+                        <span className="text-[10px] bg-purple-500 text-white px-2 py-0.5 rounded-full font-bold">50次 / 码</span>
+                    </div>
+                    
+                    <p className="text-[10px] text-gray-400 mb-3 leading-relaxed">
+                        大额充值码单次可兑换 <span className="text-purple-600 font-bold">50次</span>，价值30元，可以找你的邀请人用折扣价购买。大额充值码是官方发放给分享者的奖励，不另外销售。邀请人每邀请满200人，即可获得价值600元的大额充值码（20个码）。
+                    </p>
+
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={largeRedeemCode}
+                            onChange={e => setLargeRedeemCode(e.target.value.toUpperCase())}
+                            placeholder="输入大额充值码"
+                            className="flex-1 h-10 px-3 rounded-xl border border-gray-200 text-sm"
+                        />
+                        <button onClick={handleLargeRedeem} disabled={largeLoading} className="px-4 h-10 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl text-sm font-bold active:scale-95 transition-all">
+                            {largeLoading ? '...' : '立即兑换'}
+                        </button>
+                    </div>
+                    {largeMessage && <p className={`mt-2 text-sm font-medium ${largeMessage.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>{largeMessage}</p>}
                 </div>
 
                 <button onClick={onLogout} className="w-full h-12 border border-blue-100 rounded-2xl text-blue-400 font-bold active:bg-blue-50 transition-colors">退出登录</button>

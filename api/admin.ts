@@ -305,6 +305,49 @@ export default async function handler(req: any, res: any) {
                 return res.status(200).json(stats);
             }
 
+            case 'generateLargeCodes': {
+                const { count = 10, credits = 50 } = data;
+
+                const generateOneCode = () => {
+                    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                    let result = '';
+                    for (let i = 0; i < 8; i++) {
+                        result += chars.charAt(Math.floor(Math.random() * chars.length));
+                    }
+                    return result;
+                };
+
+                const codesToInsert = [];
+                const generatedCodes = [];
+                for (let i = 0; i < count; i++) {
+                    const code = generateOneCode();
+                    codesToInsert.push({ code, credits });
+                    generatedCodes.push(code);
+                }
+
+                const { error } = await supabase
+                    .from('recharge_codes')
+                    .insert(codesToInsert);
+
+                if (error) {
+                    console.error('[Generate Codes Error]', error);
+                    return res.status(500).json({ error: '批量插入充值码失败' });
+                }
+
+                return res.status(200).json({ success: true, codes: generatedCodes });
+            }
+
+            case 'getLargeCodes': {
+                // 获取最近生成的 100 条充值码，或未使用的
+                const { data: codes } = await supabase
+                    .from('recharge_codes')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(100);
+
+                return res.status(200).json({ codes: codes || [] });
+            }
+
             default:
                 return res.status(400).json({ error: 'Invalid action' });
         }

@@ -19,7 +19,10 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [aiUsage, setAiUsage] = useState<any[]>([]);
     const [recentAiLogs, setRecentAiLogs] = useState<any[]>([]);
-    const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'withdrawals' | 'config' | 'ai'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'commissions' | 'withdrawals' | 'config' | 'ai' | 'codes'>('users');
+    const [rechargeCodes, setRechargeCodes] = useState<any[]>([]);
+    const [generateCount, setGenerateCount] = useState(10);
+    const [generateLoading, setGenerateLoading] = useState(false);
     const [cBoard, setCBoard] = useState<any[]>(Array(20).fill({ user: '', amount: '' }));
     const [pBoard, setPBoard] = useState<any[]>(Array(20).fill({ user: '', amount: '' }));
 
@@ -243,6 +246,54 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
         }
     };
 
+    // 获取充值码列表
+    const loadLargeCodes = async () => {
+        try {
+            const res = await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'getLargeCodes', adminId: admin.id })
+            });
+            const data = await res.json();
+            setRechargeCodes(data.codes || []);
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    // 生成充值码
+    const handleGenerateCodes = async () => {
+        if (generateCount < 1 || generateCount > 100) {
+            alert('生成数量限制在 1-100 之间');
+            return;
+        }
+        setGenerateLoading(true);
+        try {
+            const res = await fetch(getApiUrl('/api/admin'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    action: 'generateLargeCodes', 
+                    adminId: admin.id, 
+                    count: generateCount,
+                    credits: 50
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`成功生成 ${data.codes.length} 个充值码`);
+                loadLargeCodes();
+            } else {
+                alert('生成失败: ' + data.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('生成异常');
+        } finally {
+            setGenerateLoading(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -297,10 +348,16 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                     ⚙️ 配置
                 </button>
                 <button
-                    onClick={() => setActiveTab('ai')}
+                    onClick={() => { setActiveTab('ai'); }}
                     className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'ai' ? 'bg-white shadow-sm text-indigo-500' : 'text-gray-500'}`}
                 >
                     🤖 AI
+                </button>
+                <button
+                    onClick={() => { setActiveTab('codes'); loadLargeCodes(); }}
+                    className={`flex-1 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === 'codes' ? 'bg-white shadow-sm text-amber-500' : 'text-gray-500'}`}
+                >
+                    🎟️ 充值码
                 </button>
             </div>
 
@@ -1366,6 +1423,83 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                     </div>
                 </div>
             )}
+
+            {activeTab === 'codes' && (
+                <div className="space-y-6">
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border-2 border-amber-50">
+                        <h3 className="font-bold mb-4 text-amber-600 flex items-center gap-2">
+                            <span>🎟️</span> 大额充值码批量生成
+                        </h3>
+                        <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-2xl mb-6">
+                            <div className="flex-1 flex items-center gap-3">
+                                <label className="text-sm font-bold text-amber-800 shrink-0">生成数量</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    value={generateCount}
+                                    onChange={e => setGenerateCount(parseInt(e.target.value) || 0)}
+                                    className="w-24 h-11 px-4 rounded-xl border-2 border-amber-200 focus:border-amber-400 outline-none text-center font-bold text-amber-600 shadow-inner"
+                                />
+                                <span className="text-xs text-amber-600/60 font-medium">（每次最多生成 100 个）</span>
+                            </div>
+                            <button
+                                onClick={handleGenerateCodes}
+                                disabled={generateLoading}
+                                className="px-8 h-11 bg-amber-500 text-white rounded-xl font-bold shadow-lg shadow-amber-200 active:scale-95 transition-all disabled:opacity-50"
+                            >
+                                {generateLoading ? '生成中...' : '立即批量生成'}
+                            </button>
+                        </div>
+
+                        {rechargeCodes.length > 0 && (
+                            <div className="mb-6">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h4 className="text-sm font-bold text-gray-700">最新生成的充值码：</h4>
+                                    <button 
+                                        onClick={() => {
+                                            const text = rechargeCodes.filter(c => !c.is_used).map(c => c.code).join('\n');
+                                            navigator.clipboard.writeText(text).then(() => alert('未使用的充值码已全部复制到剪贴板'));
+                                        }}
+                                        className="text-[10px] px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg font-bold hover:bg-amber-200 transition-all"
+                                    >
+                                        📋 一键复制全部未使用
+                                    </button>
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto border border-gray-100 rounded-xl">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-gray-50 sticky top-0">
+                                            <tr className="text-left text-gray-400 text-[10px] uppercase">
+                                                <th className="px-4 py-2">代码</th>
+                                                <th className="px-4 py-2">额度</th>
+                                                <th className="px-4 py-2">状态</th>
+                                                <th className="px-4 py-2">时间</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {rechargeCodes.map(code => (
+                                                <tr key={code.id} className="hover:bg-amber-50/30">
+                                                    <td className="px-4 py-3 font-mono font-bold text-gray-700">{code.code}</td>
+                                                    <td className="px-4 py-3 text-amber-600 font-bold">{code.credits}次</td>
+                                                    <td className="px-4 py-3">
+                                                        {code.is_used ? (
+                                                            <span className="text-[10px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded font-bold">已使用</span>
+                                                        ) : (
+                                                            <span className="text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded font-bold">未使用</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-[10px] text-gray-400">
+                                                        {new Date(code.created_at).toLocaleString()}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
         </div>
     );
 };

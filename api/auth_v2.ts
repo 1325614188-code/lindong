@@ -434,7 +434,57 @@ export default async function handler(req: any, res: any) {
                 });
             }
 
+            case 'redeemLargeCode': {
+                const { userId, code } = data;
+
+                if (!userId || !code) {
+                    return res.status(400).json({ error: '缺少必要参数' });
+                }
+
+                // 检查大额充值码是否有效且未被使用
+                const { data: rechargeCode, error } = await supabase
+                    .from('recharge_codes')
+                    .select('*')
+                    .eq('code', code.toUpperCase())
+                    .eq('is_used', false)
+                    .maybeSingle();
+
+                if (error) {
+                    console.error('[redeemLargeCode Error]', error);
+                    return res.status(500).json({ error: '查询充值码失败' });
+                }
+
+                if (!rechargeCode) {
+                    return res.status(400).json({ error: '无效或已被使用的充值码' });
+                }
+
+                // 标记为已使用
+                const { error: updateError } = await supabase
+                    .from('recharge_codes')
+                    .update({
+                        is_used: true,
+                        used_by: userId,
+                        used_at: new Date().toISOString()
+                    })
+                    .eq('id', rechargeCode.id);
+
+                if (updateError) {
+                    console.error('[redeemLargeCode Update Error]', updateError);
+                    return res.status(500).json({ error: '更新充值码状态失败' });
+                }
+
+                // 增加用户次数 (默认 50 次，也可以用数据库中的 credits 字段)
+                const amountToAdd = rechargeCode.credits || 50;
+                await supabase.rpc('add_credits', { user_id: userId, amount: amountToAdd });
+
+                return res.status(200).json({
+                    success: true,
+                    message: `兑换成功，已为您增加了 ${amountToAdd} 次使用额度！`
+                });
+            }
+
             case 'useCredit': {
+
                 const { userId } = data;
 
                 // 检查用户额度
