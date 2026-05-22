@@ -87,6 +87,50 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // 1.5 新增：初始化时解析直达 view 参数并支持从微信/常规登录重定向恢复 (Effect #1.5)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    let view = params.get('view');
+
+    // 如果 URL 里没有，尝试从可能因为微信重定向而暂存的 sessionStorage 恢复
+    if (!view) {
+      view = sessionStorage.getItem('pending_view');
+    } else {
+      // 写入暂存，防止授权跳转重定向丢失
+      sessionStorage.setItem('pending_view', view);
+    }
+
+    if (view) {
+      const values = Object.values(AppSection) as string[];
+      if (values.includes(view)) {
+        const targetSection = view as AppSection;
+
+        // 鉴权拦截逻辑：如果需要登录但未登录，唤起登录，并保持 pending_view 标记
+        const savedUser = localStorage.getItem('user');
+        if (!savedUser && targetSection !== AppSection.HOME && targetSection !== AppSection.APP_DOWNLOAD) {
+          setShowLogin(true);
+        } else {
+          setCurrentSection(targetSection);
+          sessionStorage.removeItem('pending_view'); // 成功直达，清除暂存
+        }
+      }
+    }
+  }, []);
+
+  // 1.6 新增：切换 Section 时，动态无感更新浏览器地址栏 (Effect #1.6)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (currentSection === AppSection.HOME) {
+      params.delete('view');
+    } else {
+      params.set('view', currentSection);
+    }
+
+    const newSearch = params.toString();
+    const newPath = window.location.pathname + (newSearch ? `?${newSearch}` : '');
+    window.history.replaceState({}, document.title, newPath);
+  }, [currentSection]);
+
   // 2. 初始化设备ID (Effect #2)
   useEffect(() => {
     const initId = async () => {
@@ -122,10 +166,22 @@ const App: React.FC = () => {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error);
 
-          // 成功后清理 URL
-          window.history.replaceState({}, document.title, window.location.pathname);
+          // 成功后清理 URL，但保留当前 view 参数以防刷新后丢失路由
+          const currentView = sessionStorage.getItem('pending_view') || params.get('view');
+          const newPath = window.location.pathname + (currentView ? `?view=${currentView}` : '');
+          window.history.replaceState({}, document.title, newPath);
           
           handleUserUpdate(data.user);
+          
+          // 微信登录成功后自动进入直达目标项目
+          if (currentView) {
+            const values = Object.values(AppSection) as string[];
+            if (values.includes(currentView)) {
+              setCurrentSection(currentView as AppSection);
+            }
+            sessionStorage.removeItem('pending_view');
+          }
+          
           console.log('[App] WeChat auth success:', data.user.wechat_openid ? 'Bound' : 'LoggedIn');
         } catch (e: any) {
           console.error('[App] WeChat callback failed:', e);
@@ -142,6 +198,17 @@ const App: React.FC = () => {
     setUser(u);
     localStorage.setItem('user', JSON.stringify(u));
     setShowLogin(false);
+
+    // 常规登录成功后，直达测试人员之前期待的项目
+    const pendingView = sessionStorage.getItem('pending_view');
+    if (pendingView) {
+      const values = Object.values(AppSection) as string[];
+      if (values.includes(pendingView)) {
+        setCurrentSection(pendingView as AppSection);
+      }
+      sessionStorage.removeItem('pending_view');
+    }
+
     if (u.is_admin) setShowAdmin(true);
   };
 
