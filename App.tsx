@@ -180,6 +180,7 @@ const App: React.FC = () => {
             const values = Object.values(AppSection) as string[];
             if (values.includes(currentView)) {
               setCurrentSection(currentView as AppSection);
+              setIsIntroDismissed(true); // 微信登录成功后直接进入正式测试
             }
             sessionStorage.removeItem('pending_view');
           }
@@ -201,12 +202,18 @@ const App: React.FC = () => {
     localStorage.setItem('user', JSON.stringify(u));
     setShowLogin(false);
 
+    // 如果当前已在某个具体的测试项目中（例如在介绍页点击开始触发的登录），登录成功后直接免除介绍进入测试
+    if (currentSection !== AppSection.HOME && currentSection !== AppSection.APP_DOWNLOAD) {
+      setIsIntroDismissed(true);
+    }
+
     // 常规登录成功后，直达测试人员之前期待的项目
     const pendingView = sessionStorage.getItem('pending_view');
     if (pendingView) {
       const values = Object.values(AppSection) as string[];
       if (values.includes(pendingView)) {
         setCurrentSection(pendingView as AppSection);
+        setIsIntroDismissed(true); // 直达成功后直接进入正式测试
       }
       sessionStorage.removeItem('pending_view');
     }
@@ -228,18 +235,6 @@ const App: React.FC = () => {
 
     // 切换项目时，重置介绍页免除状态为 false，确保进入新项目时展示介绍
     setIsIntroDismissed(false);
-
-    // 豁免区域：首页和 App 下载
-    if (section === AppSection.HOME || section === AppSection.APP_DOWNLOAD) {
-      setCurrentSection(section);
-      return;
-    }
-
-    // 鉴权拦截：所有测试项目必须登录
-    if (!user) {
-      setShowLogin(true);
-      return;
-    }
 
     setCurrentSection(section);
   };
@@ -323,7 +318,13 @@ const App: React.FC = () => {
                 {shouldShowIntro ? (
                   <ProjectIntroView
                     section={currentSection}
-                    onStart={() => setIsIntroDismissed(true)}
+                    onStart={() => {
+                      if (!user) {
+                        setShowLogin(true);
+                      } else {
+                        setIsIntroDismissed(true);
+                      }
+                    }}
                     onBack={() => {
                       setIsIntroDismissed(false);
                       setCurrentSection(AppSection.HOME);

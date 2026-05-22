@@ -101,7 +101,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.BEAUTY_SCORE]: {
     title: 'AI 颜值打分',
     icon: '✨',
-    image: '/images/test-intro.png',
+    image: '/images/ai-face-analysis-intro.png',
     bgGradient: 'from-rose-500 to-orange-400',
     description: '上传一张您的正面照片，AI 会从黄金三庭五眼比例、五官立体度及对称美学等维度为您进行趣味美学打分。',
     principles: [
@@ -114,7 +114,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.COUPLE_FACE]: {
     title: 'AI 夫妻相测评',
     icon: '👩‍❤️‍👨',
-    image: '/images/test-intro.png',
+    image: '/images/ai-face-analysis-intro.png',
     bgGradient: 'from-pink-500 to-indigo-400',
     description: '上传您与伴侣的正面照片，AI 将深度比对两张脸的骨骼契合度、五官神似度以及相似指数。',
     principles: [
@@ -127,7 +127,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.TONGUE_DIAGNOSIS]: {
     title: '趣味舌诊分析',
     icon: '👅',
-    image: '/images/test-intro.png',
+    image: '/images/ai-health-diagnosis-intro.png',
     bgGradient: 'from-rose-600 to-orange-500',
     description: '通过中医传统“舌诊”望诊原理，智能识别您舌头的舌质颜色、舌苔薄厚与裂纹，科普对应的脏腑健康信息。',
     principles: [
@@ -140,7 +140,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.FACE_COLOR]: {
     title: '面色中医分析',
     icon: '👤',
-    image: '/images/test-intro.png',
+    image: '/images/ai-face-analysis-intro.png',
     bgGradient: 'from-orange-500 to-amber-500',
     description: '分析面部额头、脸颊及眼周的肤色色泽状态，根据中医面色理论科普您的气血盈亏和日常食疗调理方案。',
     principles: [
@@ -205,7 +205,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.MBTI_TEST]: {
     title: 'MBTI 职业性格测试',
     icon: '🧠',
-    image: '/images/test-intro.png',
+    image: '/images/ai-psy-test-intro.png',
     bgGradient: 'from-indigo-600 to-violet-500',
     description: '基于卡尔·荣格的心理学理论，通过经典的心理选择题，深度测算您在 16 种性格类型（如 INTJ, ENFP）中的特质。',
     principles: [
@@ -218,7 +218,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.DEPRESSION_TEST]: {
     title: '抑郁情绪自评',
     icon: '💔',
-    image: '/images/test-intro.png',
+    image: '/images/ai-psy-test-intro.png',
     bgGradient: 'from-gray-700 to-slate-600',
     description: '采用国际标准 SDS 抑郁自评量表，用科学温和的题目帮助您了解自己近期的心理压力与抑郁情绪风险。',
     principles: [
@@ -257,7 +257,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.AI_EYE_DIAGNOSIS]: {
     title: '中医智能眼部望诊',
     icon: '👁️',
-    image: '/images/test-intro.png',
+    image: '/images/ai-health-diagnosis-intro.png',
     bgGradient: 'from-cyan-600 to-blue-500',
     description: '上传一张清晰的单眼白部分的照片，AI 将基于中医眼诊“五轮学说”原理，识别眼丝颜色和分布，科普脏腑状态。',
     principles: [
@@ -270,7 +270,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.EQ_TEST]: {
     title: 'EQ 情商科学测评',
     icon: '🤝',
-    image: '/images/test-intro.png',
+    image: '/images/ai-psy-test-intro.png',
     bgGradient: 'from-emerald-500 to-sky-500',
     description: '测评您在社交沟通、情绪自我管理、同理心及逆境复原力等情商核心维度上的综合能力。',
     principles: [
@@ -283,7 +283,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.IQ_TEST]: {
     title: 'IQ 逻辑脑力测评',
     icon: '🧠',
-    image: '/images/test-intro.png',
+    image: '/images/ai-psy-test-intro.png',
     bgGradient: 'from-violet-600 to-fuchsia-600',
     description: '包含多组高水准的图形矩阵、逻辑推理、数字规律测验，评估您的瞬时空间想象力与数理逻辑脑力。',
     principles: [
@@ -296,7 +296,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.BIG_FIVE]: {
     title: '现代大五人格测试',
     icon: '🎭',
-    image: '/images/test-intro.png',
+    image: '/images/ai-psy-test-intro.png',
     bgGradient: 'from-indigo-500 to-emerald-500',
     description: '大五人格是学术界应用最广泛、公信力最高的心理学特质模型，科学剖析您在外向性、宜人性等五个维度的特质。',
     principles: [
@@ -322,7 +322,7 @@ export const projectIntroData: Record<AppSection, ProjectIntro> = {
   [AppSection.FACE_AGE]: {
     title: '相貌年龄分析',
     icon: '👶',
-    image: '/images/test-intro.png',
+    image: '/images/ai-face-analysis-intro.png',
     bgGradient: 'from-pink-400 to-rose-300',
     description: '分析面部轮廓流畅度、苹果肌饱满度及眼底皱纹，估算您在照片中看起来的真实外貌年龄。',
     principles: [
