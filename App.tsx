@@ -2,6 +2,7 @@
 import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { AppSection, User } from './types';
 import ErrorBoundary from './components/ErrorBoundary';
+import ProjectIntroView from './components/ProjectIntroView';
 import HomeView from './views/HomeView';
 import TryOnView from './views/TryOnView';
 import AdvancedTryOnView from './views/AdvancedTryOnView';
@@ -33,7 +34,8 @@ import { App as CapApp } from '@capacitor/app';
 import { getStableDeviceId } from './lib/fingerprint';
 
 const App: React.FC = () => {
-    const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
+  const [currentSection, setCurrentSection] = useState<AppSection>(AppSection.HOME);
+  const [isIntroDismissed, setIsIntroDismissed] = useState(false);
   // 【问题1修复】user 类型从 any 改为 User | null
   const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
@@ -224,6 +226,9 @@ const App: React.FC = () => {
     // 导航时自动释放 AI 锁，防止用户在某个页面卡死后无法进行其他操作
     isProcessingRef.current = false;
 
+    // 切换项目时，重置介绍页免除状态为 false，确保进入新项目时展示介绍
+    setIsIntroDismissed(false);
+
     // 豁免区域：首页和 App 下载
     if (section === AppSection.HOME || section === AppSection.APP_DOWNLOAD) {
       setCurrentSection(section);
@@ -296,6 +301,11 @@ const App: React.FC = () => {
     }
   };
 
+  const shouldShowIntro = currentSection !== AppSection.HOME &&
+    currentSection !== AppSection.APP_DOWNLOAD &&
+    !isIntroDismissed &&
+    !showLogin && !showAdmin && !showMember;
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen max-w-md mx-auto relative overflow-hidden bg-pink-50 flex flex-col shadow-2xl pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
@@ -310,41 +320,55 @@ const App: React.FC = () => {
 
             {!showLogin && !showAdmin && !showMember && (
               <>
-                {currentSection === AppSection.HOME && <HomeView onNavigate={handleNavigate} onShowLogin={() => setShowLogin(true)} />}
-                {currentSection === AppSection.ADVANCED_TRY_ON && <AdvancedTryOnView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.TRY_ON_CLOTHES && <TryOnView type="clothes" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.TRY_ON_ACCESSORIES && <TryOnView type="accessories" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.HAIRSTYLE && <HairstyleView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.MAKEUP && <MakeupView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.BEAUTY_SCORE && <AnalysisView title="颜值打分" type="颜值打分" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.FACE_AGE && <AnalysisView title="相貌年龄" type="相貌年龄" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.COUPLE_FACE && <CoupleFaceView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.TONGUE_DIAGNOSIS && <AnalysisView title="趣味舌诊" type="舌诊" onBack={() => setCurrentSection(AppSection.HOME)} helpText="请上传一张清晰的舌头照片哦～" onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.FACE_COLOR && <AnalysisView title="面色分析" type="中医面色" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.FACE_READING && <AnalysisView title="传统面相" type="传统相术" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.FENG_SHUI && <FengShuiView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.LICENSE_PLATE && <LicensePlateView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.CALENDAR && <CalendarView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.MBTI_TEST && <MBTITestView onBack={() => setCurrentSection(AppSection.HOME)} />}
-                {currentSection === AppSection.EQ_TEST && <EQTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.IQ_TEST && <IQTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.BIG_FIVE && <BigFiveView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.DEPRESSION_TEST && <DepressionTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.MARRIAGE_ANALYSIS && <MarriageView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.WEALTH_ANALYSIS && <WealthView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.ZI_WEI && <ZiWeiView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.PERSONAL_NAMING && <PersonalNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
-                {currentSection === AppSection.COMPANY_NAMING && <CompanyNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
-                {currentSection === AppSection.JADE_APPRAISAL && <JadeAppraisalView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.AI_EYE_DIAGNOSIS && <EyeDiagnosisView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
-                {currentSection === AppSection.APP_DOWNLOAD && <DownloadAppView onBack={() => setCurrentSection(AppSection.HOME)} />}
+                {shouldShowIntro ? (
+                  <ProjectIntroView
+                    section={currentSection}
+                    onStart={() => setIsIntroDismissed(true)}
+                    onBack={() => {
+                      setIsIntroDismissed(false);
+                      setCurrentSection(AppSection.HOME);
+                    }}
+                    userCredits={user?.credits}
+                  />
+                ) : (
+                  <>
+                    {currentSection === AppSection.HOME && <HomeView onNavigate={handleNavigate} onShowLogin={() => setShowLogin(true)} />}
+                    {currentSection === AppSection.ADVANCED_TRY_ON && <AdvancedTryOnView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.TRY_ON_CLOTHES && <TryOnView type="clothes" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.TRY_ON_ACCESSORIES && <TryOnView type="accessories" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.HAIRSTYLE && <HairstyleView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.MAKEUP && <MakeupView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.BEAUTY_SCORE && <AnalysisView title="颜值打分" type="颜值打分" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.FACE_AGE && <AnalysisView title="相貌年龄" type="相貌年龄" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.COUPLE_FACE && <CoupleFaceView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.TONGUE_DIAGNOSIS && <AnalysisView title="趣味舌诊" type="舌诊" onBack={() => setCurrentSection(AppSection.HOME)} helpText="请上传一张清晰的舌头照片哦～" onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.FACE_COLOR && <AnalysisView title="面色分析" type="中医面色" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.FACE_READING && <AnalysisView title="传统面相" type="传统相术" onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.FENG_SHUI && <FengShuiView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.LICENSE_PLATE && <LicensePlateView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.CALENDAR && <CalendarView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.MBTI_TEST && <MBTITestView onBack={() => setCurrentSection(AppSection.HOME)} />}
+                    {currentSection === AppSection.EQ_TEST && <EQTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.IQ_TEST && <IQTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.BIG_FIVE && <BigFiveView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.DEPRESSION_TEST && <DepressionTestView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.MARRIAGE_ANALYSIS && <MarriageView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.WEALTH_ANALYSIS && <WealthView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.ZI_WEI && <ZiWeiView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.PERSONAL_NAMING && <PersonalNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                    {currentSection === AppSection.COMPANY_NAMING && <CompanyNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
+                    {currentSection === AppSection.JADE_APPRAISAL && <JadeAppraisalView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.AI_EYE_DIAGNOSIS && <EyeDiagnosisView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.APP_DOWNLOAD && <DownloadAppView onBack={() => setCurrentSection(AppSection.HOME)} />}
+                  </>
+                )}
               </>
             )}
 
           </Suspense>
         </div>
 
-        {!(showLogin || showAdmin || showMember) && (
+        {!(showLogin || showAdmin || showMember || shouldShowIntro) && (
           <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-16 bg-white/80 backdrop-blur-md border-t flex justify-around items-center px-4 z-50">
             <button onClick={() => setCurrentSection(AppSection.HOME)} className={`flex flex-col items-center gap-1 ${currentSection === AppSection.HOME ? 'text-pink-500' : 'text-gray-500'}`}>
               <span className="text-xl">🏠</span>
