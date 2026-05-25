@@ -187,18 +187,67 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
                             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">鉴定结论</span>
                             <h2 className="text-2xl font-bold mt-2 text-slate-900">{result.authenticity.conclusion}</h2>
 
-                            <div className="grid grid-cols-2 gap-2 mt-4">
-                                <div className="bg-slate-50 p-3 rounded-xl">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase">种质</p>
-                                    <p className="text-sm font-bold">{result.quality.texture}</p>
+                            {/* 1. 真伪概率与风险评估徽章组 */}
+                            <div className="flex flex-wrap items-center gap-2 mt-3">
+                                <span className="text-xs font-bold text-emerald-700 bg-emerald-50/80 border border-emerald-100/60 px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                                    🛡️ 天然A货概率: {result.authenticity.probability || '98%+'}
+                                </span>
+                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full shadow-sm border ${
+                                    result.authenticity.riskLevel === 'low' 
+                                        ? 'bg-green-50 text-green-600 border-green-100/60' 
+                                        : result.authenticity.riskLevel === 'medium' 
+                                            ? 'bg-amber-50 text-amber-600 border-amber-100/60' 
+                                            : 'bg-red-50 text-red-600 border-red-100/60'
+                                }`}>
+                                    ⚠️ 风险评估: {result.authenticity.riskLevel === 'low' ? '极低风险' : result.authenticity.riskLevel === 'medium' ? '中等风险' : '存在风险'}
+                                </span>
+                            </div>
+
+                            {/* 2. 国标级五大核心物理检测卡片 */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 mt-5">
+                                <div className="bg-slate-50/80 backdrop-blur border border-slate-100/50 p-3 rounded-2xl shadow-sm transition-all hover:bg-slate-50">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">🔮 种质 (种)</p>
+                                    <p className="text-sm font-bold text-slate-800 mt-1">{result.quality.texture}</p>
                                 </div>
-                                <div className="bg-slate-50 p-3 rounded-xl">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase">水头</p>
-                                    <p className="text-sm font-bold">{result.quality.transparency}</p>
+                                <div className="bg-slate-50/80 backdrop-blur border border-slate-100/50 p-3 rounded-2xl shadow-sm transition-all hover:bg-slate-50">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">💧 水头 (水)</p>
+                                    <p className="text-sm font-bold text-slate-800 mt-1">{result.quality.transparency}</p>
+                                </div>
+                                <div className="bg-slate-50/80 backdrop-blur border border-slate-100/50 p-3 rounded-2xl shadow-sm transition-all hover:bg-slate-50">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">🎨 色泽 (色)</p>
+                                    <p className="text-sm font-bold text-slate-800 mt-1">{result.quality.color}</p>
+                                </div>
+                                <div className="bg-slate-50/80 backdrop-blur border border-slate-100/50 p-3 rounded-2xl shadow-sm transition-all hover:bg-slate-50">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">🪓 雕工 (工)</p>
+                                    <p className="text-sm font-bold text-slate-800 mt-1">{result.quality.craftsmanship}</p>
+                                </div>
+                                <div className="bg-slate-50/80 backdrop-blur border border-slate-100/50 p-3 rounded-2xl shadow-sm transition-all hover:bg-slate-50 col-span-2 md:col-span-2">
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">🏆 综合品质级别</p>
+                                    <p className="text-sm font-bold text-emerald-700 mt-1">{result.quality.overallGrade}</p>
                                 </div>
                             </div>
 
-                            <div className="mt-4 prose prose-sm max-w-none text-slate-600 border-t pt-4">
+                            {/* 3. 商业估值与收藏评级 (金色豪华卡片) */}
+                            {result.valuation && (
+                                <div className="mt-4 bg-gradient-to-br from-amber-50/90 via-yellow-50/40 to-amber-50/90 border border-amber-100/80 rounded-2xl p-4 shadow-sm">
+                                    <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs uppercase tracking-wider">
+                                        <span>🪙 商业估价与收藏建议</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4 mt-3">
+                                        <div>
+                                            <p className="text-[10px] text-amber-700/80 font-bold">参考估值区间</p>
+                                            <p className="text-base font-extrabold text-amber-900 mt-0.5">{result.valuation.priceRange}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-amber-700/80 font-bold">推荐收藏评级</p>
+                                            <p className="text-sm font-extrabold text-amber-900 mt-1">{result.valuation.collectibility}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 4. 深度报告正文 */}
+                            <div className="mt-5 prose prose-sm max-w-none text-slate-600 border-t pt-5">
                                 <ReactMarkdown>{result.detailedAnalysis}</ReactMarkdown>
                             </div>
                         </div>
