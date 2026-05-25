@@ -247,9 +247,15 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
                             )}
 
                             {/* 4. 深度报告正文 */}
-                            <div className="mt-5 prose prose-sm max-w-none text-slate-600 border-t pt-5">
-                                <ReactMarkdown>{result.detailedAnalysis}</ReactMarkdown>
-                            </div>
+                                <ReactMarkdown
+                                    components={{
+                                        h3: ({node, ...props}) => (
+                                            <h3 className="text-[#065f46] font-extrabold text-sm mt-4 mb-2 flex items-center gap-1 border-l-2 border-[#065f46] pl-2" {...props} />
+                                        )
+                                    }}
+                                >
+                                    {result.detailedAnalysis}
+                                </ReactMarkdown>
                         </div>
                     </div>
                 )}
