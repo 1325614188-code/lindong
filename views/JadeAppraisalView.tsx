@@ -9,7 +9,11 @@ import {
     AlertTriangle,
     CheckCircle2,
     Info,
-    Gem
+    Gem,
+    Sun,
+    Zap,
+    Plus,
+    Image as ImageIcon
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { analyzeJadeImages, JadeAnalysisResult } from '../services/jadeService';
@@ -22,18 +26,38 @@ interface JadeAppraisalViewProps {
     onCancelProcessing?: () => void;
 }
 
+interface JadeUploadSlots {
+    front: string | null;       // 自然光正面照 (必填)
+    backlight: string | null;   // 强光透射照 (推荐)
+    macro: string | null;       // 微距反射照 (鉴伪关键)
+    others: string[];           // 其他细节照 (选填，最多3张)
+}
+
 const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing }) => {
-    const [images, setImages] = useState<string[]>([]);
+    const [slots, setSlots] = useState<JadeUploadSlots>({
+        front: null,
+        backlight: null,
+        macro: null,
+        others: []
+    });
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [result, setResult] = useState<JadeAnalysisResult | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const frontInputRef = useRef<HTMLInputElement>(null);
+    const backlightInputRef = useRef<HTMLInputElement>(null);
+    const macroInputRef = useRef<HTMLInputElement>(null);
+    const othersInputRef = useRef<HTMLInputElement>(null);
+
+    const handleSlotUpload = (slot: keyof JadeUploadSlots | 'others', e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
-        if (files.length + images.length > 6) {
-            setError("最多只能上传6张照片");
-            return;
+        if (files.length === 0) return;
+
+        if (slot === 'others') {
+            if (slots.others.length + files.length > 3) {
+                setError("其他细节照最多上传3张");
+                return;
+            }
         }
 
         files.forEach(file => {
@@ -41,26 +65,62 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
             reader.onloadend = async () => {
                 const base64 = reader.result as string;
                 try {
-                    // 全局优化：降低分辨率到 768px，质量 0.5，显著减少 Token
+                    // 降低分辨率到 768px，质量 0.5，显著减少 Token 并且适应带宽
                     const compressed = await compressImage(base64, 768, 0.5);
-                    setImages(prev => [...prev, compressed]);
+                    if (slot === 'others') {
+                        setSlots(prev => ({
+                            ...prev,
+                            others: [...prev.others, compressed]
+                        }));
+                    } else {
+                        setSlots(prev => ({
+                            ...prev,
+                            [slot]: compressed
+                        }));
+                    }
                 } catch (e) {
                     console.error('[JadeAppraisalView] Compression error:', e);
-                    setImages(prev => [...prev, base64]);
+                    if (slot === 'others') {
+                        setSlots(prev => ({
+                            ...prev,
+                            others: [...prev.others, base64]
+                        }));
+                    } else {
+                        setSlots(prev => ({
+                            ...prev,
+                            [slot]: base64
+                        }));
+                    }
                 }
             };
             reader.readAsDataURL(file);
         });
         setError(null);
+        e.target.value = ''; // 清空 input 以便重复上传同名图片
     };
 
-    const removeImage = (index: number) => {
-        setImages(prev => prev.filter((_, i) => i !== index));
-        if (images.length <= 1) setResult(null);
+    const removeSlotImage = (slot: keyof JadeUploadSlots | 'others', index?: number) => {
+        if (slot === 'others') {
+            if (index !== undefined) {
+                setSlots(prev => ({
+                    ...prev,
+                    others: prev.others.filter((_, i) => i !== index)
+                }));
+            }
+        } else {
+            setSlots(prev => ({
+                ...prev,
+                [slot]: null
+            }));
+            // 如果唯一的主图被删除了，清空历史结果
+            if (slot === 'front' && !slots.backlight && !slots.macro && slots.others.length === 0) {
+                setResult(null);
+            }
+        }
     };
 
     const startAnalysis = async () => {
-        if (images.length === 0) return;
+        if (!slots.front) return;
 
         // 1. 检查额度
         const hasCredit = await onCheckCredits();
@@ -69,7 +129,14 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
         setIsAnalyzing(true);
         setError(null);
         try {
-            const analysisResult = await analyzeJadeImages(images);
+            // 按照严格的专家判定顺序组合多模态图片：正面照 -> 强光透光照 -> 微距反射照 -> 其他细节照
+            const imagesToAnalyze: string[] = [];
+            if (slots.front) imagesToAnalyze.push(slots.front);
+            if (slots.backlight) imagesToAnalyze.push(slots.backlight);
+            if (slots.macro) imagesToAnalyze.push(slots.macro);
+            slots.others.forEach(img => imagesToAnalyze.push(img));
+
+            const analysisResult = await analyzeJadeImages(imagesToAnalyze);
 
             // 2. 扣除额度
             const deducted = await onDeductCredit();
@@ -104,52 +171,153 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
             <main className="p-4 space-y-6">
                 {/* Upload Section */}
                 <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
-                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <h2 className="text-lg font-bold mb-5 flex items-center gap-2 text-slate-800">
                         <Camera className="w-5 h-5 text-emerald-600" />
-                        上传鉴定照片
+                        专家级场景拍照引导上传
                     </h2>
 
-                    <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50/50"
-                    >
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleImageUpload}
-                            multiple
-                            accept="image/*"
-                            className="hidden"
-                        />
-                        <div className="space-y-2">
-                            <Upload className="w-8 h-8 text-slate-400 mx-auto" />
-                            <p className="text-sm font-medium text-slate-700">点击上传照片</p>
-                            <p className="text-[10px] text-slate-400">支持多角度、微距、透光照 (最多6张)</p>
+                    {/* Hidden Inputs */}
+                    <input type="file" ref={frontInputRef} onChange={(e) => handleSlotUpload('front', e)} accept="image/*" className="hidden" />
+                    <input type="file" ref={backlightInputRef} onChange={(e) => handleSlotUpload('backlight', e)} accept="image/*" className="hidden" />
+                    <input type="file" ref={macroInputRef} onChange={(e) => handleSlotUpload('macro', e)} accept="image/*" className="hidden" />
+                    <input type="file" ref={othersInputRef} onChange={(e) => handleSlotUpload('others', e)} multiple accept="image/*" className="hidden" />
+
+                    <div className="space-y-4">
+                        {/* 1. 主图：自然光正面照 (必填) */}
+                        <div className="border border-slate-100 bg-slate-50/30 rounded-2xl p-4 transition-all">
+                            <div className="flex justify-between items-start mb-2.5">
+                                <div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                        <h3 className="text-sm font-bold text-slate-800">自然光正面照 <span className="text-red-500 text-xs font-normal">(必传)</span></h3>
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">请在明亮窗边或室外平铺拍摄，不开启闪光灯，帮 AI 锁定真实的种水与底色。</p>
+                                </div>
+                            </div>
+
+                            {slots.front ? (
+                                <div className="relative aspect-[16/9] w-full rounded-xl overflow-hidden border border-slate-200 group">
+                                    <img src={slots.front} alt="Front View" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                        <button onClick={() => frontInputRef.current?.click()} className="px-3 py-1.5 bg-white text-emerald-700 text-xs font-bold rounded-lg shadow">替换</button>
+                                        <button onClick={() => removeSlotImage('front')} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg shadow">删除</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div 
+                                    onClick={() => frontInputRef.current?.click()}
+                                    className="border-2 border-dashed border-emerald-100 hover:border-emerald-300 rounded-xl p-6 text-center bg-emerald-50/10 hover:bg-emerald-50/20 transition-all cursor-pointer"
+                                >
+                                    <Sun className="w-7 h-7 text-emerald-500 mx-auto mb-2" />
+                                    <p className="text-xs font-bold text-emerald-700">点击上传正面主图</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">展示整件翡翠的真实色彩与水头</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 2 & 3 行：强光透射与微距反射照 (推荐卡片组，横向排列) */}
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* 强光透射卡片 */}
+                            <div className="border border-slate-100 bg-slate-50/30 rounded-2xl p-3.5 flex flex-col justify-between">
+                                <div className="mb-2">
+                                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                                        💡 强光透射照 <span className="text-emerald-600 text-[10px] font-normal">(推荐)</span>
+                                    </h4>
+                                    <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">手电贴着翡翠背面照，透光拍摄。分析晶体交织及裂纹。</p>
+                                </div>
+
+                                {slots.backlight ? (
+                                    <div className="relative aspect-square w-full rounded-xl overflow-hidden border border-slate-200 group">
+                                        <img src={slots.backlight} alt="Backlight View" className="w-full h-full object-cover" />
+                                        <button 
+                                            onClick={() => removeSlotImage('backlight')} 
+                                            className="absolute top-1.5 right-1.5 p-1 bg-black/60 text-white rounded-full transition-all hover:bg-red-600"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div 
+                                        onClick={() => backlightInputRef.current?.click()}
+                                        className="border-2 border-dashed border-slate-200 hover:border-emerald-200 rounded-xl p-5 text-center bg-slate-50 hover:bg-emerald-50/10 transition-all cursor-pointer flex-1 flex flex-col justify-center items-center"
+                                    >
+                                        <Zap className="w-5 h-5 text-slate-400 group-hover:text-emerald-500 mb-1.5" />
+                                        <span className="text-[11px] font-bold text-slate-600">透光照</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* 微距反射卡片 */}
+                            <div className="border border-slate-100 bg-slate-50/30 rounded-2xl p-3.5 flex flex-col justify-between">
+                                <div className="mb-2">
+                                    <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                                        🔍 微距反射照 <span className="text-emerald-600 text-[10px] font-normal">(鉴伪关键)</span>
+                                    </h4>
+                                    <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">极近贴着斜打光拍反射面。抓取苍蝇翅与蜘蛛酸蚀纹。</p>
+                                </div>
+
+                                {slots.macro ? (
+                                    <div className="relative aspect-square w-full rounded-xl overflow-hidden border border-slate-200 group">
+                                        <img src={slots.macro} alt="Macro View" className="w-full h-full object-cover" />
+                                        <button 
+                                            onClick={() => removeSlotImage('macro')} 
+                                            className="absolute top-1.5 right-1.5 p-1 bg-black/60 text-white rounded-full transition-all hover:bg-red-600"
+                                        >
+                                            <X className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div 
+                                        onClick={() => macroInputRef.current?.click()}
+                                        className="border-2 border-dashed border-slate-200 hover:border-emerald-200 rounded-xl p-5 text-center bg-slate-50 hover:bg-emerald-50/10 transition-all cursor-pointer flex-1 flex flex-col justify-center items-center"
+                                    >
+                                        <Search className="w-5 h-5 text-slate-400 mb-1.5" />
+                                        <span className="text-[11px] font-bold text-slate-600">微距照</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 4. 其他细节照 (选填) */}
+                        <div className="border border-slate-100 bg-slate-50/30 rounded-2xl p-4">
+                            <div className="flex justify-between items-center mb-2.5">
+                                <div>
+                                    <h3 className="text-xs font-bold text-slate-800">📸 补充细节照 <span className="text-slate-400 text-[10px] font-normal">(选填，最多3张)</span></h3>
+                                    <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">你可以补充侧面、雕刻局部、挂件绳子或证书的照片。</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2.5">
+                                {slots.others.map((img, idx) => (
+                                    <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-200">
+                                        <img src={img} alt="Detail View" className="w-full h-full object-cover" />
+                                        <button 
+                                            onClick={() => removeSlotImage('others', idx)}
+                                            className="absolute top-1 right-1 p-0.5 bg-black/60 text-white rounded-full transition-all hover:bg-red-600"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                                {slots.others.length < 3 && (
+                                    <div 
+                                        onClick={() => othersInputRef.current?.click()}
+                                        className="border-2 border-dashed border-slate-200 hover:border-emerald-200 aspect-square rounded-xl flex flex-col justify-center items-center bg-slate-50 hover:bg-emerald-50/10 transition-all cursor-pointer"
+                                    >
+                                        <Plus className="w-5 h-5 text-slate-400" />
+                                        <span className="text-[9px] text-slate-400 font-bold mt-1">添加</span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    {images.length > 0 && (
-                        <div className="grid grid-cols-3 gap-2 mt-4">
-                            {images.map((img, idx) => (
-                                <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-slate-100">
-                                    <img src={img} alt="Preview" className="w-full h-full object-cover" />
-                                    <button
-                                        onClick={() => removeImage(idx)}
-                                        className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full"
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
                     <button
-                        disabled={images.length === 0 || isAnalyzing}
+                        disabled={!slots.front || isAnalyzing}
                         onClick={startAnalysis}
-                        className={`w-full mt-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${images.length > 0 && !isAnalyzing
-                                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200'
-                                : 'bg-slate-100 text-slate-400'
+                        className={`w-full mt-6 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${slots.front && !isAnalyzing
+                                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200 active:scale-[0.98]'
+                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                             }`}
                     >
                         {isAnalyzing ? (
