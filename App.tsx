@@ -98,7 +98,7 @@ const App: React.FC = () => {
     const isJadePath = window.location.pathname === '/jade' || window.location.pathname.startsWith('/jade/');
     if (isJadePath) {
       setCurrentSection(AppSection.JADE_APPRAISAL);
-      setIsIntroDismissed(true); // 独立路径模式下，强行直接跳过项目介绍页面
+      setIsIntroDismissed(false); // 独立路径模式下，首先展示项目介绍页面
       return;
     }
 
@@ -347,6 +347,14 @@ const App: React.FC = () => {
                       setCurrentSection(AppSection.HOME);
                     }}
                     userCredits={user?.credits}
+                    isStandalone={isJadeStandalone}
+                    onShowMember={() => {
+                      if (!user) {
+                        setShowLogin(true);
+                      } else {
+                        setShowMember(true);
+                      }
+                    }}
                   />
                 ) : (
                   <>
@@ -375,7 +383,22 @@ const App: React.FC = () => {
                     {currentSection === AppSection.ZI_WEI && <ZiWeiView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                     {currentSection === AppSection.PERSONAL_NAMING && <PersonalNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                     {currentSection === AppSection.COMPANY_NAMING && <CompanyNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
-                    {currentSection === AppSection.JADE_APPRAISAL && <JadeAppraisalView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} isStandalone={isJadeStandalone} />}
+                    {currentSection === AppSection.JADE_APPRAISAL && (
+                      <JadeAppraisalView 
+                        onBack={() => setCurrentSection(AppSection.HOME)} 
+                        onCheckCredits={checkCredits} 
+                        onDeductCredit={deductCredit} 
+                        onCancelProcessing={cancelProcessing} 
+                        isStandalone={isJadeStandalone} 
+                        onShowMember={() => {
+                          if (!user) {
+                            setShowLogin(true);
+                          } else {
+                            setShowMember(true);
+                          }
+                        }}
+                      />
+                    )}
                     {currentSection === AppSection.AI_EYE_DIAGNOSIS && <EyeDiagnosisView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                     {currentSection === AppSection.APP_DOWNLOAD && <DownloadAppView onBack={() => setCurrentSection(AppSection.HOME)} />}
                   </>

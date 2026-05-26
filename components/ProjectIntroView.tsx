@@ -8,6 +8,8 @@ interface ProjectIntroViewProps {
   onStart: () => void;
   onBack: () => void;
   userCredits?: number;
+  isStandalone?: boolean;
+  onShowMember?: () => void;
 }
 
 const ProjectIntroView: React.FC<ProjectIntroViewProps> = ({
@@ -15,6 +17,8 @@ const ProjectIntroView: React.FC<ProjectIntroViewProps> = ({
   onStart,
   onBack,
   userCredits = 0,
+  isStandalone = false,
+  onShowMember,
 }) => {
   const data = projectIntroData[section];
 
@@ -34,12 +38,18 @@ const ProjectIntroView: React.FC<ProjectIntroViewProps> = ({
 
       {/* 顶部安全返回头 */}
       <div className="flex items-center justify-between px-4 py-4 relative z-10 w-full">
-        <button
-          onClick={onBack}
-          className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:scale-95 transition-transform"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+        {isStandalone ? (
+          <div className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10">
+            🛡️
+          </div>
+        ) : (
+          <button
+            onClick={onBack}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:scale-95 transition-transform"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        )}
         <span className="text-white/80 text-xs font-semibold tracking-wider uppercase">
           科学原理 & 介绍
         </span>
@@ -138,12 +148,21 @@ const ProjectIntroView: React.FC<ProjectIntroViewProps> = ({
 
       {/* 底部悬浮操作按钮栏 */}
       <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-20 bg-gradient-to-t from-white via-white to-white/0 flex items-center justify-between px-6 pb-2 z-40">
-        <button
-          onClick={onBack}
-          className="flex-1 max-w-[120px] py-3.5 rounded-2xl border border-slate-200 text-slate-500 font-bold text-sm bg-white active:bg-slate-50 transition-colors shadow-sm text-center mr-3"
-        >
-          返回首页
-        </button>
+        {isStandalone ? (
+          <button
+            onClick={onShowMember}
+            className="flex-1 max-w-[120px] py-3.5 rounded-2xl border border-emerald-200 text-emerald-700 font-bold text-sm bg-emerald-50 hover:bg-emerald-100 transition-colors shadow-sm text-center mr-3 flex items-center justify-center gap-1"
+          >
+            👤 额度中心
+          </button>
+        ) : (
+          <button
+            onClick={onBack}
+            className="flex-1 max-w-[120px] py-3.5 rounded-2xl border border-slate-200 text-slate-500 font-bold text-sm bg-white active:bg-slate-50 transition-colors shadow-sm text-center mr-3"
+          >
+            返回首页
+          </button>
+        )}
         
         <button
           onClick={onStart}

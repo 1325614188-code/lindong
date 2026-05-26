@@ -25,6 +25,7 @@ interface JadeAppraisalViewProps {
     onDeductCredit: () => Promise<boolean>;
     onCancelProcessing?: () => void;
     isStandalone?: boolean;
+    onShowMember?: () => void;
 }
 
 interface JadeUploadSlots {
@@ -34,7 +35,7 @@ interface JadeUploadSlots {
     others: string[];           // 其他细节照 (选填，最多3张)
 }
 
-const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing, isStandalone = false }) => {
+const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing, isStandalone = false, onShowMember }) => {
     const [slots, setSlots] = useState<JadeUploadSlots>({
         front: null,
         backlight: null,
@@ -172,7 +173,17 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
                     <Gem className="text-emerald-600 w-5 h-5" />
                     <h2 className="font-bold text-gray-800">翡翠鉴别</h2>
                 </div>
-                <div className="w-10" /> {/* Spacer */}
+                {isStandalone ? (
+                    <button 
+                        onClick={onShowMember}
+                        className="w-10 h-10 flex items-center justify-center rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all font-bold text-sm"
+                        title="额度中心"
+                    >
+                        👤
+                    </button>
+                ) : (
+                    <div className="w-10" />
+                )}
             </div>
 
             <main className="p-4 space-y-6">
