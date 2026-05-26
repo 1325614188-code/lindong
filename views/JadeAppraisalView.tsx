@@ -24,6 +24,7 @@ interface JadeAppraisalViewProps {
     onCheckCredits: () => Promise<boolean>;
     onDeductCredit: () => Promise<boolean>;
     onCancelProcessing?: () => void;
+    isStandalone?: boolean;
 }
 
 interface JadeUploadSlots {
@@ -33,7 +34,7 @@ interface JadeUploadSlots {
     others: string[];           // 其他细节照 (选填，最多3张)
 }
 
-const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing }) => {
+const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCredits, onDeductCredit, onCancelProcessing, isStandalone = false }) => {
     const [slots, setSlots] = useState<JadeUploadSlots>({
         front: null,
         backlight: null,
@@ -158,9 +159,15 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
         <div className="min-h-screen bg-[#f4f7f5]">
             {/* Custom Header for View */}
             <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-emerald-100">
-                <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400">
-                    <X className="w-6 h-6" />
-                </button>
+                {isStandalone ? (
+                    <div className="w-10 h-10 flex items-center justify-center rounded-full bg-emerald-50/50 text-emerald-600">
+                        <ShieldCheck className="w-5 h-5" />
+                    </div>
+                ) : (
+                    <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-gray-100 transition-colors">
+                        <X className="w-6 h-6" />
+                    </button>
+                )}
                 <div className="flex items-center gap-2">
                     <Gem className="text-emerald-600 w-5 h-5" />
                     <h2 className="font-bold text-gray-800">翡翠鉴别</h2>

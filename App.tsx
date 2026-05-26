@@ -38,6 +38,9 @@ const App: React.FC = () => {
   const [isIntroDismissed, setIsIntroDismissed] = useState(false);
   // 【问题1修复】user 类型从 any 改为 User | null
   const [user, setUser] = useState<User | null>(null);
+
+  // 翡翠鉴定独立路径拦截状态，直接在渲染层检测计算，防止异步延迟
+  const isJadeStandalone = window.location.pathname === '/jade' || window.location.pathname.startsWith('/jade/');
   const [showLogin, setShowLogin] = useState(false);
   const [showMember, setShowMember] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -91,6 +94,14 @@ const App: React.FC = () => {
 
   // 1.5 新增：初始化时解析直达 view 参数并支持从微信/常规登录重定向恢复 (Effect #1.5)
   useEffect(() => {
+    // 拦截独立翡翠路径 /jade
+    const isJadePath = window.location.pathname === '/jade' || window.location.pathname.startsWith('/jade/');
+    if (isJadePath) {
+      setCurrentSection(AppSection.JADE_APPRAISAL);
+      setIsIntroDismissed(true); // 独立路径模式下，强行直接跳过项目介绍页面
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     let view = params.get('view');
 
@@ -121,6 +132,12 @@ const App: React.FC = () => {
 
   // 1.6 新增：切换 Section 时，动态无感更新浏览器地址栏 (Effect #1.6)
   useEffect(() => {
+    const isJadePath = window.location.pathname === '/jade' || window.location.pathname.startsWith('/jade/');
+    if (isJadePath) {
+      // 独立模式下，强行保持 /jade 路径不变，不进行大本营的参数重写
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     if (currentSection === AppSection.HOME) {
       params.delete('view');
@@ -311,7 +328,7 @@ const App: React.FC = () => {
 
             {!showLogin && showAdmin && user?.is_admin && <AdminView admin={user} onBack={() => setShowAdmin(false)} />}
 
-            {!showLogin && !showAdmin && showMember && user && <MemberView user={user} onLogout={handleLogout} onBack={() => setShowMember(false)} onUserUpdate={handleUserUpdate} />}
+            {!showLogin && !showAdmin && showMember && user && <MemberView user={user} onLogout={handleLogout} onBack={() => setShowMember(false)} onUserUpdate={handleUserUpdate} isStandalone={isJadeStandalone} />}
 
             {!showLogin && !showAdmin && !showMember && (
               <>
@@ -358,7 +375,7 @@ const App: React.FC = () => {
                     {currentSection === AppSection.ZI_WEI && <ZiWeiView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                     {currentSection === AppSection.PERSONAL_NAMING && <PersonalNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
                     {currentSection === AppSection.COMPANY_NAMING && <CompanyNamingView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} />}
-                    {currentSection === AppSection.JADE_APPRAISAL && <JadeAppraisalView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
+                    {currentSection === AppSection.JADE_APPRAISAL && <JadeAppraisalView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} isStandalone={isJadeStandalone} />}
                     {currentSection === AppSection.AI_EYE_DIAGNOSIS && <EyeDiagnosisView onBack={() => setCurrentSection(AppSection.HOME)} onCheckCredits={checkCredits} onDeductCredit={deductCredit} onCancelProcessing={cancelProcessing} />}
                     {currentSection === AppSection.APP_DOWNLOAD && <DownloadAppView onBack={() => setCurrentSection(AppSection.HOME)} />}
                   </>
@@ -369,7 +386,7 @@ const App: React.FC = () => {
           </Suspense>
         </div>
 
-        {!(showLogin || showAdmin || showMember || shouldShowIntro) && (
+        {!(showLogin || showAdmin || showMember || shouldShowIntro || isJadeStandalone) && (
           <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-16 bg-white/80 backdrop-blur-md border-t flex justify-around items-center px-4 z-50">
             <button onClick={() => setCurrentSection(AppSection.HOME)} className={`flex flex-col items-center gap-1 ${currentSection === AppSection.HOME ? 'text-pink-500' : 'text-gray-500'}`}>
               <span className="text-xl">🏠</span>

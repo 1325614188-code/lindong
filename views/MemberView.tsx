@@ -7,6 +7,7 @@ interface MemberViewProps {
     onLogout: () => void;
     onBack: () => void;
     onUserUpdate?: (user: User) => void;
+    isStandalone?: boolean;
 }
 
 const ScrollingLeaderboard: React.FC<{ title: string; dataString?: string; type: 'gold' | 'silver' }> = ({ title, dataString, type }) => {
@@ -60,7 +61,7 @@ const ScrollingLeaderboard: React.FC<{ title: string; dataString?: string; type:
     );
 };
 
-const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserUpdate }) => {
+const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserUpdate, isStandalone = false }) => {
     const [redeemCode, setRedeemCode] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -438,8 +439,10 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
     return (
         <div className="p-6 pb-24">
             <div className="flex items-center gap-4 mb-6">
-                <button onClick={onBack} className="text-2xl p-2 active:bg-pink-50 rounded-full transition-colors">←</button>
-                <h2 className="text-xl font-bold">会员中心</h2>
+                {!isStandalone && (
+                    <button onClick={onBack} className="text-2xl p-2 active:bg-pink-50 rounded-full transition-colors">←</button>
+                )}
+                <h2 className="text-xl font-bold">{isStandalone ? '检测额度中心' : '会员中心'}</h2>
             </div>
 
             <div className="space-y-4">
@@ -453,104 +456,114 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                         </div>
                     </div>
                     <div className="mt-3 flex gap-2">
-                        <div onClick={refreshUser} className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center cursor-pointer hover:bg-black/20 transition-all">
-                            <span className="text-white/60 text-[10px]">剩余额度</span>
-                            <span className="text-lg font-bold">{user?.credits || 0}</span>
+                        <div onClick={refreshUser} className="flex-1 bg-black/10 rounded-xl px-3 py-3 flex flex-col items-center cursor-pointer hover:bg-black/20 transition-all">
+                            <span className="text-white/60 text-xs font-bold">剩余额度</span>
+                            <span className="text-2xl font-extrabold mt-1">{user?.credits || 0} 次</span>
                         </div>
-                        <div onClick={refreshUser} className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center cursor-pointer hover:bg-black/20 transition-all">
-                            <span className="text-white/60 text-[10px]">推广收益(元)</span>
-                            <span className="text-lg font-bold">¥{user?.commission_balance || '0.00'}</span>
-                        </div>
-                        <div onClick={refreshUser} className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center cursor-pointer hover:bg-black/20 transition-all">
-                            <span className="text-white/60 text-[10px]">奖励积分</span>
-                            <span className="text-lg font-bold">{user?.points || 0}</span>
-                        </div>
+                        {!isStandalone && (
+                            <>
+                                <div onClick={refreshUser} className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center cursor-pointer hover:bg-black/20 transition-all">
+                                    <span className="text-white/60 text-[10px]">推广收益(元)</span>
+                                    <span className="text-lg font-bold">¥{user?.commission_balance || '0.00'}</span>
+                                </div>
+                                <div onClick={refreshUser} className="flex-1 bg-black/10 rounded-xl px-3 py-2 flex flex-col items-center cursor-pointer hover:bg-black/20 transition-all">
+                                    <span className="text-white/60 text-[10px]">奖励积分</span>
+                                    <span className="text-lg font-bold">{user?.points || 0}</span>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
 
                 {/* 邀请获客 */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-pink-100">
-                    <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl">🎁</span>
-                            <h4 className="font-bold">我的专属邀请码</h4>
+                {!isStandalone && (
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-pink-100">
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl">🎁</span>
+                                <h4 className="font-bold">我的专属邀请码</h4>
+                            </div>
+                            <span className="text-[10px] bg-pink-500 text-white px-2 py-0.5 rounded-full font-bold">已获奖励 {referralCount} 次</span>
                         </div>
-                        <span className="text-[10px] bg-pink-500 text-white px-2 py-0.5 rounded-full font-bold">已获奖励 {referralCount} 次</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mb-4 font-medium">让好友在注册时填写您的邀请码，双方均可获得奖励！</p>
-                    
-                    <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-100">
-                        <div className="flex-1">
-                            <div className="text-[10px] text-gray-400 font-bold ml-1 mb-1">PROMO CODE</div>
-                            <div className="text-2xl font-black tracking-widest text-pink-500 ml-1">
-                                {getInviteCode()}
+                        <p className="text-xs text-gray-500 mb-4 font-medium">让好友在注册时填写您的邀请码，双方均可获得奖励！</p>
+                        
+                        <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl border border-gray-100">
+                            <div className="flex-1">
+                                <div className="text-[10px] text-gray-400 font-bold ml-1 mb-1">PROMO CODE</div>
+                                <div className="text-2xl font-black tracking-widest text-pink-500 ml-1">
+                                    {getInviteCode()}
+                                </div>
+                            </div>
+                            <button 
+                                onClick={copyInviteCode}
+                                className="px-6 h-12 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-sm font-bold active:scale-95 transition-all shadow-md flex items-center gap-2"
+                            >
+                                {copied ? '✅ 已复制' : '复制奖励码'}
+                            </button>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-center gap-6 text-[10px] text-gray-400 font-medium">
+                            <div className="flex items-center gap-1">
+                                <span className="text-green-500">✔</span> 全平台通用
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <span className="text-green-500">✔</span> 永久有效
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <span className="text-green-500">✔</span> 上不封顶
                             </div>
                         </div>
-                        <button 
-                            onClick={copyInviteCode}
-                            className="px-6 h-12 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-sm font-bold active:scale-95 transition-all shadow-md flex items-center gap-2"
-                        >
-                            {copied ? '✅ 已复制' : '复制奖励码'}
-                        </button>
                     </div>
-
-                    <div className="mt-4 flex items-center justify-center gap-6 text-[10px] text-gray-400 font-medium">
-                        <div className="flex items-center gap-1">
-                            <span className="text-green-500">✔</span> 全平台通用
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-green-500">✔</span> 永久有效
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <span className="text-green-500">✔</span> 上不封顶
-                        </div>
-                    </div>
-                </div>
+                )}
 
                 {/* 推荐分佣说明 */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-orange-100">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xl">💰</span>
-                        <h4 className="font-bold">推荐赚佣金计划</h4>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-3">邀请好友体验，还能赚取现金佣金！</p>
-                    <div className="space-y-3 bg-orange-50 rounded-xl p-3 text-xs text-orange-800">
-                        <p><span className="font-bold">1. 分享奖励码</span>：复制您的专属邀请码发送给好友。</p>
-                        <p><span className="font-bold">2. 好友注册</span>：好友在账户注册界面填入此码。</p>
-                        <p><span className="font-bold">3. 获得奖励</span>：对方注册立得 5 次额度，好友充值你再得 <span className="text-red-500 font-bold">{config.commission_rate || '40'}%</span> 分佣。</p>
-                    </div>
+                {!isStandalone && (
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-orange-100">
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xl">💰</span>
+                            <h4 className="font-bold">推荐赚佣金计划</h4>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-3">邀请好友体验，还能赚取现金佣金！</p>
+                        <div className="space-y-3 bg-orange-50 rounded-xl p-3 text-xs text-orange-800">
+                            <p><span className="font-bold">1. 分享奖励码</span>：复制您的专属邀请码发送给好友。</p>
+                            <p><span className="font-bold">2. 好友注册</span>：好友在账户注册界面填入此码。</p>
+                            <p><span className="font-bold">3. 获得奖励</span>：对方注册立得 5 次额度，好友充值你再得 <span className="text-red-500 font-bold">{config.commission_rate || '40'}%</span> 分佣。</p>
+                        </div>
 
-                    <div className="mt-4">
-                        <button
-                            onClick={handleWithdrawal}
-                            disabled={withdrawing}
-                            className={`w-full h-11 rounded-xl font-bold transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 ${Number(user?.commission_balance || 0) >= 100 ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}
-                        >
-                            <span className="text-lg">💰</span>
-                            {withdrawing ? '处理中...' : (Number(user?.commission_balance || 0) >= 100 ? '申请提现' : '满100元起提')}
-                        </button>
-                        {withdrawalMessage && <p className={`mt-2 text-center text-xs font-medium ${withdrawalMessage.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>{withdrawalMessage}</p>}
-                    </div>
+                        <div className="mt-4">
+                            <button
+                                onClick={handleWithdrawal}
+                                disabled={withdrawing}
+                                className={`w-full h-11 rounded-xl font-bold transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 ${Number(user?.commission_balance || 0) >= 100 ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}
+                            >
+                                <span className="text-lg">💰</span>
+                                {withdrawing ? '处理中...' : (Number(user?.commission_balance || 0) >= 100 ? '申请提现' : '满100元起提')}
+                            </button>
+                            {withdrawalMessage && <p className={`mt-2 text-center text-xs font-medium ${withdrawalMessage.includes('❌') ? 'text-red-500' : 'text-green-500'}`}>{withdrawalMessage}</p>}
+                        </div>
 
-                    <p className="mt-4 text-[10px] text-gray-400 text-center">* 满额后可直接点击上方按钮或联系微信：{config.contact_wechat || 'sekesm'} 提现</p>
-                </div>
+                        <p className="mt-4 text-[10px] text-gray-400 text-center">* 满额后可直接点击上方按钮或联系微信：{config.contact_wechat || 'sekesm'} 提现</p>
+                    </div>
+                )}
 
                 {/* 实时榜单 (中间区域) */}
-                <div className="flex gap-3 px-1">
-                    <ScrollingLeaderboard 
-                        title="推荐赚佣金榜" 
-                        dataString={config.commission_leaderboard_data} 
-                        type="gold" 
-                    />
-                    <ScrollingLeaderboard 
-                        title="积分兑换榜" 
-                        dataString={config.points_leaderboard_data} 
-                        type="silver" 
-                    />
-                </div>
+                {!isStandalone && (
+                    <div className="flex gap-3 px-1">
+                        <ScrollingLeaderboard 
+                            title="推荐赚佣金榜" 
+                            dataString={config.commission_leaderboard_data} 
+                            type="gold" 
+                        />
+                        <ScrollingLeaderboard 
+                            title="积分兑换榜" 
+                            dataString={config.points_leaderboard_data} 
+                            type="silver" 
+                        />
+                    </div>
+                )}
 
                 {/* 积分兑换 */}
-                {config.referral_points_enabled === 'true' && (
+                {!isStandalone && config.referral_points_enabled === 'true' && (
                     <div className="bg-white rounded-2xl p-4 shadow-sm">
                         <div className="flex justify-between items-center mb-2">
                             <h4 className="font-bold">⭐ 积分兑换</h4>
@@ -706,41 +719,43 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
                 <button onClick={onLogout} className="w-full h-12 border border-blue-100 rounded-2xl text-blue-400 font-bold active:bg-blue-50 transition-colors">退出登录</button>
 
                 {/* 推荐记录 */}
-                <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4">
-                        <span className="text-xl">👥</span>
-                        <h4 className="font-bold">推荐记录</h4>
-                    </div>
-                    {referralHistory.length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-4">暂无被邀请记录</p>
-                    ) : (
-                        <div className="space-y-3">
-                            <div className="flex text-xs text-gray-400 border-b pb-2">
-                                <div className="flex-1">受邀用户</div>
-                                <div className="w-20 text-center shrink-0">注册时间</div>
-                                <div className="w-20 text-center shrink-0">注册终端</div>
-                                <div className="w-16 text-right shrink-0">充值金额</div>
-                            </div>
-                            {referralHistory.map((record: any, index: number) => (
-                                <div key={index} className="flex items-center text-sm py-2 border-b border-gray-50 last:border-0">
-                                    <div className="flex-1 font-medium text-gray-700 truncate pr-1">{record.username}</div>
-                                    <div className="w-20 text-xs text-gray-500 text-center shrink-0">
-                                        {new Date(record.created_at).toLocaleDateString()}
-                                    </div>
-                                    <div className="w-20 text-xs text-center shrink-0">
-                                        {record.register_env === 'browser'
-                                            ? <span className="text-green-500">✅是</span>
-                                            : (record.register_env === 'unknown' ? <span className="text-gray-400">❓未知</span> : <span className="text-red-400">❌否</span>)
-                                        }
-                                    </div>
-                                    <div className="w-16 text-right text-orange-500 font-bold shrink-0">
-                                        ¥{(record.total_recharge || 0).toFixed(2)}
-                                    </div>
-                                </div>
-                            ))}
+                {!isStandalone && (
+                    <div className="bg-white rounded-2xl p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                            <span className="text-xl">👥</span>
+                            <h4 className="font-bold">推荐记录</h4>
                         </div>
-                    )}
-                </div>
+                        {referralHistory.length === 0 ? (
+                            <p className="text-sm text-gray-400 text-center py-4">暂无被邀请记录</p>
+                        ) : (
+                            <div className="space-y-3">
+                                <div className="flex text-xs text-gray-400 border-b pb-2">
+                                    <div className="flex-1">受邀用户</div>
+                                    <div className="w-20 text-center shrink-0">注册时间</div>
+                                    <div className="w-20 text-center shrink-0">注册终端</div>
+                                    <div className="w-16 text-right shrink-0">充值金额</div>
+                                </div>
+                                {referralHistory.map((record: any, index: number) => (
+                                    <div key={index} className="flex items-center text-sm py-2 border-b border-gray-50 last:border-0">
+                                        <div className="flex-1 font-medium text-gray-700 truncate pr-1">{record.username}</div>
+                                        <div className="w-20 text-xs text-gray-500 text-center shrink-0">
+                                            {new Date(record.created_at).toLocaleDateString()}
+                                        </div>
+                                        <div className="w-20 text-xs text-center shrink-0">
+                                            {record.register_env === 'browser'
+                                                ? <span className="text-green-500">✅是</span>
+                                                : (record.register_env === 'unknown' ? <span className="text-gray-400">❓未知</span> : <span className="text-red-400">❌否</span>)
+                                            }
+                                        </div>
+                                        <div className="w-16 text-right text-orange-500 font-bold shrink-0">
+                                            ¥{(record.total_recharge || 0).toFixed(2)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );
