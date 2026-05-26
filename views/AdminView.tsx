@@ -596,7 +596,7 @@ const AdminView: React.FC<AdminViewProps> = ({ admin, onBack }) => {
                                     value={config.announcement || ''}
                                     onChange={e => updateConfig('announcement', e.target.value)}
                                     className="w-full h-20 px-3 py-2 rounded-xl border border-pink-200 text-sm"
-                                    placeholder="请输入公告内容，例如：欢迎使用美力实验室！新版 APP 已发布，请及时下载更新。✨"
+                                    placeholder="请输入公告内容，例如：欢迎使用Ai智能体实验室！新版 APP 已发布，请及时下载更新。✨"
                                 />
                             </div>
                             <div className="flex items-center gap-4">

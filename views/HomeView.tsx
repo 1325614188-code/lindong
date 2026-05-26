@@ -127,7 +127,7 @@ const HomeView: React.FC<HomeViewProps> = ({ onNavigate, onShowLogin }) => {
   return (
     <div className="p-6 pb-20">
       <header className="mb-8 text-center">
-        <h1 className="text-4xl art-title mb-2">✨ 美力实验室 ✨</h1>
+        <h1 className="text-4xl art-title mb-2">✨ Ai智能体实验室 ✨</h1>
         <div className="bg-white/50 backdrop-blur-sm border border-pink-100 rounded-full py-1 px-4 overflow-hidden relative h-8 flex items-center">
           <div className="whitespace-nowrap inline-block animate-marquee hover:pause text-gray-500 text-sm font-medium">
             <span className="inline-block px-4">{announcement}</span>

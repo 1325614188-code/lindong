@@ -34,7 +34,7 @@ const DownloadAppView: React.FC<DownloadAppViewProps> = ({ onBack }) => {
           <div className="absolute inset-0 bg-pink-400 rounded-3xl opacity-20 blur-xl"></div>
         </div>
         
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">美力实验室</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Ai智能体实验室</h1>
         <p className="text-sm text-gray-500 mb-8 font-medium">你的专属 AI 颜究院 · 原生极速版</p>
 
         {/* 核心特性卡片区 */}
@@ -59,7 +59,7 @@ const DownloadAppView: React.FC<DownloadAppViewProps> = ({ onBack }) => {
             <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center text-purple-500 shrink-0">🛡️</div>
             <div>
               <p className="font-bold text-gray-800 text-sm">稳定不走丢</p>
-              <p className="text-xs text-gray-500 mt-0.5">将美力装进口袋，随时随地开启你的魔法换装</p>
+              <p className="text-xs text-gray-500 mt-0.5">将应用装进口袋，随时随地开启你的智能换装</p>
             </div>
           </div>
         </div>

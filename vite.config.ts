@@ -17,8 +17,8 @@ export default defineConfig(({ mode }) => {
         injectRegister: 'auto',
         includeAssets: ['icon.svg', 'icon-192x192.png', 'icon-512x512.png'],
         manifest: {
-          name: '美力实验室',
-          short_name: '美力实验室',
+          name: 'Ai智能体实验室',
+          short_name: 'Ai智能体实验室',
           description: '你的专属AI颜究院 - 发现你的独属魅力',
           theme_color: '#ff4d6d',
           background_color: '#fff5f7',

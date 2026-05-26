@@ -39,7 +39,7 @@ function buildAlipayParams(config: Record<string, string>, orderId: string, amou
     const bizContent = JSON.stringify({
         out_trade_no: orderId,
         total_amount: amount.toFixed(2),
-        subject: `美力实验室充值 ${credits}次`,
+        subject: `Ai智能体实验室充值 ${credits}次`,
         product_code: 'QUICK_WAP_WAY'
     });
 

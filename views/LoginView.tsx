@@ -380,7 +380,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, onBack }) => {
                 </div>
 
                 <p className="mt-8 text-center text-gray-300 text-xs">
-                    © 2026 美力实验室 AI 版权所有
+                    © 2026 Ai智能体实验室 AI 版权所有
                 </p>
             </div>
         </div>
