@@ -439,9 +439,7 @@ const MemberView: React.FC<MemberViewProps> = ({ user, onLogout, onBack, onUserU
     return (
         <div className="p-6 pb-24">
             <div className="flex items-center gap-4 mb-6">
-                {!isStandalone && (
-                    <button onClick={onBack} className="text-2xl p-2 active:bg-pink-50 rounded-full transition-colors">←</button>
-                )}
+                <button onClick={onBack} className="text-2xl p-2 active:bg-pink-50 rounded-full transition-colors" title="返回翡翠测试">←</button>
                 <h2 className="text-xl font-bold">{isStandalone ? '检测额度中心' : '会员中心'}</h2>
             </div>
 
