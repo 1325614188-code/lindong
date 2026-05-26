@@ -153,7 +153,7 @@ const ProjectIntroView: React.FC<ProjectIntroViewProps> = ({
             onClick={onShowMember}
             className="flex-1 max-w-[120px] py-3.5 rounded-2xl border border-emerald-200 text-emerald-700 font-bold text-sm bg-emerald-50 hover:bg-emerald-100 transition-colors shadow-sm text-center mr-3 flex items-center justify-center gap-1"
           >
-            👤 额度中心
+            👤 会员中心
           </button>
         ) : (
           <button

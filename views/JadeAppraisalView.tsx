@@ -177,7 +177,7 @@ const JadeAppraisalView: React.FC<JadeAppraisalViewProps> = ({ onBack, onCheckCr
                     <button 
                         onClick={onShowMember}
                         className="w-10 h-10 flex items-center justify-center rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-all font-bold text-sm"
-                        title="额度中心"
+                        title="会员中心"
                     >
                         👤
                     </button>
